@@ -88,4 +88,18 @@ Route::prefix('admin')->group(function () {
     })->name('admin.lms');
 });
 
+// Student (Murid) Routes
+Route::prefix('siswa')->group(function () {
+    Route::get('/dashboard', function () {
+        return Inertia::render('Admin/Dashboard', ['role' => 'student']);
+    })->name('siswa.dashboard');
+});
+
+// Teacher (Guru) Routes
+Route::prefix('guru')->group(function () {
+    Route::get('/dashboard', function () {
+        return Inertia::render('Admin/Dashboard', ['role' => 'teacher']);
+    })->name('guru.dashboard');
+});
+
 require __DIR__ . '/auth.php';
