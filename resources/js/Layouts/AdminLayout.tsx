@@ -1,4 +1,4 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useState } from 'react';
 import Sidebar from '@/Components/admin/Sidebar';
 import ChatWidget from '@/Components/ChatWidget';
 import { Head, usePage } from '@inertiajs/react';
@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 export default function AdminLayout({ children, title, disableChatWidget = false, fullWidth = false }: PropsWithChildren<{ title?: string, disableChatWidget?: boolean, fullWidth?: boolean }>) {
     // Get role from Inertia props, passed from web.php
     // In a real app this might come from auth.user.role
-    const { role } = usePage<any>().props; 
+    const { role } = usePage<any>().props;
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     
     return (
         <div className="min-h-screen bg-slate-50 flex font-sans">
@@ -15,11 +16,18 @@ export default function AdminLayout({ children, title, disableChatWidget = false
             
             {/* Sidebar - Fixed on desktop, hidden on mobile (for now) */}
             <div className="hidden md:block fixed inset-y-0 z-50">
-                <Sidebar userRole={role as string} />
+                <Sidebar 
+                    userRole={role as string} 
+                    isCollapsed={isSidebarCollapsed} 
+                    toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+                />
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 md:pl-64 min-h-screen flex flex-col relative">
+            <main className={cn(
+                "flex-1 min-h-screen flex flex-col relative transition-all duration-300",
+                isSidebarCollapsed ? "md:pl-20" : "md:pl-64"
+            )}>
                 <div className={cn("flex-1 overflow-y-auto w-full mx-auto", fullWidth ? "p-0" : "p-6 md:p-8 max-w-7xl")}>
                     {children}
                 </div>
