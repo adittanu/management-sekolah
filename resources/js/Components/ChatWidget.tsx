@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, MoreVertical, Search, Phone, Video, Image, Paperclip, ChevronLeft, User, Check, CheckCheck } from 'lucide-react';
+import { MessageCircle, X, Send, MoreVertical, Search, Phone, Video, Image, Paperclip, ChevronLeft, User, Check, CheckCheck, Sparkles, Bot } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/Components/ui/avatar';
 import { ScrollArea } from '@/Components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { getBotResponse } from '@/lib/bot';
 
 // Mock Data Types
 type Message = {
@@ -13,6 +14,8 @@ type Message = {
     text: string;
     timestamp: Date;
     isRead: boolean;
+    isTool?: boolean;
+    toolName?: string;
 };
 
 type Contact = {
@@ -23,6 +26,7 @@ type Contact = {
     isOnline: boolean;
     lastMessage?: string;
     unreadCount: number;
+    isBot?: boolean;
 };
 
 export default function ChatWidget({ currentUserRole = 'student' }: { currentUserRole?: string }) {
@@ -33,6 +37,7 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
 
     // Mock Contacts based on Role
     const contacts: Contact[] = [
+        { id: 'ai', name: 'AI Assistant', role: 'Bot', isOnline: true, lastMessage: 'Bisa bantu buatkan course?', unreadCount: 1, isBot: true },
         { id: '1', name: 'Pak Budi (Guru MTK)', role: 'Guru', isOnline: true, lastMessage: 'Jangan lupa tugasnya ya', unreadCount: 2 },
         { id: '2', name: 'Admin Sekolah', role: 'Admin', isOnline: false, lastMessage: 'Pembayaran SPP sudah dikonfirmasi', unreadCount: 0 },
         { id: '3', name: 'Ani (Ketua Kelas)', role: 'Siswa', isOnline: true, lastMessage: 'Besok ada PR apa aja?', unreadCount: 5 },
@@ -64,9 +69,31 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
         };
 
         setMessages(prev => [...prev, newMsg]);
+        const currentInput = msgInput;
         setMsgInput('');
 
-        // Simulate Reply
+        // Handle Bot Response
+        if (activeChat?.isBot) {
+            getBotResponse(currentInput).then(responses => {
+                responses.forEach((resp) => {
+                    setTimeout(() => {
+                        const botMsg: Message = {
+                            id: Date.now().toString() + Math.random(),
+                            senderId: activeChat.id,
+                            text: resp.text,
+                            timestamp: new Date(),
+                            isRead: false,
+                            isTool: resp.isTool,
+                            toolName: resp.toolName
+                        };
+                        setMessages(prev => [...prev, botMsg]);
+                    }, resp.delay || 1000);
+                });
+            });
+            return;
+        }
+
+        // Simulate Normal User Reply
         setTimeout(() => {
             const replyMsg: Message = {
                 id: (Date.now() + 1).toString(),
@@ -79,15 +106,23 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
         }, 2000);
     };
 
+    // Calculate total unread
+    const unreadTotal = contacts.reduce((acc, curr) => acc + curr.unreadCount, 0);
+
     if (!isOpen) {
         return (
             <div className="fixed bottom-6 right-6 z-50">
                 <Button 
                     onClick={() => setIsOpen(true)}
-                    className="h-16 w-16 rounded-full bg-blue-600 hover:bg-blue-700 shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                    className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 group relative"
                 >
-                    <MessageCircle className="w-8 h-8 text-white" />
-                    <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full border-2 border-white"></span>
+                    <MessageCircle className="w-7 h-7 text-white" />
+                    {unreadTotal > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 ring-2 ring-white">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative text-[10px] font-bold text-white leading-none">{unreadTotal > 9 ? '9+' : unreadTotal}</span>
+                        </span>
+                    )}
                 </Button>
             </div>
         );
@@ -105,12 +140,17 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
                         <div className="relative">
                             <Avatar className="h-9 w-9 border border-white/20">
                                 <AvatarImage src={activeChat.avatar} />
-                                <AvatarFallback className="text-slate-800 bg-white/90 font-bold">{activeChat.name.substring(0, 2)}</AvatarFallback>
+                                <AvatarFallback className={cn("text-slate-800 font-bold", activeChat.isBot ? "bg-indigo-100 text-indigo-600" : "bg-white/90")}>
+                                    {activeChat.isBot ? <Sparkles className="w-5 h-5" /> : activeChat.name.substring(0, 2)}
+                                </AvatarFallback>
                             </Avatar>
                             {activeChat.isOnline && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-blue-600 rounded-full"></span>}
                         </div>
                         <div>
-                            <h3 className="font-bold text-sm leading-none">{activeChat.name}</h3>
+                            <h3 className="font-bold text-sm leading-none flex items-center gap-1">
+                                {activeChat.name}
+                                {activeChat.isBot && <span className="bg-indigo-500 text-white text-[9px] px-1.5 rounded-full">AI</span>}
+                            </h3>
                             <span className="text-[10px] text-blue-100 opacity-90">{activeChat.isOnline ? 'Online' : 'Offline'}</span>
                         </div>
                      </div>
@@ -148,6 +188,27 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
                                 <div className="text-center text-xs text-slate-400 my-4">Hari Ini</div>
                                 {messages.map((msg) => {
                                     const isMe = msg.senderId === 'me';
+                                    const isTool = msg.isTool;
+                                    
+                                    if (isTool) {
+                                        return (
+                                            <div key={msg.id} className="flex w-full justify-start mb-2">
+                                                <div className="max-w-[85%] rounded-xl bg-[#eff4ff] border border-blue-100 p-3 shadow-sm">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center">
+                                                            <Bot className="w-3.5 h-3.5 text-blue-600" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-blue-600">{msg.toolName || 'AI Tool'}</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-700 font-medium mb-3">{msg.text}</p>
+                                                    <div className="h-1.5 w-full bg-blue-100 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500 animate-[loading_2s_ease-in-out_infinite] w-2/3 origin-left"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
+
                                     return (
                                         <div key={msg.id} className={cn("flex w-full", isMe ? "justify-end" : "justify-start")}>
                                             <div className={cn(
@@ -178,10 +239,10 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
                                 value={msgInput}
                                 onChange={(e) => setMsgInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                placeholder="Ketik pesan..." 
-                                className="flex-1 border-slate-200 focus-visible:ring-blue-600"
+                                placeholder={activeChat.isBot ? "Tanya AI sesuatu..." : "Ketik pesan..."}
+                                className={cn("flex-1 border-slate-200 focus-visible:ring-blue-600", activeChat.isBot && "focus-visible:ring-indigo-500")}
                             />
-                            <Button size="icon" className="bg-blue-600 hover:bg-blue-700" onClick={handleSendMessage}>
+                            <Button size="icon" className={cn("bg-blue-600 hover:bg-blue-700", activeChat.isBot && "bg-indigo-600 hover:bg-indigo-700")} onClick={handleSendMessage}>
                                 <Send className="w-4 h-4" />
                             </Button>
                         </div>
@@ -200,19 +261,27 @@ export default function ChatWidget({ currentUserRole = 'student' }: { currentUse
                                 {contacts.map(contact => (
                                     <div 
                                         key={contact.id} 
-                                        className="p-4 flex items-center gap-3 hover:bg-blue-50 cursor-pointer transition-colors bg-white group"
+                                        className={cn(
+                                            "p-4 flex items-center gap-3 cursor-pointer transition-colors group",
+                                            contact.isBot ? "bg-indigo-50/50 hover:bg-indigo-50" : "bg-white hover:bg-blue-50"
+                                        )}
                                         onClick={() => setActiveChat(contact)}
                                     >
                                         <div className="relative">
-                                            <Avatar className="h-12 w-12 border-2 border-slate-100 group-hover:border-blue-200">
-                                                <AvatarFallback className="bg-blue-100 text-blue-600 font-bold">{contact.name.substring(0, 2)}</AvatarFallback>
+                                            <Avatar className={cn("h-12 w-12 border-2", contact.isBot ? "border-indigo-200" : "border-slate-100 group-hover:border-blue-200")}>
+                                                <AvatarFallback className={cn("font-bold", contact.isBot ? "bg-indigo-100 text-indigo-600" : "bg-blue-100 text-blue-600")}>
+                                                    {contact.isBot ? <Sparkles className="w-6 h-6" /> : contact.name.substring(0, 2)}
+                                                </AvatarFallback>
                                             </Avatar>
                                             {contact.isOnline && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start mb-0.5">
-                                                <h4 className="font-semibold text-sm text-slate-900 truncate">{contact.name}</h4>
-                                                <span className="text-[10px] text-slate-400 whitespace-nowrap">12:30</span>
+                                                <h4 className="font-semibold text-sm text-slate-900 truncate flex items-center gap-1">
+                                                    {contact.name}
+                                                    {contact.isBot && <span className="bg-indigo-500 text-white text-[10px] px-1.5 rounded-full font-bold">AI</span>}
+                                                </h4>
+                                                <span className="text-[10px] text-slate-400 whitespace-nowrap">Now</span>
                                             </div>
                                             <p className="text-xs text-slate-500 truncate pr-4">{contact.lastMessage}</p>
                                         </div>

@@ -59,9 +59,9 @@ Route::prefix('admin')->group(function () {
         return Inertia::render('Admin/Setting/Index');
     })->name('admin.setting');
 
-    Route::get('/licensi', function () {
-        return Inertia::render('Admin/Licensi/Index');
-    })->name('admin.licensi');
+    Route::get('/lisensi', function () {
+        return Inertia::render('Admin/Lisensi/Index');
+    })->name('admin.lisensi');
 
     Route::get('/daring', function () {
         return Inertia::render('Admin/Daring/Index');

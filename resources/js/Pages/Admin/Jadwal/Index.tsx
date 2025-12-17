@@ -76,12 +76,12 @@ export default function JadwalIndex() {
                     </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-20">
-                     <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between sticky top-0 z-30 overflow-hidden">
+                     <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto scrollbar-hide min-w-0 flex-1">
                         <Button 
                              onClick={() => setSelectedDay('Semua')}
                              variant={selectedDay === 'Semua' ? 'secondary' : 'ghost'}
-                             className={selectedDay === 'Semua' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'text-slate-500'}
+                             className={selectedDay === 'Semua' ? 'bg-slate-900 text-white hover:bg-slate-800 shrink-0' : 'text-slate-500 shrink-0'}
                         >
                             Semua Hari
                         </Button>
@@ -90,39 +90,50 @@ export default function JadwalIndex() {
                                 key={day}
                                 onClick={() => setSelectedDay(day)}
                                 variant={selectedDay === day ? 'secondary' : 'ghost'}
-                                className={selectedDay === day ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' : 'text-slate-500'}
+                                className={selectedDay === day ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 shrink-0' : 'text-slate-500 shrink-0'}
                             >
                                 {day}
                             </Button>
                         ))}
                      </div>
                      
-                     <div className="relative w-full md:w-64 shrink-0">
+                     <div className="relative w-full sm:w-64 shrink-0">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input 
                             placeholder="Cari Guru atau Mapel..." 
-                            className="pl-10 bg-slate-50 border-slate-200"
+                            className="pl-10 bg-slate-50 border-slate-200 w-full"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                      </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
-                    <div className="min-w-[1000px]">
-                        <div className="flex border-b border-slate-200 divide-x divide-slate-100">
-                            <div className="w-24 p-4 flex items-center justify-center font-bold text-slate-400 bg-slate-50 text-xs tracking-wider sticky left-0 z-10">JAM KE</div>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <div 
+                            className={`grid divide-x divide-slate-100 border-b border-slate-200 ${visibleDays.length > 1 ? 'min-w-[1000px]' : 'w-full'}`}
+                            style={{ gridTemplateColumns: `100px repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+                        >
+                            {/* Header */}
+                            <div className="p-4 flex items-center justify-center font-bold text-slate-400 bg-slate-50 text-xs tracking-wider sticky left-0 z-20 border-r border-slate-200">
+                                JAM KE
+                            </div>
                             {visibleDays.map((day) => (
-                                <div key={day} className={`flex-1 p-4 text-center font-bold text-sm uppercase tracking-wide ${day === 'Rabu' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-600'}`}>
+                                <div key={day} className={`p-4 text-center font-bold text-sm uppercase tracking-wide ${day === 'Rabu' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-600'}`}>
                                     {day}
                                 </div>
                             ))}
                         </div>
 
-                        <div className="divide-y divide-slate-100">
-                            {timeSlots.map((jam) => (
-                                <div key={jam} className="flex min-h-[140px] divide-x divide-slate-100">
-                                    <div className="w-24 bg-slate-50 p-4 sticky left-0 z-10 border-r border-slate-200 flex flex-col items-center justify-center gap-1">
+                        <div className={`${visibleDays.length > 1 ? 'min-w-[1000px]' : 'w-full'}`}>
+                             {timeSlots.map((jam, index) => (
+                                <div 
+                                    key={jam} 
+                                    className={`grid divide-x divide-slate-100 ${index !== timeSlots.length - 1 ? 'border-b border-slate-100' : ''}`}
+                                    style={{ gridTemplateColumns: `100px repeat(${visibleDays.length}, minmax(0, 1fr))` }}
+                                >
+                                    {/* Time Slot Column */}
+                                    <div className="bg-slate-50 p-4 sticky left-0 z-10 border-r border-slate-200 flex flex-col items-center justify-center gap-1 min-h-[140px]">
                                         <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-700 shadow-sm text-sm">
                                             {jam}
                                         </div>
@@ -130,24 +141,24 @@ export default function JadwalIndex() {
                                             07:{(jam * 45).toString().padStart(2, '0').slice(-2)}
                                         </div>
                                     </div>
+
+                                    {/* Day Columns */}
                                     {visibleDays.map((day, dayIndex) => {
-                                        // Filter Logic
                                         // @ts-ignore
                                         const scheduleItem = mockSchedule[day]?.find((s: any) => s.jam === jam && s.class === selectedClass);
                                         
-                                        // Additional Search Filter
+                                        // Filter
                                         const isVisible = !searchQuery || (scheduleItem && (
                                             scheduleItem.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                             scheduleItem.teacher.toLowerCase().includes(searchQuery.toLowerCase())
                                         ));
 
-                                        if (!isVisible && searchQuery && !scheduleItem) return <div key={dayIndex} className="flex-1 bg-slate-50/30"></div>;
-                                        if (!isVisible && searchQuery && scheduleItem) return <div key={dayIndex} className="flex-1 bg-slate-50/30"></div>;
+                                        if (!isVisible && searchQuery) return <div key={dayIndex} className="bg-slate-50/10 min-h-[140px]"></div>;
 
                                         return (
-                                            <div key={dayIndex} className="flex-1 p-2 relative group hover:bg-slate-50 transition-colors">
+                                            <div key={dayIndex} className="p-2 relative group hover:bg-slate-50 transition-colors min-h-[140px]">
                                                 {scheduleItem ? (
-                                                    <Card className="h-full bg-white hover:border-blue-300 border-slate-200 p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-pointer group/card relative overflow-hidden">
+                                                    <Card className="h-full w-full bg-white hover:border-blue-300 border-slate-200 p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-pointer group/card relative overflow-hidden">
                                                         <div className={`absolute top-0 left-0 w-1 h-full ${
                                                             scheduleItem.subject === 'Matematika' ? 'bg-blue-500' :
                                                             scheduleItem.subject === 'Fisika' ? 'bg-purple-500' :
@@ -183,7 +194,6 @@ export default function JadwalIndex() {
                                             </div>
                                         );
                                     })}
-
                                 </div>
                             ))}
                         </div>
