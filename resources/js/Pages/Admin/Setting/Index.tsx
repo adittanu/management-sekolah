@@ -360,6 +360,17 @@ export default function SettingIndex() {
                                             </Button>
                                         </div>
 
+                                        <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 flex items-center justify-between md:col-span-2">
+                                            <div>
+                                                <h4 className="font-bold text-blue-700 text-sm">Backup Database</h4>
+                                                <p className="text-xs text-blue-600/80">Download file SQL untuk backup manual.</p>
+                                            </div>
+                                            <Button variant="outline" size="sm" className="border-blue-200 text-blue-700 hover:bg-blue-100">
+                                                <Database className="w-3 h-3 mr-2" />
+                                                Download SQL
+                                            </Button>
+                                        </div>
+
                                         <div className="border border-slate-200 bg-white rounded-xl p-4 flex items-center justify-between md:col-span-2">
                                             <div>
                                                 <h4 className="font-bold text-slate-700 text-sm">Restore Database</h4>
