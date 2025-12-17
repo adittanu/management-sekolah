@@ -24,4 +24,40 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
+// For now let's just expose them
+Route::prefix('admin')->group(function () {
+    Route::get('/dashboard', function () {
+        return Inertia::render('Admin/Dashboard');
+    })->name('admin.dashboard');
+
+    Route::get('/user', function () {
+        return Inertia::render('Admin/User/Index');
+    })->name('admin.user');
+
+    Route::get('/kelas', function () {
+        return Inertia::render('Admin/Kelas/Index');
+    })->name('admin.kelas');
+
+    Route::get('/jadwal', function () {
+        return Inertia::render('Admin/Jadwal/Index');
+    })->name('admin.jadwal');
+
+    Route::get('/mapel', function () {
+        return Inertia::render('Admin/Mapel/Index');
+    })->name('admin.mapel');
+
+    Route::get('/laporan', function () {
+        return Inertia::render('Admin/Laporan/Index');
+    })->name('admin.laporan');
+
+    Route::get('/setting', function () {
+        return Inertia::render('Admin/Setting/Index');
+    })->name('admin.setting');
+
+    Route::get('/licensi', function () {
+        return Inertia::render('Admin/Licensi/Index');
+    })->name('admin.licensi');
+});
+
+require __DIR__ . '/auth.php';
