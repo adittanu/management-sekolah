@@ -82,6 +82,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/ppdb', function () {
         return Inertia::render('Admin/PPDB/Index');
     })->name('admin.ppdb');
+
+    Route::get('/lms', function () {
+        return Inertia::render('Admin/LMS/Index');
+    })->name('admin.lms');
 });
 
 require __DIR__ . '/auth.php';

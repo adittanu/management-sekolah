@@ -1,7 +1,21 @@
-```javascript
 import { Link, usePage } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Users, BookOpen, Calendar, Settings, LogOut, GraduationCap, Video, Wallet, TrendingUp, TrendingDown, CreditCard, Search, FileText, Download, Send, Plus, X, Monitor, ArrowRight, Link, ScanFace, MapPin, CheckCircle, XCircle, Clock,  UserCheck, ShieldCheck, UserPlus } from 'lucide-react';
+import { 
+    LayoutDashboard, 
+    Users, 
+    School, 
+    Calendar, 
+    BookOpen, 
+    FileText, 
+    Settings, 
+    ShieldCheck,
+    Video,
+    Wallet,
+    ScanFace,
+    UserPlus,
+    GraduationCap,
+    LogOut 
+} from 'lucide-react';
 
 export default function Sidebar({ className = "" }: { className?: string }) {
     const { url } = usePage();
@@ -14,9 +28,11 @@ export default function Sidebar({ className = "" }: { className?: string }) {
         { name: 'Mapel', href: '/admin/mapel', icon: BookOpen },
         { name: 'Keuangan (SPP)', href: '/admin/keuangan', icon: Wallet },
         { name: 'Absensi (Presensi)', href: '/admin/absensi', icon: ScanFace },
-        { label: 'Perpustakaan (Library)', icon: BookOpen, href: '/admin/perpustakaan', active: route().current('admin.perpustakaan') },
-        { label: 'PPDB (Admission)', icon: UserPlus, href: '/admin/ppdb', active: route().current('admin.ppdb') },
-        { label: 'Laporan (Report)', icon: FileText, href: '/admin/laporan', active: route().current('admin.laporan') },
+        { name: 'Perpustakaan (Library)', href: '/admin/perpustakaan', icon: BookOpen },
+        { name: 'PPDB (Admission)', href: '/admin/ppdb', icon: UserPlus },
+        { name: 'LMS (E-Learning)', href: '/admin/lms', icon: GraduationCap },
+        { name: 'Laporan (Report)', href: '/admin/laporan', icon: FileText },
+        { name: 'Daring (Online)', href: '/admin/daring', icon: Video },
     ];
 
     const bottomItems = [
