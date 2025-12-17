@@ -70,6 +70,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/keuangan', function () {
         return Inertia::render('Admin/Keuangan/Index');
     })->name('admin.keuangan');
+
+    Route::get('/absensi', function () {
+        return Inertia::render('Admin/Absensi/Index');
+    })->name('admin.absensi');
 });
 
 require __DIR__ . '/auth.php';

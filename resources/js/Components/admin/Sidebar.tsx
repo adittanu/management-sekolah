@@ -11,6 +11,7 @@ import {
     ShieldCheck,
     Video,
     Wallet,
+    ScanFace,
     LogOut 
 } from 'lucide-react';
 
@@ -25,6 +26,7 @@ export default function Sidebar({ className = "" }: { className?: string }) {
         { name: 'Mapel', href: '/admin/mapel', icon: BookOpen },
         { name: 'Laporan', href: '/admin/laporan', icon: FileText },
         { name: 'Keuangan (SPP)', href: '/admin/keuangan', icon: Wallet },
+        { name: 'Absensi (Presensi)', href: '/admin/absensi', icon: ScanFace },
         { name: 'Daring (Online)', href: '/admin/daring', icon: Video },
     ];
 
