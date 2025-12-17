@@ -74,6 +74,14 @@ Route::prefix('admin')->group(function () {
     Route::get('/absensi', function () {
         return Inertia::render('Admin/Absensi/Index');
     })->name('admin.absensi');
+
+    Route::get('/perpustakaan', function () {
+        return Inertia::render('Admin/Perpustakaan/Index');
+    })->name('admin.perpustakaan');
+
+    Route::get('/ppdb', function () {
+        return Inertia::render('Admin/PPDB/Index');
+    })->name('admin.ppdb');
 });
 
 require __DIR__ . '/auth.php';
