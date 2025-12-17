@@ -3,6 +3,11 @@ import { DataTable, ColumnDef } from '@/Components/admin/DataTable';
 import { mockUsers } from '@/data/mockData';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
+import { useState } from 'react';
+import * as Icons from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
 
 interface User {
     id: number;
@@ -60,6 +65,13 @@ export default function UserIndex() {
         }
     ];
 
+    const [activeTab, setActiveTab] = useState('Semua');
+    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+
+    const filteredUsers = activeTab === 'Semua' 
+        ? mockUsers 
+        : mockUsers.filter(user => user.role === activeTab);
+
     return (
         <AdminLayout title="Manajemen User">
             <div className="space-y-6">
@@ -78,11 +90,12 @@ export default function UserIndex() {
                 </div>
 
                 <div className="flex gap-2 pb-2 overflow-x-auto">
-                    {['Semua', 'SISWA', 'GURU', 'WAKA', 'ADMIN'].map((tab, i) => (
+                    {['Semua', 'SISWA', 'GURU', 'WAKA', 'ADMIN'].map((tab) => (
                         <Button 
                             key={tab} 
-                            variant={i === 0 ? 'default' : 'ghost'} 
-                            className={`rounded-full px-6 ${i === 0 ? 'bg-blue-600 hover:bg-blue-700' : 'text-slate-500 hover:text-slate-900 bg-white shadow-sm'}`}
+                            onClick={() => setActiveTab(tab)}
+                            variant={activeTab === tab ? 'default' : 'ghost'} 
+                            className={`rounded-full px-6 transition-all ${activeTab === tab ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-900 bg-white shadow-sm hover:bg-slate-50'}`}
                         >
                             {tab}
                         </Button>
@@ -90,11 +103,99 @@ export default function UserIndex() {
                 </div>
 
                 <DataTable 
-                    data={mockUsers} 
+                    data={filteredUsers} 
                     columns={columns} 
                     actionLabel="Tambah User"
-                    onAction={() => alert('Tambah User clicked')}
+                    onAction={() => setIsAddUserOpen(true)}
                 />
+
+                {/* Add User Dialog */}
+                <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                    <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-100 shadow-2xl">
+                        <DialogHeader className="p-6 pb-2">
+                            <DialogTitle className="text-xl font-bold text-slate-900">Tambah Pengguna Baru</DialogTitle>
+                            <DialogDescription>
+                                Masukkan detail pengguna baru untuk didaftarkan ke sistem.
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="px-6 py-4 space-y-6">
+                            {/* Profile Upload Placeholder */}
+                            <div className="flex flex-col items-center justify-center gap-3">
+                                <div className="w-24 h-24 rounded-full bg-slate-50 border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors group relative overflow-hidden">
+                                    <div className="text-center group-hover:scale-110 transition-transform">
+                                        <Icons.Camera className="w-6 h-6 text-slate-400 mx-auto" />
+                                        <span className="text-[10px] text-slate-400 mt-1 block">Upload Foto</span>
+                                    </div>
+                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    Format: JPG, PNG. Maks 2MB.
+                                </p>
+                            </div>
+
+                            {/* Role Selection */}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-slate-700">Peran Pengguna (Role)</Label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {['SISWA', 'GURU', 'WAKA', 'ADMIN'].map((role) => (
+                                        <div 
+                                            key={role}
+                                            className={`
+                                                cursor-pointer rounded-lg border px-4 py-2 text-center text-sm font-medium transition-all
+                                                ${role === 'SISWA' ? 'hover:border-blue-500 hover:bg-blue-50' : ''}
+                                                ${role === 'GURU' ? 'hover:border-purple-500 hover:bg-purple-50' : ''}
+                                                ${role === 'WAKA' ? 'hover:border-orange-500 hover:bg-orange-50' : ''}
+                                                ${role === 'ADMIN' ? 'hover:border-red-500 hover:bg-red-50' : ''}
+                                                peer-checked:border-blue-600 peer-checked:bg-blue-50
+                                            `}
+                                        >
+                                            <input type="radio" name="role" id={role} className="sr-only peer" />
+                                            <label htmlFor={role} className="cursor-pointer w-full h-full block">
+                                                {role}
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Nama Lengkap</Label>
+                                    <Input id="name" placeholder="Contoh: Budi Santoso" className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Email</Label>
+                                    <Input id="email" placeholder="nama@sekolah.sch.id" className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="nisn">Nomor Induk (NISN/NIP)</Label>
+                                    <Input id="nisn" placeholder="1234567890" className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="kelas">Kelas (Opsional)</Label>
+                                    <Input id="kelas" placeholder="Pilih Kelas..." className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
+                                </div>
+                            </div>
+
+                            {/* Info Alert */}
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-3">
+                                <Icons.AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <h4 className="text-sm font-semibold text-amber-800">Verifikasi Akun Diperlukan</h4>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                        Setelah ditambahkan, sistem akan mengirimkan email verifikasi otomatis. User harus memverifikasi email sebelum bisa login.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="p-6 pt-2 bg-slate-50/50">
+                            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Batal</Button>
+                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">Simpan Pengguna</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AdminLayout>
     );

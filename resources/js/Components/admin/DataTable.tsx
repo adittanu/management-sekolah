@@ -1,3 +1,4 @@
+import React from "react";
 import {
     Table,
     TableBody,
@@ -39,6 +40,33 @@ export function DataTable<T>({
     actionLabel,
     onAction
 }: DataTableProps<T>) {
+
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const pageSize = 5;
+
+    // Search Filtering
+    const filteredData = React.useMemo(() => {
+        if (!searchQuery) return data;
+        return data.filter((row) => 
+            Object.values(row as any).some((value) => 
+                String(value).toLowerCase().includes(searchQuery.toLowerCase())
+            )
+        );
+    }, [data, searchQuery]);
+
+    // Pagination
+    const totalPages = Math.ceil(filteredData.length / pageSize);
+    const paginatedData = filteredData.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
+    );
+
+    // Reset page when search changes
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -50,6 +78,8 @@ export function DataTable<T>({
                              <Input 
                                 placeholder="Cari..." 
                                 className="pl-9 w-[300px] bg-white border-slate-200 focus-visible:ring-blue-500"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                             />
                          </div>
                          <Button variant="outline" size="icon" className="border-slate-200">
@@ -78,42 +108,69 @@ export function DataTable<T>({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {data.map((row, rowIndex) => (
-                            <TableRow key={rowIndex} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
-                                {columns.map((col, colIndex) => (
-                                    <TableCell key={colIndex} className="py-3">
-                                        {col.cell 
-                                            ? col.cell(row) 
-                                            : typeof col.accessorKey === 'function' 
-                                                ? col.accessorKey(row)
-                                                : (row[col.accessorKey] as React.ReactNode)
-                                        }
+                        {paginatedData.length > 0 ? (
+                            paginatedData.map((row, rowIndex) => (
+                                <TableRow key={rowIndex} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+                                    {columns.map((col, colIndex) => (
+                                        <TableCell key={colIndex} className="py-3">
+                                            {col.cell 
+                                                ? col.cell(row) 
+                                                : typeof col.accessorKey === 'function' 
+                                                    ? col.accessorKey(row)
+                                                    : (row[col.accessorKey] as React.ReactNode)
+                                            }
+                                        </TableCell>
+                                    ))}
+                                    <TableCell>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                    <span className="sr-only">Open menu</span>
+                                                    <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-[160px]">
+                                                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                                <DropdownMenuItem>Edit Data</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-red-600">Hapus Data</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
-                                ))}
-                                <TableCell>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                                <span className="sr-only">Open menu</span>
-                                                <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-[160px]">
-                                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                            <DropdownMenuItem>Edit Data</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600">Hapus Data</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={columns.length + 1} className="h-24 text-center">
+                                    Tidak ada data.
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
-                 <Button variant="outline" size="sm" disabled>Previous</Button>
-                 <Button variant="outline" size="sm">Next</Button>
+            <div className="flex items-center justify-between text-sm text-slate-500">
+                <div>
+                    Menampilkan {paginatedData.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} sampai {Math.min(currentPage * pageSize, filteredData.length)} dari {filteredData.length} data
+                </div>
+                <div className="flex items-center gap-2">
+                     <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                     >
+                        Previous
+                     </Button>
+                     <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                     >
+                        Next
+                     </Button>
+                </div>
             </div>
         </div>
     )

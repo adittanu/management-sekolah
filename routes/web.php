@@ -39,6 +39,10 @@ Route::prefix('admin')->group(function () {
         return Inertia::render('Admin/Kelas/Index');
     })->name('admin.kelas');
 
+    Route::get('/kelas/{id}', function ($id) {
+        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
+    })->name('admin.kelas.show');
+
     Route::get('/jadwal', function () {
         return Inertia::render('Admin/Jadwal/Index');
     })->name('admin.jadwal');
