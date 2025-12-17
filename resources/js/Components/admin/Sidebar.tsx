@@ -14,51 +14,119 @@ import {
     ScanFace,
     UserPlus,
     GraduationCap,
-    LogOut 
+    LogOut, 
+    MessageSquare
 } from 'lucide-react';
 
-export default function Sidebar({ className = "" }: { className?: string }) {
+export default function Sidebar({ className = "", userRole = "admin" }: { className?: string, userRole?: string }) {
     const { url } = usePage();
 
-    const navGroups = [
-        {
-            groupLabel: "", // Main
-            items: [
-                { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-            ]
-        },
-        {
-            groupLabel: "Master Data",
-            items: [
-                { name: 'Manajemen User', href: '/admin/user', icon: Users },
-                { name: 'Data Kelas', href: '/admin/kelas', icon: School },
-                { name: 'Mata Pelajaran', href: '/admin/mapel', icon: BookOpen },
-            ]
-        },
-        {
-            groupLabel: "Akademik",
-            items: [
-                { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
-                { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
-                { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
-                { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
-                { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
-            ]
-        },
-        {
-            groupLabel: "Administrasi",
-            items: [
-                { name: 'PPDB Online', href: '/admin/ppdb', icon: UserPlus },
-                { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
-                { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
-            ]
-        }
-    ];
+    // Define Menus based on Role
+    let navGroups = [];
+
+    if (userRole === 'student') {
+        navGroups = [
+            {
+                groupLabel: "Menu Utama",
+                items: [
+                    { name: 'Dashboard', href: '/siswa/dashboard', icon: LayoutDashboard },
+                    { name: 'Jadwal Pelajaran', href: '/siswa/jadwal', icon: Calendar },
+                    { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
+                ]
+            },
+            {
+                groupLabel: "Akademik",
+                items: [
+                   
+                    { name: 'Kelas Saya (LMS)', href: '/siswa/lms', icon: GraduationCap },
+                    { name: 'Tugas & Materi', href: '/siswa/tugas', icon: BookOpen },
+                    { name: 'Riwayat Presensi', href: '/siswa/absensi', icon: ScanFace },
+                ]
+            },
+            {
+                groupLabel: "Laporan",
+                items: [
+                    { name: 'Kartu Hasil Studi', href: '/siswa/khs', icon: FileText },
+                    { name: 'Tagihan SPP', href: '/siswa/keuangan', icon: Wallet },
+                ]
+            }
+        ];
+    } else if (userRole === 'teacher') {
+        navGroups = [
+            {
+                groupLabel: "Menu Utama",
+                items: [
+                    { name: 'Dashboard Guru', href: '/guru/dashboard', icon: LayoutDashboard },
+                    { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
+                    { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
+                ]
+            },
+            {
+                groupLabel: "Manajemen Kelas",
+                items: [
+                    { name: 'Input Nilai', href: '/guru/nilai', icon: FileText },
+                    { name: 'Input Presensi', href: '/guru/absensi', icon: ScanFace },
+                    { name: 'E-Learning (LMS)', href: '/guru/lms', icon: GraduationCap },
+                ]
+            },
+            {
+                groupLabel: "Kepegawaian",
+                items: [
+                    { name: 'Data Pribadi', href: '/guru/profile', icon: Users },
+                    { name: 'Slip Gaji', href: '/guru/gaji', icon: Wallet },
+                ]
+            }
+        ];
+    } else {
+        // DEFAULT ADMIN
+        navGroups = [
+            {
+                groupLabel: "", // Main
+                items: [
+                    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+                ]
+            },
+            {
+                groupLabel: "Master Data",
+                items: [
+                    { name: 'Manajemen User', href: '/admin/user', icon: Users },
+                    { name: 'Data Kelas', href: '/admin/kelas', icon: School },
+                    { name: 'Mata Pelajaran', href: '/admin/mapel', icon: BookOpen },
+                    { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
+                ]
+            },
+            {
+                groupLabel: "Akademik",
+                items: [
+                    { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
+                    { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
+                    { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
+                    { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
+                    { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
+                ]
+            },
+            {
+                groupLabel: "Administrasi",
+                items: [
+                    { name: 'PPDB Online', href: '/admin/ppdb', icon: UserPlus },
+                    { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
+                    { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
+                ]
+            }
+        ];
+    }
 
     const bottomItems = [
         { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
-        { name: 'Licensi', href: '/admin/licensi', icon: ShieldCheck },
     ];
+
+    // Determine Profile Label
+    const getProfile = () => {
+        if (userRole === 'student') return { name: 'Siswa Teladan', role: 'Murid Kelas X', initials: 'ST' };
+        if (userRole === 'teacher') return { name: 'Budi Santoso, S.Pd', role: 'Guru Matematika', initials: 'BS' };
+        return { name: 'Administrator', role: 'Super Admin', initials: 'AD' };
+    };
+    const profile = getProfile();
 
     return (
         <div className={cn("pb-12 min-h-screen w-64 border-r bg-white shadow-sm flex flex-col scrollbar-hide overflow-y-auto", className)}>
@@ -78,11 +146,11 @@ export default function Sidebar({ className = "" }: { className?: string }) {
                 <div className="px-4 py-2">
                    <div className="bg-slate-100 rounded-xl p-4 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
-                            AD
+                            {profile.initials}
                         </div>
                         <div>
-                            <div className="font-bold text-sm text-slate-900">Administrator</div>
-                            <div className="text-xs text-slate-500">Admin</div>
+                            <div className="font-bold text-sm text-slate-900">{profile.name}</div>
+                            <div className="text-xs text-slate-500">{profile.role}</div>
                         </div>
                    </div>
                 </div>
@@ -133,12 +201,13 @@ export default function Sidebar({ className = "" }: { className?: string }) {
                                 {item.name}
                             </Link>
                         ))}
-                        <button
+                        <Link
+                            href="/"
                             className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
                         >
                             <LogOut className="h-5 w-5" />
                             Keluar
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </div>

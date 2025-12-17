@@ -86,6 +86,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/lms', function () {
         return Inertia::render('Admin/LMS/Index');
     })->name('admin.lms');
+
+    Route::get('/chat', function () {
+        return Inertia::render('Admin/Chat/Index');
+    })->name('admin.chat');
 });
 
 // Student (Murid) Routes

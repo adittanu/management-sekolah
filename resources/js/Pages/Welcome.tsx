@@ -130,19 +130,25 @@ export default function Welcome() {
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 mt-6">
-                            <button className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-green-50/50 hover:border-green-200 border border-transparent transition-all hover:shadow-md cursor-pointer">
+                            <Link 
+                                href={route('siswa.dashboard')}
+                                className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-green-50/50 hover:border-green-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
+                            >
                                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
                                     <GraduationCap className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-green-700">MURID</span>
-                            </button>
+                            </Link>
                             
-                            <button className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-transparent transition-all hover:shadow-md cursor-pointer">
+                            <Link 
+                                href={route('guru.dashboard')}
+                                className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
+                            >
                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                                     <BookOpen className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-blue-700">GURU</span>
-                            </button>
+                            </Link>
 
                             <Link 
                                 href={route('admin.dashboard')}
