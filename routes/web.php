@@ -66,6 +66,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/daring', function () {
         return Inertia::render('Admin/Daring/Index');
     })->name('admin.daring');
+
+    Route::get('/keuangan', function () {
+        return Inertia::render('Admin/Keuangan/Index');
+    })->name('admin.keuangan');
 });
 
 require __DIR__ . '/auth.php';

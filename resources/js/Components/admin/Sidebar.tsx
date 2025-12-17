@@ -8,8 +8,9 @@ import {
     BookOpen, 
     FileText, 
     Settings, 
-    ShieldCheck, 
+    ShieldCheck,
     Video,
+    Wallet,
     LogOut 
 } from 'lucide-react';
 
@@ -23,6 +24,7 @@ export default function Sidebar({ className = "" }: { className?: string }) {
         { name: 'Jadwal', href: '/admin/jadwal', icon: Calendar },
         { name: 'Mapel', href: '/admin/mapel', icon: BookOpen },
         { name: 'Laporan', href: '/admin/laporan', icon: FileText },
+        { name: 'Keuangan (SPP)', href: '/admin/keuangan', icon: Wallet },
         { name: 'Daring (Online)', href: '/admin/daring', icon: Video },
     ];
 

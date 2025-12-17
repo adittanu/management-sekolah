@@ -186,7 +186,7 @@ export default function KeuanganIndex() {
                              <Card className="border-none shadow-sm">
                                 <CardHeader>
                                     <CardTitle className="text-red-600">Tunggakan Siswa</CardTitle>
-                                    <CardDescription>Belum lunas > 30 hari</CardDescription>
+                                    <CardDescription>Belum lunas &gt; 30 hari</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {arrears.map((item) => (
