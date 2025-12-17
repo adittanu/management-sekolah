@@ -9,6 +9,7 @@ import {
     FileText, 
     Settings, 
     ShieldCheck, 
+    Video,
     LogOut 
 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ export default function Sidebar({ className = "" }: { className?: string }) {
         { name: 'Jadwal', href: '/admin/jadwal', icon: Calendar },
         { name: 'Mapel', href: '/admin/mapel', icon: BookOpen },
         { name: 'Laporan', href: '/admin/laporan', icon: FileText },
+        { name: 'Daring (Online)', href: '/admin/daring', icon: Video },
     ];
 
     const bottomItems = [

@@ -29,7 +29,7 @@ export default function LicensiIndex() {
                             <CardTitle className="text-3xl font-bold text-slate-900">Premium</CardTitle>
                             <CardDescription className="text-lg mt-2">Solusi lengkap untuk manajemen sekolah modern.</CardDescription>
                             <div className="mt-6 flex items-baseline gap-1">
-                                <span className="text-4xl font-extrabold text-slate-900">Rp 1.5jt</span>
+                                <span className="text-4xl font-extrabold text-slate-900">Rp 10jt</span>
                                 <span className="text-slate-500">/ tahun</span>
                             </div>
                         </CardHeader>
@@ -73,7 +73,7 @@ export default function LicensiIndex() {
                             </CardTitle>
                             <CardDescription className="text-lg mt-2">Kecerdasan buatan untuk efisiensi maksimal.</CardDescription>
                             <div className="mt-6 flex items-baseline gap-1">
-                                <span className="text-4xl font-extrabold text-slate-900">Rp 2.5jt</span>
+                                <span className="text-4xl font-extrabold text-slate-900">Rp 25jt</span>
                                 <span className="text-slate-500">/ tahun</span>
                             </div>
                         </CardHeader>
