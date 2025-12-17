@@ -4,7 +4,7 @@ import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
-import { School, MapPin, Shield, User, GraduationCap, Lock, LogIn } from 'lucide-react';
+import { School, MapPin, Shield, User, GraduationCap, Lock, LogIn, BookOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export default function Welcome() {
@@ -49,7 +49,7 @@ export default function Welcome() {
                         </div>
                         <div>
                             <h2 className="text-3xl font-bold tracking-wide drop-shadow-md">SEKOLAH KITA BISA BERKARYA</h2>
-                            <p className="text-blue-100 mt-1 opacity-90">Sistem Informasi Monitoring KBM (Intelijen Kelas)</p>
+                            <p className="text-blue-100 mt-1 opacity-90">Sistem Informasi Manajemen Sekolah Terpadu</p>
                         </div>
                     </div>
                 </div>
@@ -86,14 +86,14 @@ export default function Welcome() {
                                     <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                                         <GraduationCap className="w-6 h-6" />
                                     </div>
-                                    <span className="text-[10px] font-bold">AGEN</span>
+                                    <span className="text-[10px] font-bold">MURID</span>
                                 </button>
                                 
                                 <button className="group flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white transition-all hover:scale-105 shadow-lg shadow-blue-500/20">
                                     <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                                        <Shield className="w-6 h-6" />
+                                        <BookOpen className="w-6 h-6" />
                                     </div>
-                                    <span className="text-[10px] font-bold">INTEL</span>
+                                    <span className="text-[10px] font-bold">GURU</span>
                                 </button>
 
                                 <Link 

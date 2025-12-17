@@ -32,25 +32,26 @@ import {
     LogIn,
     Box,
     FileCode,
-    UploadCloud
+    UploadCloud,
+    Download
 } from 'lucide-react';
 
 export default function LMSIndex() {
     const [view, setView] = useState<'DASHBOARD' | 'COURSE'>('DASHBOARD');
     const [selectedCourse, setSelectedCourse] = useState<any>(null);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false); // For Activities
+    const [isCreateCourseOpen, setIsCreateCourseOpen] = useState(false); // For New Course
     const [contentType, setContentType] = useState<'SELECT' | 'DOC' | 'VIDEO' | 'H5P' | 'SCORM' | 'QUIZ' | 'ASSIGNMENT'>('SELECT');
 
-    // Mock Data: Courses
-    const courses = [
+    // State for Dynamic Data
+    const [courses, setCourses] = useState([
         { id: 1, title: "Matematika Kelas X", category: "Sains", teacher: "Budi Santoso", progress: 65, cover: "bg-blue-600" },
         { id: 2, title: "Fisika Dasar XI", category: "Sains", teacher: "Siti Aminah", progress: 40, cover: "bg-indigo-600" },
         { id: 3, title: "Bahasa Inggris Conversation", category: "Bahasa", teacher: "John Doe", progress: 80, cover: "bg-green-600" },
         { id: 4, title: "Sejarah Indonesia", category: "Sosial", teacher: "Dewi Lestari", progress: 20, cover: "bg-orange-600" },
-    ];
+    ]);
 
-    // Mock Data: Course Content (Sections)
-    const courseSections = [
+    const [courseSections, setCourseSections] = useState([
         {
             id: 1, title: "General", items: [
                 { id: 101, type: 'DOC', title: 'Silabus Mata Pelajaran', icon: FileText, color: 'text-blue-600' },
@@ -71,7 +72,41 @@ export default function LMSIndex() {
                 { id: 303, type: 'QUIZ', title: 'Kuis Harian 2', icon: CheckSquare, color: 'text-green-600' }
             ]
         }
-    ];
+    ]);
+
+    const [newCourse, setNewCourse] = useState({ title: '', category: '', teacher: '' });
+
+    const handleCreateCourse = () => {
+        const course = {
+            id: courses.length + 1,
+            title: newCourse.title || "New Course",
+            category: newCourse.category || "General",
+            teacher: newCourse.teacher || "Admin",
+            progress: 0,
+            cover: "bg-slate-600"
+        };
+        setCourses([...courses, course]);
+        setNewCourse({ title: '', category: '', teacher: '' });
+        setIsCreateCourseOpen(false);
+        // Auto navigate to the new course
+        setSelectedCourse(course);
+        setCourseSections([ // Reset sections for new course
+            { id: 1, title: "General", items: [] },
+            { id: 2, title: "Topic 1", items: [] },
+            { id: 3, title: "Topic 2", items: [] },
+            { id: 4, title: "Topic 3", items: [] },
+        ]);
+        setView('COURSE');
+    };
+
+    const handleAddTopic = () => {
+        const newId = courseSections.length + 1;
+        setCourseSections([...courseSections, {
+            id: newId,
+            title: `Topic ${courseSections.length}`,
+            items: []
+        }]);
+    };
 
     const contentTypes = [
         { id: 'DOC', label: 'Dokumen', icon: FileText, desc: 'PDF, Word, PPT', color: 'bg-blue-100 text-blue-600' },
@@ -84,8 +119,51 @@ export default function LMSIndex() {
 
     return (
         <AdminLayout title="LMS (E-Learning)">
+            {/* Create Course Dialog */}
+            <Dialog open={isCreateCourseOpen} onOpenChange={setIsCreateCourseOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Buat Course Baru</DialogTitle>
+                        <DialogDescription>
+                            Isi detail mata pelajaran baru. Struktur topik akan dibuat otomatis.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>Nama Mata Pelajaran</Label>
+                            <Input 
+                                placeholder="Contoh: Biologi Kelas XII" 
+                                value={newCourse.title}
+                                onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Kategori / Jurusan</Label>
+                            <Input 
+                                placeholder="Contoh: Sains" 
+                                value={newCourse.category}
+                                onChange={(e) => setNewCourse({...newCourse, category: e.target.value})}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Pengajar Utama</Label>
+                            <Input 
+                                placeholder="Nama Guru" 
+                                value={newCourse.teacher}
+                                onChange={(e) => setNewCourse({...newCourse, teacher: e.target.value})}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCreateCourseOpen(false)}>Batal</Button>
+                        <Button onClick={handleCreateCourse} className="bg-indigo-600">Buat Course</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Content Creator Modal */}
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>
@@ -162,7 +240,7 @@ export default function LMSIndex() {
                             <h2 className="text-2xl font-bold text-slate-900">Course Dashboard</h2>
                             <p className="text-slate-500">Kelola mata pelajaran dan konten pembelajaran Anda.</p>
                         </div>
-                        <Button className="bg-indigo-600 hover:bg-indigo-700">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => setIsCreateCourseOpen(true)}>
                             <Plus className="w-4 h-4 mr-2" /> Buat Course Baru
                         </Button>
                     </div>
@@ -355,30 +433,101 @@ export default function LMSIndex() {
                                     </CardContent>
                                 </Card>
                             ))}
+                            
+                            {/* Add Topic Button */}
+                            <div className="text-center py-4 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors group" onClick={handleAddTopic}>
+                                <div className="flex flex-col items-center text-slate-400 group-hover:text-indigo-600 transition-colors">
+                                    <Plus className="w-6 h-6 mb-1" />
+                                    <span className="font-medium">Tambahkan Topik / Pertemuan Baru</span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Sidebar / Blocks */}
+                        {/* Sidebar / Blocks */}
                         <div className="space-y-6">
+                            {/* Course Completion */}
                             <Card>
                                 <CardHeader className="pb-2"><CardTitle className="text-sm">Course Completion</CardTitle></CardHeader>
                                 <CardContent>
                                     <div className="text-center py-4">
                                         <div className="text-3xl font-bold text-indigo-600 mb-1">65%</div>
+                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                                            <div className="h-full bg-indigo-600 w-[65%]" />
+                                        </div>
                                         <p className="text-xs text-slate-500">Status kelulusan Anda</p>
                                     </div>
                                 </CardContent>
                             </Card>
-                            
-                            <Card className="bg-gradient-to-br from-orange-400 to-orange-500 text-white border-none">
-                                <CardContent className="p-6">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <GraduationCap className="w-8 h-8 text-white/90" />
-                                        <h3 className="font-bold">Moodle Connect</h3>
+
+                            {/* Upcoming Deadlines */}
+                            <Card className="border-l-4 border-l-orange-500">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-orange-500" /> 
+                                        Upcoming Deadlines
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex gap-3 items-start">
+                                        <div className="bg-orange-100 text-orange-600 p-2 rounded-lg text-center min-w-[50px]">
+                                            <span className="block text-xs font-bold uppercase">Oct</span>
+                                            <span className="block text-xl font-bold">24</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800 line-clamp-2">Tugas: Penyelesaian Masalah</p>
+                                            <p className="text-xs text-slate-500 mt-1">Due in 2 days</p>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-orange-50 mb-4 leading-relaxed">Kelas ini terhubung dengan Learning Path di Moodle.</p>
-                                    <Button size="sm" variant="secondary" className="w-full bg-white text-orange-600 hover:bg-orange-50 border-none shadow-sm">
-                                        <ExternalLink className="w-3 h-3 mr-2" /> Sync Grade
+                                    <div className="flex gap-3 items-start">
+                                        <div className="bg-slate-100 text-slate-600 p-2 rounded-lg text-center min-w-[50px]">
+                                            <span className="block text-xs font-bold uppercase">Oct</span>
+                                            <span className="block text-xl font-bold">28</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-800 line-clamp-2">Kuis Harian 2</p>
+                                            <p className="text-xs text-slate-500 mt-1">Due next week</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Instructor Info */}
+                            <Card>
+                                <CardHeader className="pb-3"><CardTitle className="text-sm">Instructor</CardTitle></CardHeader>
+                                <CardContent>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                                            {selectedCourse?.teacher.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-900">{selectedCourse?.teacher}</p>
+                                            <p className="text-xs text-slate-500">Teacher</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="outline" size="sm" className="w-full text-xs h-8">
+                                        <Users className="w-3 h-3 mr-2" /> Message Instructor
                                     </Button>
+                                </CardContent>
+                            </Card>
+
+                            {/* Recent Resources */}
+                             <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-blue-500" /> 
+                                        Quick Resources
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-2">
+                                    <a href="#" className="flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 group">
+                                        <Download className="w-3 h-3 text-slate-400 group-hover:text-indigo-600" />
+                                        <span>Download Syllabus PDF</span>
+                                    </a>
+                                     <a href="#" className="flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 group">
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-indigo-600" />
+                                        <span>Reference Book Link</span>
+                                    </a>
                                 </CardContent>
                             </Card>
                         </div>
