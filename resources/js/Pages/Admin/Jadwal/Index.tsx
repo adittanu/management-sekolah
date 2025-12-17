@@ -13,10 +13,33 @@ import { Badge } from '@/Components/ui/badge';
 export default function JadwalIndex() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
+    const [formState, setFormState] = useState({
+        day: '',
+        jam: '',
+        subject: '',
+        classId: '',
+        room: ''
+    });
+
+    const [selectedClass, setSelectedClass] = useState(mockClasses[0].name); // Default to first class
     const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const timeSlots = [1, 2, 3, 4, 5, 6, 7, 8];
+
+    // Filter Logic for Days
+    const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
+    
+    const handleAddSchedule = (day: string = '', jam: string = '') => {
+        const cls = mockClasses.find(c => c.name === selectedClass);
+        setFormState(prev => ({ 
+            ...prev, 
+            day, 
+            jam, 
+            classId: cls ? cls.id.toString() : '' 
+        }));
+        setIsAddScheduleOpen(true);
+    };
 
     return (
         <AdminLayout title="Atur Jadwal KBM">
@@ -31,13 +54,26 @@ export default function JadwalIndex() {
                         </div>
                         <p className="text-slate-500">Kelola jadwal mengajar guru dan penggunaan ruangan.</p>
                     </div>
-                    <Button 
-                        onClick={() => setIsAddScheduleOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Tambah Jadwal
-                    </Button>
+                    
+                    <div className="flex items-center gap-3">
+                        <div className="w-[200px]">
+                            <Select value={selectedClass} onValueChange={setSelectedClass}>
+                                <SelectTrigger className="bg-white border-slate-200 shadow-sm">
+                                    <SelectValue placeholder="Pilih Kelas" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {mockClasses.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button 
+                            onClick={() => handleAddSchedule()}
+                            className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Tambah Jadwal
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-20">
@@ -64,7 +100,7 @@ export default function JadwalIndex() {
                      <div className="relative w-full md:w-64 shrink-0">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input 
-                            placeholder="Cari Guru, Mapel, atau Kelas..." 
+                            placeholder="Cari Guru atau Mapel..." 
                             className="pl-10 bg-slate-50 border-slate-200"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -76,7 +112,7 @@ export default function JadwalIndex() {
                     <div className="min-w-[1000px]">
                         <div className="flex border-b border-slate-200 divide-x divide-slate-100">
                             <div className="w-24 p-4 flex items-center justify-center font-bold text-slate-400 bg-slate-50 text-xs tracking-wider sticky left-0 z-10">JAM KE</div>
-                            {days.map((day) => (
+                            {visibleDays.map((day) => (
                                 <div key={day} className={`flex-1 p-4 text-center font-bold text-sm uppercase tracking-wide ${day === 'Rabu' ? 'text-blue-600 bg-blue-50/50' : 'text-slate-600'}`}>
                                     {day}
                                 </div>
@@ -94,17 +130,19 @@ export default function JadwalIndex() {
                                             07:{(jam * 45).toString().padStart(2, '0').slice(-2)}
                                         </div>
                                     </div>
-                                    {days.map((day, dayIndex) => {
+                                    {visibleDays.map((day, dayIndex) => {
                                         // Filter Logic
                                         // @ts-ignore
-                                        const scheduleItem = mockSchedule[day]?.find((s: any) => s.jam === jam);
+                                        const scheduleItem = mockSchedule[day]?.find((s: any) => s.jam === jam && s.class === selectedClass);
+                                        
+                                        // Additional Search Filter
                                         const isVisible = !searchQuery || (scheduleItem && (
                                             scheduleItem.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            scheduleItem.teacher.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            scheduleItem.class.toLowerCase().includes(searchQuery.toLowerCase())
+                                            scheduleItem.teacher.toLowerCase().includes(searchQuery.toLowerCase())
                                         ));
 
-                                        if (!isVisible) return <div key={dayIndex} className="flex-1 bg-slate-50/30"></div>;
+                                        if (!isVisible && searchQuery && !scheduleItem) return <div key={dayIndex} className="flex-1 bg-slate-50/30"></div>;
+                                        if (!isVisible && searchQuery && scheduleItem) return <div key={dayIndex} className="flex-1 bg-slate-50/30"></div>;
 
                                         return (
                                             <div key={dayIndex} className="flex-1 p-2 relative group hover:bg-slate-50 transition-colors">
@@ -134,7 +172,10 @@ export default function JadwalIndex() {
                                                         </div>
                                                     </Card>
                                                 ) : (
-                                                    <div className="w-full h-full rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-blue-50 hover:border-blue-200">
+                                                    <div 
+                                                        onClick={() => handleAddSchedule(day, jam.toString())}
+                                                        className="w-full h-full rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-blue-50 hover:border-blue-200"
+                                                    >
                                                         <Plus className="w-6 h-6 text-blue-400 mb-1" />
                                                         <span className="text-xs text-blue-500 font-medium">Isi Jadwal</span>
                                                     </div>
@@ -142,6 +183,7 @@ export default function JadwalIndex() {
                                             </div>
                                         );
                                     })}
+
                                 </div>
                             ))}
                         </div>
@@ -162,7 +204,7 @@ export default function JadwalIndex() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Hari</Label>
-                                    <Select>
+                                    <Select value={formState.day} onValueChange={(val) => setFormState(s => ({ ...s, day: val }))}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Hari" />
                                         </SelectTrigger>
@@ -173,7 +215,7 @@ export default function JadwalIndex() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Jam Ke-</Label>
-                                    <Select>
+                                    <Select value={formState.jam} onValueChange={(val) => setFormState(s => ({ ...s, jam: val }))}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Jam" />
                                         </SelectTrigger>
@@ -186,7 +228,7 @@ export default function JadwalIndex() {
 
                             <div className="space-y-2">
                                 <Label>Mata Pelajaran</Label>
-                                <Select>
+                                <Select value={formState.subject} onValueChange={(val) => setFormState(s => ({ ...s, subject: val }))}>
                                     <SelectTrigger className="bg-slate-50 border-slate-200">
                                         <SelectValue placeholder="Pilih Mata Pelajaran" />
                                     </SelectTrigger>
@@ -199,7 +241,7 @@ export default function JadwalIndex() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Kelas</Label>
-                                    <Select>
+                                    <Select value={formState.classId} onValueChange={(val) => setFormState(s => ({ ...s, classId: val }))}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Kelas" />
                                         </SelectTrigger>
@@ -210,7 +252,12 @@ export default function JadwalIndex() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Ruangan</Label>
-                                    <Input placeholder="Contoh: Lab Komputer" className="bg-slate-50 border-slate-200" />
+                                    <Input 
+                                        placeholder="Contoh: Lab Komputer" 
+                                        className="bg-slate-50 border-slate-200"
+                                        value={formState.room}
+                                        onChange={(e) => setFormState(s => ({ ...s, room: e.target.value }))}
+                                    />
                                 </div>
                             </div>
 
