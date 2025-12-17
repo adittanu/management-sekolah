@@ -119,10 +119,14 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
         ];
     }
 
-    const bottomItems = [
-        { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
-        { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
-    ];
+    // Add Bottom Items to Nav Groups (Settings Section)
+    navGroups.push({
+        groupLabel: "Pengaturan",
+        items: [
+            { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
+            { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
+        ]
+    });
 
     // Determine Profile Label
     const getProfile = () => {
@@ -134,39 +138,53 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
 
     return (
         <div className={cn(
-            "pb-0 h-full border-r bg-white shadow-sm flex flex-col transition-all duration-300", 
+            "pb-0 h-full border-r bg-white shadow-sm flex flex-col transition-all duration-300 relative", 
             isCollapsed ? "w-20" : "w-64",
             className
         )}>
             {/* Header - Fixed */}
             <div className={cn(
-                "border-b border-slate-50 shrink-0 flex items-center gap-3 transition-all",
-                isCollapsed ? "px-4 py-6 justify-center" : "px-6 py-6"
+                "border-b border-slate-50 shrink-0 flex items-center transition-all relative",
+                isCollapsed ? "px-2 py-4 justify-center flex-col gap-4 text-center" : "px-5 py-4 justify-between"
             )}>
-                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
-                    <School className="w-5 h-5" />
-                </div>
-                {!isCollapsed && (
-                    <div className="animate-in fade-in zoom-in duration-300">
-                        <div className="font-bold text-xl text-slate-800 leading-none tracking-tight">SEKOLAH KITA</div>
-                        <div className="text-[10px] font-medium text-slate-400 mt-1 uppercase tracking-wider">Bisa Berkarya</div>
+                 {/* Logo Area */}
+                <div className={cn("flex items-center gap-3 font-bold text-lg text-slate-800 transition-all", isCollapsed ? "flex-col justify-center" : "")}>
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
+                        <School className="w-4 h-4" />
                     </div>
-                )}
+                    {!isCollapsed && (
+                        <div className="animate-in fade-in zoom-in duration-300">
+                            <div className="leading-none tracking-tight">SEKOLAH KITA</div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Toggle Button (Integrated in Header) */}
+                <button 
+                    onClick={toggleSidebar}
+                    className={cn(
+                        "rounded-lg p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors",
+                         isCollapsed ? "absolute -right-3 top-6 bg-white border border-slate-200 shadow-sm rounded-full w-6 h-6 flex items-center justify-center p-0 z-50" : ""
+                    )}
+                    title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                >
+                    {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
             </div>
 
             {/* Profile - Fixed */}
-            <div className={cn("shrink-0", isCollapsed ? "p-2" : "px-4 py-4")}>
+            <div className={cn("shrink-0", isCollapsed ? "p-2" : "px-3 py-3")}>
                 <div className={cn(
                     "bg-slate-50 rounded-xl flex items-center gap-3 border border-slate-100 transition-all",
-                    isCollapsed ? "p-2 justify-center bg-transparent border-none" : "p-3"
+                    isCollapsed ? "p-2 justify-center bg-transparent border-none" : "p-2.5"
                 )}>
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border-2 border-white shadow-sm shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border-2 border-white shadow-sm shrink-0">
                         {profile.initials}
                     </div>
                     {!isCollapsed && (
                          <div className="overflow-hidden animate-in fade-in duration-300">
                             <div className="font-bold text-sm text-slate-900 truncate">{profile.name}</div>
-                            <div className="text-xs text-slate-500 truncate">{profile.role}</div>
+                            <div className="text-[11px] text-slate-500 truncate">{profile.role}</div>
                         </div>
                     )}
                 </div>
@@ -205,34 +223,9 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 ))}
             </div>
 
-            {/* Collapse Toggle */}
-             <div className="p-2 flex justify-center border-t border-slate-100">
-                <Button variant="ghost" size="sm" onClick={toggleSidebar} className="w-full text-slate-400 hover:text-slate-600">
-                    {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <div className="flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> <span className="text-xs">Collapse Sidebar</span></div>}
-                </Button>
-            </div>
-
-
-            {/* Footer - Fixed */}
+            {/* Footer - Fixed (Logout Only) */}
             <div className={cn("border-t border-slate-100 shrink-0 bg-white z-10", isCollapsed ? "p-2" : "p-3")}>
                 <div className="space-y-1">
-                    {bottomItems.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            title={isCollapsed ? item.name : ''}
-                             className={cn(
-                                "flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all hover:text-blue-600",
-                                isCollapsed ? "justify-center px-0" : "px-3",
-                                url.startsWith(item.href) 
-                                    ? "bg-blue-50 text-blue-600 shadow-sm" 
-                                    : "text-slate-500 hover:bg-slate-50"
-                            )}
-                        >
-                            <item.icon className="h-5 w-5 shrink-0" />
-                            {!isCollapsed && <span className="animate-in fade-in duration-300">{item.name}</span>}
-                        </Link>
-                    ))}
                     <Link
                         href="/"
                         title={isCollapsed ? "Keluar" : ''}

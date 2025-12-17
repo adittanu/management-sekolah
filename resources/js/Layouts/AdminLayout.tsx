@@ -1,4 +1,4 @@
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useState, useEffect } from 'react';
 import Sidebar from '@/Components/admin/Sidebar';
 import ChatWidget from '@/Components/ChatWidget';
 import { Head, usePage } from '@inertiajs/react';
@@ -8,7 +8,21 @@ export default function AdminLayout({ children, title, disableChatWidget = false
     // Get role from Inertia props, passed from web.php
     // In a real app this might come from auth.user.role
     const { role } = usePage<any>().props;
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    
+    // Initialize state from localStorage if available
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('sidebarCollapsed');
+            return saved === 'true';
+        }
+        return false;
+    });
+
+    const toggleSidebar = () => {
+        const newState = !isSidebarCollapsed;
+        setIsSidebarCollapsed(newState);
+        localStorage.setItem('sidebarCollapsed', String(newState));
+    };
     
     return (
         <div className="min-h-screen bg-slate-50 flex font-sans">
@@ -19,7 +33,7 @@ export default function AdminLayout({ children, title, disableChatWidget = false
                 <Sidebar 
                     userRole={role as string} 
                     isCollapsed={isSidebarCollapsed} 
-                    toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+                    toggleSidebar={toggleSidebar} 
                 />
             </div>
 
