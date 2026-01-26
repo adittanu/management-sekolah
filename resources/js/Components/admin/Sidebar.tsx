@@ -122,19 +122,19 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
                     // { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
                     // { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
-                    { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
-                    { name: 'PKL / Magang', href: '/admin/pkl', icon: Briefcase },
+                    // { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
+                    // { name: 'PKL / Magang', href: '/admin/pkl', icon: Briefcase },
                 ]
             },
-            {
-                groupLabel: "Administrasi",
-                items: [
-                    { name: 'Sarana Prasarana', href: '/admin/sarpras', icon: Wrench },
-                    { name: 'PPDB Online', href: '/admin/ppdb', icon: UserPlus },
-                    { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
-                    { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
-                ]
-            },
+            // {
+                //     groupLabel: "Administrasi",
+                //     items: [
+                //         { name: 'Sarana Prasarana', href: '/admin/sarpras', icon: Wrench },
+                //         { name: 'PPDB Online', href: '/admin/ppdb', icon: UserPlus },
+                //         { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
+                //         { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
+                //     ]
+                // },
             {
                 groupLabel: "Aplikasi Terintegrasi (SSO)",
                 items: [
@@ -150,7 +150,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
     navGroups.push({
         groupLabel: "Pengaturan",
         items: [
-            // { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
+            // // { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
             { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
         ]
     });

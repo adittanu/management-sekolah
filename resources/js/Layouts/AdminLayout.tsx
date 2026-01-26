@@ -47,8 +47,8 @@ export default function AdminLayout({ children, title, disableChatWidget = false
                 </div>
             </main>
 
-            {/* Global Chat Widget */}
-            {!disableChatWidget && <ChatWidget currentUserRole={role as string} />}
+{/* Global Chat Widget */}
+            {/* {!disableChatWidget && <ChatWidget currentUserRole={role as string} />} */}
         </div>
     );
 }
