@@ -50,7 +50,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 items: [
                     { name: 'Dashboard', href: '/siswa/dashboard', icon: LayoutDashboard },
                     { name: 'Jadwal Pelajaran', href: '/siswa/jadwal', icon: Calendar },
-                    { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
+                    // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
             },
             {
@@ -77,7 +77,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 items: [
                     { name: 'Dashboard Guru', href: '/guru/dashboard', icon: LayoutDashboard },
                     { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
-                    { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
+                    // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
             },
             {
@@ -111,7 +111,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Manajemen User', href: '/admin/user', icon: Users },
                     { name: 'Data Rombel', href: '/admin/kelas', icon: School },
                     { name: 'Mata Pelajaran', href: '/admin/mapel', icon: BookOpen },
-                    { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
+                    // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
             },
             {
@@ -120,8 +120,8 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
                     { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
                     { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
-                    { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
-                    { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
+                    // { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
+                    // { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
                     { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
                     { name: 'PKL / Magang', href: '/admin/pkl', icon: Briefcase },
                 ]
@@ -150,7 +150,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
     navGroups.push({
         groupLabel: "Pengaturan",
         items: [
-            { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
+            // { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
             { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
         ]
     });
