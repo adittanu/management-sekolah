@@ -90,6 +90,22 @@ Route::prefix('admin')->group(function () {
     Route::get('/chat', function () {
         return Inertia::render('Admin/Chat/Index');
     })->name('admin.chat');
+
+    Route::get('/office-frame', function () {
+        return Inertia::render('Admin/SSO/Office');
+    })->name('admin.office-frame');
+
+    Route::get('/sarpras', function () {
+        return Inertia::render('Admin/Sarpras/Index');
+    })->name('admin.sarpras');
+
+    Route::get('/ekskul', function () {
+        return Inertia::render('Admin/Ekskul/Index');
+    })->name('admin.ekskul');
+
+    Route::get('/pkl', function () {
+        return Inertia::render('Admin/PKL/Index');
+    })->name('admin.pkl');
 });
 
 // Student (Murid) Routes

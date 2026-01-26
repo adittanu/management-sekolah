@@ -61,7 +61,7 @@ export default function KelasShow({ id }: ShowProps) {
                 <div>
                     <Link href="/admin/kelas" className="inline-flex items-center text-sm text-slate-500 hover:text-blue-600 mb-4 transition-colors">
                         <ArrowLeft className="w-4 h-4 mr-1" />
-                        Kembali ke Manajemen Kelas
+                        Kembali ke Data Rombel
                     </Link>
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                         <div>

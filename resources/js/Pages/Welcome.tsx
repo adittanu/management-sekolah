@@ -1,14 +1,31 @@
-import { Link, Head } from '@inertiajs/react';
+import { Link, Head, router } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
-import { School, User, GraduationCap, Lock, LogIn, BookOpen, Quote, ChevronRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { School, User, GraduationCap, Lock, LogIn, BookOpen, Quote, ChevronRight, Scan, Loader2, RefreshCw } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
+import { Html5Qrcode } from 'html5-qrcode';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
 
 export default function Welcome() {
     const [currentTime, setCurrentTime] = useState(new Date());
+
+    // QR & Tab State
+    const [loginMethod, setLoginMethod] = useState<'manual' | 'qr'>('manual');
+    const [scannerError, setScannerError] = useState<string | null>(null);
+    const [isScannerRunning, setIsScannerRunning] = useState(false);
+    
+    // OTP Modal State
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
+
+    // Refs
+    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const scannerRegionId = "html5qr-code-welcome-region";
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -23,6 +40,100 @@ export default function Welcome() {
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+    };
+
+    // QR Scanner Lifecycle
+    useEffect(() => {
+        // If we are not in QR mode, ensure scanner is stopped
+        if (loginMethod !== 'qr') {
+            stopScanner();
+            return;
+        }
+
+        // Delay slightly to ensure DOM element exists (Tabs transition)
+        const timer = setTimeout(() => {
+            startScanner();
+        }, 300);
+
+        return () => {
+            clearTimeout(timer);
+            stopScanner();
+        };
+    }, [loginMethod]);
+
+    const startScanner = async () => {
+        if (scannerRef.current) return;
+        
+        try {
+            const html5QrCode = new Html5Qrcode(scannerRegionId);
+            scannerRef.current = html5QrCode;
+
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+            
+            await html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText, decodedResult) => {
+                    handleScanSuccess(decodedText);
+                },
+                (errorMessage) => {
+                    // ignore frame parse errors, typical in scanning
+                }
+            );
+            setIsScannerRunning(true);
+            setScannerError(null);
+        } catch (err) {
+            console.error("Failed to start scanner", err);
+            setScannerError("Gagal mengakses kamera. Pastikan izin kamera diberikan.");
+            setIsScannerRunning(false);
+        }
+    };
+
+    const stopScanner = async () => {
+        if (scannerRef.current) {
+            try {
+                if (scannerRef.current.isScanning) {
+                    await scannerRef.current.stop();
+                }
+                scannerRef.current.clear();
+            } catch (err) {
+                console.error("Failed to stop scanner", err);
+            }
+            scannerRef.current = null;
+            setIsScannerRunning(false);
+        }
+    };
+
+    const handleScanSuccess = (decodedText: string) => {
+        try {
+            const data = JSON.parse(decodedText);
+            // Mock Verification
+            if (data && data.type === 'login_token') {
+                stopScanner(); // Stop scanning immediately
+                setShowOtpModal(true);
+            } else {
+               console.log("Invalid QR type:", data);
+            }
+        } catch (e) {
+            console.log("Invalid JSON:", decodedText);
+        }
+    };
+
+    const handleOtpVerification = () => {
+        if (otp.length < 6) return;
+        
+        setIsVerifying(true);
+        
+        // Mock API call simulation
+        setTimeout(() => {
+            setIsVerifying(false);
+            alert('Login Berhasil!');
+            router.visit('/dashboard'); // Mock redirect
+        }, 1000);
     };
 
     return (
@@ -93,32 +204,77 @@ export default function Welcome() {
                     </div>
 
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-                        <form className="space-y-5">
-                            <div className="space-y-2">
-                                <Label htmlFor="username" className="text-slate-700 font-semibold">Username / NIS / NIP</Label>
-                                <Input 
-                                    id="username" 
-                                    placeholder="Contoh: 12345678" 
-                                    className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
-                                    <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">Lupa Password?</a>
+                        <Tabs defaultValue="manual" onValueChange={(val) => setLoginMethod(val as 'manual' | 'qr')} className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 mb-6">
+                                <TabsTrigger value="manual" className="flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Masuk Manual
+                                </TabsTrigger>
+                                <TabsTrigger value="qr" className="flex items-center gap-2">
+                                    <Scan className="h-4 w-4" />
+                                    Scan QR
+                                </TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="manual">
+                                <form className="space-y-5">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="username" className="text-slate-700 font-semibold">Username / NIS / NIP</Label>
+                                        <Input 
+                                            id="username" 
+                                            placeholder="Contoh: 12345678" 
+                                            className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
+                                            <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">Lupa Password?</a>
+                                        </div>
+                                        <Input 
+                                            id="password" 
+                                            type="password" 
+                                            placeholder="••••••••" 
+                                            className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
+                                        />
+                                    </div>
+                                    
+                                    <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all rounded-xl">
+                                        Masuk Aplikasi <ChevronRight className="w-5 h-5 ml-1" />
+                                    </Button>
+                                </form>
+                            </TabsContent>
+
+                            <TabsContent value="qr">
+                                <div className="flex flex-col items-center justify-center min-h-[300px] bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 p-4">
+                                    <div 
+                                        id={scannerRegionId} 
+                                        className="w-full max-w-[250px] overflow-hidden rounded-xl bg-slate-900 shadow-inner"
+                                        style={{ minHeight: '250px' }} 
+                                    />
+                                    
+                                    {!isScannerRunning && !scannerError && (
+                                        <div className="mt-4 flex flex-col items-center text-slate-500">
+                                            <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-600" />
+                                            <p className="text-sm font-medium">Menyiapkan kamera...</p>
+                                        </div>
+                                    )}
+
+                                    {scannerError && (
+                                        <div className="mt-4 flex flex-col items-center text-red-500 text-center gap-3">
+                                            <p className="text-sm font-medium max-w-[200px]">{scannerError}</p>
+                                            <Button variant="outline" size="sm" onClick={() => startScanner()} className="border-red-200 text-red-600 hover:bg-red-50">
+                                                <RefreshCw className="mr-2 h-4 w-4" /> Coba Lagi
+                                            </Button>
+                                        </div>
+                                    )}
+                                    
+                                    <p className="mt-6 text-sm text-slate-500 text-center max-w-[280px]">
+                                        Arahkan kamera ke <span className="font-bold text-slate-700">QR Code Login</span> pada kartu pelajar atau pegawai Anda.
+                                    </p>
                                 </div>
-                                <Input 
-                                    id="password" 
-                                    type="password" 
-                                    placeholder="••••••••" 
-                                    className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
-                                />
-                            </div>
-                            
-                            <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all rounded-xl">
-                                Masuk Aplikasi <ChevronRight className="w-5 h-5 ml-1" />
-                            </Button>
-                        </form>
+                            </TabsContent>
+                        </Tabs>
 
                          <div className="mt-8 relative">
                             <div className="absolute inset-0 flex items-center">
@@ -163,6 +319,59 @@ export default function Welcome() {
                     </div>
                 </div>
             </div>
+
+            {/* OTP Verification Modal */}
+            <Dialog open={showOtpModal} onOpenChange={(open) => {
+                if (!open && !isVerifying) {
+                    setShowOtpModal(false);
+                    setOtp('');
+                }
+            }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Verifikasi Keamanan</DialogTitle>
+                        <DialogDescription>
+                            Masukkan 6 digit kode PIN/OTP yang muncul di aplikasi authenticator Anda.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="flex flex-col items-center justify-center py-4 gap-4">
+                        <div className="w-full max-w-[240px]">
+                            <Input
+                                type="text"
+                                maxLength={6}
+                                value={otp}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                    setOtp(val);
+                                }}
+                                className="text-center text-2xl tracking-[0.5em] font-mono h-14"
+                                placeholder="000000"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setShowOtpModal(false)}
+                            disabled={isVerifying}
+                        >
+                            Batal
+                        </Button>
+                        <Button 
+                            type="button" 
+                            onClick={handleOtpVerification}
+                            disabled={otp.length !== 6 || isVerifying}
+                        >
+                            {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Verifikasi & Masuk
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

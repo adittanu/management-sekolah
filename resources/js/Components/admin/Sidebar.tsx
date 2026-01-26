@@ -17,7 +17,11 @@ import {
     LogOut, 
     MessageSquare,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    ExternalLink,
+    Wrench,
+    Trophy,
+    Briefcase
 } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 
@@ -25,7 +29,19 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
     const { url } = usePage();
 
     // Define Menus based on Role
-    let navGroups = [];
+    type NavItem = {
+        name: string;
+        href: string;
+        icon: React.ElementType;
+        external?: boolean;
+    };
+
+    type NavGroup = {
+        groupLabel: string;
+        items: NavItem[];
+    };
+
+    let navGroups: NavGroup[] = [];
 
     if (userRole === 'student') {
         navGroups = [
@@ -93,7 +109,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Master Data",
                 items: [
                     { name: 'Manajemen User', href: '/admin/user', icon: Users },
-                    { name: 'Data Kelas', href: '/admin/kelas', icon: School },
+                    { name: 'Data Rombel', href: '/admin/kelas', icon: School },
                     { name: 'Mata Pelajaran', href: '/admin/mapel', icon: BookOpen },
                     { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
@@ -106,14 +122,25 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
                     { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
                     { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
+                    { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
+                    { name: 'PKL / Magang', href: '/admin/pkl', icon: Briefcase },
                 ]
             },
             {
                 groupLabel: "Administrasi",
                 items: [
+                    { name: 'Sarana Prasarana', href: '/admin/sarpras', icon: Wrench },
                     { name: 'PPDB Online', href: '/admin/ppdb', icon: UserPlus },
                     { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
                     { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
+                ]
+            },
+            {
+                groupLabel: "Aplikasi Terintegrasi (SSO)",
+                items: [
+                    { name: 'Office (Embedded)', href: '/admin/office-frame', icon: ExternalLink, external: false },
+                    { name: 'Masuk ke Office', href: 'https://smkn12office.edukati.my.id/', icon: ExternalLink, external: true },
+                    { name: 'Masuk ke Sekolah', href: 'https://websku.com/', icon: School, external: true },
                 ]
             }
         ];
@@ -200,24 +227,42 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                             </h4>
                         )}
                         {group.items.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                title={isCollapsed ? item.name : ''}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 group relative",
-                                    isCollapsed ? "justify-center px-0" : "px-3",
-                                    url.startsWith(item.href) 
-                                        ? "bg-blue-50 text-blue-600 shadow-sm" 
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                                )}
-                            >
-                                <item.icon className={cn("h-4 w-4 transition-colors shrink-0", url.startsWith(item.href) ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")} />
-                                {!isCollapsed && <span className="animate-in fade-in duration-300">{item.name}</span>}
-                                {url.startsWith(item.href) && !isCollapsed && (
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full"></div>
-                                )}
-                            </Link>
+                            item.external ? (
+                                <a
+                                    key={item.href}
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={isCollapsed ? item.name : ''}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 group relative",
+                                        isCollapsed ? "justify-center px-0" : "px-3",
+                                        "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                    )}
+                                >
+                                    <item.icon className={cn("h-4 w-4 transition-colors shrink-0", "text-slate-400 group-hover:text-slate-600")} />
+                                    {!isCollapsed && <span className="animate-in fade-in duration-300">{item.name}</span>}
+                                </a>
+                            ) : (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    title={isCollapsed ? item.name : ''}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 group relative",
+                                        isCollapsed ? "justify-center px-0" : "px-3",
+                                        url.startsWith(item.href) 
+                                            ? "bg-blue-50 text-blue-600 shadow-sm" 
+                                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                    )}
+                                >
+                                    <item.icon className={cn("h-4 w-4 transition-colors shrink-0", url.startsWith(item.href) ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")} />
+                                    {!isCollapsed && <span className="animate-in fade-in duration-300">{item.name}</span>}
+                                    {url.startsWith(item.href) && !isCollapsed && (
+                                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full"></div>
+                                    )}
+                                </Link>
+                            )
                         ))}
                     </div>
                 ))}

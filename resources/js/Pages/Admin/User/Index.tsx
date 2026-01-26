@@ -5,9 +5,10 @@ import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { useState } from 'react';
 import * as Icons from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
+import { QRCodeSVG } from 'qrcode.react';
 
 interface User {
     id: number;
@@ -20,7 +21,8 @@ interface User {
 }
 
 export default function UserIndex() {
-    
+    const [qrUser, setQrUser] = useState<User | null>(null);
+
     const columns: ColumnDef<User>[] = [
         {
             header: "User Info",
@@ -62,6 +64,21 @@ export default function UserIndex() {
             cell: (row: User) => (
                 <div className="text-sm font-medium text-slate-700">{row.detail}</div>
             )
+        },
+        {
+            header: "Aksi",
+            accessorKey: "id",
+            cell: (row: User) => (
+                <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-colors"
+                    onClick={() => setQrUser(row)}
+                    title="Lihat Kartu Identitas"
+                >
+                    <Icons.QrCode className="h-4 w-4" />
+                </Button>
+            )
         }
     ];
 
@@ -72,8 +89,43 @@ export default function UserIndex() {
         ? mockUsers 
         : mockUsers.filter(user => user.role === activeTab);
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     return (
         <AdminLayout title="Manajemen User">
+            <style>{`
+                @media print {
+                    body * {
+                        visibility: hidden;
+                    }
+                    #printable-card, #printable-card * {
+                        visibility: visible;
+                    }
+                    #printable-card {
+                        position: fixed;
+                        left: 50%;
+                        top: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 100%;
+                        height: 100%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: white;
+                        z-index: 9999;
+                        padding: 0;
+                        margin: 0;
+                    }
+                    /* Ensure background graphics are printed */
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+            `}</style>
+
             <div className="space-y-6">
                 <div className="bg-blue-600 rounded-2xl p-8 text-white relative overflow-hidden">
                     <div className="relative z-10">
@@ -194,6 +246,86 @@ export default function UserIndex() {
                             <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Batal</Button>
                             <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">Simpan Pengguna</Button>
                         </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* QR Code / ID Card Dialog */}
+                <Dialog open={!!qrUser} onOpenChange={(open) => !open && setQrUser(null)}>
+                    <DialogContent className="sm:max-w-[400px] p-0 bg-transparent border-none shadow-none">
+                        <div id="printable-card" className="bg-white rounded-2xl overflow-hidden shadow-2xl border border-slate-100 w-full max-w-[350px] mx-auto">
+                            {/* Card Header */}
+                            <div className="h-32 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-6 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                                <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/20 rounded-full blur-xl -ml-10 -mb-5"></div>
+                                
+                                <div className="relative z-10 flex justify-between items-start">
+                                    <div className="text-white">
+                                        <h3 className="font-bold text-lg tracking-wide">KARTU IDENTITAS</h3>
+                                        <p className="text-blue-100 text-xs font-medium opacity-90">SMK Management System</p>
+                                    </div>
+                                    <div className="bg-white/20 backdrop-blur-sm p-1.5 rounded-lg">
+                                        <Icons.Shield className="w-6 h-6 text-white" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card Body */}
+                            <div className="px-6 pb-8 -mt-12 relative z-20">
+                                <div className="flex justify-center mb-4">
+                                    <div className="p-1.5 bg-white rounded-2xl shadow-lg">
+                                        <img 
+                                            src={qrUser?.avatar} 
+                                            alt={qrUser?.name} 
+                                            className="w-24 h-24 rounded-xl object-cover bg-slate-100 border border-slate-100" 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="text-center space-y-1 mb-6">
+                                    <h2 className="font-bold text-xl text-slate-900 leading-tight">{qrUser?.name}</h2>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+                                            {qrUser?.role}
+                                        </span>
+                                        {qrUser?.detail && (
+                                            <span className="text-sm text-slate-500 font-medium border-l border-slate-200 pl-2">
+                                                {qrUser.detail}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 font-mono pt-1">{qrUser?.email}</p>
+                                </div>
+
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 border-dashed flex flex-col items-center justify-center gap-3">
+                                    {qrUser && (
+                                        <QRCodeSVG 
+                                            value={JSON.stringify({ 
+                                                id: qrUser.id, 
+                                                type: 'login_token', 
+                                                timestamp: Date.now() 
+                                            })}
+                                            size={140}
+                                            level="M"
+                                            className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm"
+                                        />
+                                    )}
+                                    <p className="text-[10px] text-slate-400 text-center max-w-[200px] leading-relaxed">
+                                        Scan kode QR ini pada mesin absensi atau login sistem sekolah.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Print Footer - Hidden when printing */}
+                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2 print:hidden">
+                                <Button variant="outline" className="flex-1" onClick={() => setQrUser(null)}>
+                                    Tutup
+                                </Button>
+                                <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handlePrint}>
+                                    <Icons.Printer className="w-4 h-4 mr-2" />
+                                    Cetak Kartu
+                                </Button>
+                            </div>
+                        </div>
                     </DialogContent>
                 </Dialog>
             </div>

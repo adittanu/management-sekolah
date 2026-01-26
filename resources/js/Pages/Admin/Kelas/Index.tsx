@@ -23,18 +23,18 @@ export default function KelasIndex() {
     });
 
     return (
-        <AdminLayout title="Manajemen Kelas">
+        <AdminLayout title="Data Rombongan Belajar">
             <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-3xl font-bold text-slate-900">Manajemen Kelas</h2>
+                        <h2 className="text-3xl font-bold text-slate-900">Data Rombel</h2>
                         <p className="text-slate-500">Atur daftar kelas dan rombongan belajar.</p>
                     </div>
                     <Button 
                         onClick={() => setIsAddClassOpen(true)}
                         className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
                     >
-                        + Tambah Kelas
+                        + Tambah Rombel
                     </Button>
                 </div>
 
