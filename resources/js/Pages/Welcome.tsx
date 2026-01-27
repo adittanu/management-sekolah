@@ -1,17 +1,34 @@
-import { Link, Head, router } from '@inertiajs/react';
+import { Link, Head, router, useForm } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
 import { School, User, GraduationCap, Lock, LogIn, BookOpen, Quote, ChevronRight, Scan, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, FormEventHandler } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/Components/ui/dialog';
+import InputError from '@/Components/InputError';
+import axios from 'axios';
 
 export default function Welcome() {
     const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Login Form State (using Inertia useForm)
+    const { data, setData, post, processing, errors, reset } = useForm({
+        login: '',
+        password: '',
+        remember: false as boolean,
+    });
+
+    // Handle Login Submit
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post(route('login'), {
+            onFinish: () => reset('password'),
+        });
+    };
 
     // QR & Tab State
     const [loginMethod, setLoginMethod] = useState<'manual' | 'qr'>('manual');
@@ -217,29 +234,40 @@ export default function Welcome() {
                             </TabsList>
 
                             <TabsContent value="manual">
-                                <form className="space-y-5">
+                                <form onSubmit={submit} className="space-y-5">
                                     <div className="space-y-2">
-                                        <Label htmlFor="username" className="text-slate-700 font-semibold">Username / NIS / NIP</Label>
+                                        <Label htmlFor="login" className="text-slate-700 font-semibold">Email / NIS / NIP</Label>
                                         <Input 
-                                            id="username" 
-                                            placeholder="Contoh: 12345678" 
+                                            id="login" 
+                                            type="text"
+                                            name="login"
+                                            value={data.login}
+                                            autoComplete="off"
+                                            onChange={(e) => setData('login', e.target.value)}
+                                            placeholder="Masukkan Email, NIS, atau NIP" 
                                             className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
                                         />
+                                        <InputError message={errors.login} className="mt-2" />
                                     </div>
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
-                                            <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">Lupa Password?</a>
+                                            <Link href={route('password.request')} className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">Lupa Password?</Link>
                                         </div>
                                         <Input 
                                             id="password" 
-                                            type="password" 
+                                            type="password"
+                                            name="password"
+                                            value={data.password}
+                                            autoComplete="current-password"
+                                            onChange={(e) => setData('password', e.target.value)}
                                             placeholder="••••••••" 
                                             className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
                                         />
+                                        <InputError message={errors.password} className="mt-2" />
                                     </div>
                                     
-                                    <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all rounded-xl">
+                                    <Button disabled={processing} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all rounded-xl">
                                         Masuk Aplikasi <ChevronRight className="w-5 h-5 ml-1" />
                                     </Button>
                                 </form>

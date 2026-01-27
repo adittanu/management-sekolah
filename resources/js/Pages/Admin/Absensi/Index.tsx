@@ -15,44 +15,123 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 // Types
 type AttendanceStatus = 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
 
-interface Student {
+interface StudentModel {
     id: number;
     name: string;
     nis: string;
     avatar_url?: string;
+}
+
+interface ClassroomModel {
+    id: number;
+    name: string;
+    students: StudentModel[];
+}
+
+interface SubjectModel {
+    id: number;
+    name: string;
+}
+
+interface ScheduleModel {
+    id: number;
+    subject: SubjectModel;
+    classroom: ClassroomModel;
+    start_time?: string;
+    end_time?: string;
+    teacher_name?: string; // Optional if not available
+    room_name?: string;   // Optional if not available
+}
+
+interface AttendanceModel {
+    id: number;
+    status: 'hadir' | 'sakit' | 'izin' | 'alpha';
+    date: string;
+    student_id: number;
+    student: StudentModel;
+    schedule: ScheduleModel;
+}
+
+interface Paginated<T> {
+    data: T[];
+    links: any[];
+    meta: any;
+}
+
+interface Props {
+    attendances: Paginated<AttendanceModel>;
+    schedules: ScheduleModel[];
+}
+
+interface Student extends StudentModel {
     status: AttendanceStatus;
 }
 
-export default function AbsensiIndex() {
+export default function AbsensiIndex({ attendances, schedules }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isAttendanceSessionActive, setIsAttendanceSessionActive] = useState(false);
     
-    // Mock Schedule
-    const currentClass = {
-        name: "XII IPA 1",
-        subject: "Matematika Peminatan",
-        time: "07:30 - 09:00",
-        teacher: "Bpk. Budi Santoso",
-        room: "R. 302",
-        totalStudents: 32
+    // Derived Data for Current Class (using first schedule)
+    const activeSchedule = schedules?.[0];
+    const currentClass = activeSchedule ? {
+        name: activeSchedule.classroom.name,
+        subject: activeSchedule.subject.name,
+        time: activeSchedule.start_time && activeSchedule.end_time ? `${activeSchedule.start_time} - ${activeSchedule.end_time}` : "07:30 - 09:00",
+        teacher: activeSchedule.teacher_name || "Guru Mata Pelajaran",
+        room: activeSchedule.room_name || "R. Kelas",
+        totalStudents: activeSchedule.classroom.students?.length || 0
+    } : {
+        name: "Tidak ada jadwal",
+        subject: "-",
+        time: "-",
+        teacher: "-",
+        room: "-",
+        totalStudents: 0
     };
 
-    // Mock Students Data - Default all present (Green)
-    const [students, setStudents] = useState<Student[]>([
-        { id: 1, name: "Ahmad Fulan", nis: "12345", status: "Hadir" },
-        { id: 2, name: "Budi Santoso", nis: "12346", status: "Hadir" },
-        { id: 3, name: "Citra Kirana", nis: "12347", status: "Hadir" },
-        { id: 4, name: "Dewi Lestari", nis: "12348", status: "Hadir" },
-        { id: 5, name: "Eko Prasetyo", nis: "12349", status: "Hadir" },
-        { id: 6, name: "Fajar Nugraha", nis: "12350", status: "Hadir" },
-        { id: 7, name: "Gita Gutawa", nis: "12351", status: "Hadir" },
-        { id: 8, name: "Hendra Setiawan", nis: "12352", status: "Hadir" },
-        { id: 9, name: "Indah Permata", nis: "12353", status: "Hadir" },
-        { id: 10, name: "Joko Widodo", nis: "12354", status: "Hadir" },
-        { id: 11, name: "Kartika Putri", nis: "12355", status: "Hadir" },
-        { id: 12, name: "Lukman Hakim", nis: "12356", status: "Hadir" },
-    ]);
+    // Calculate Stats from Real Data
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Helper to normalize status
+    const normalizeStatus = (s: string): AttendanceStatus => {
+        const lower = s.toLowerCase();
+        if (lower === 'hadir') return 'Hadir';
+        if (lower === 'sakit') return 'Sakit';
+        if (lower === 'izin') return 'Izin';
+        if (lower === 'alpha') return 'Alpha';
+        return 'Alpha'; // Default fallback
+    };
+
+    const statsData = attendances?.data || [];
+    const presentTodayCount = statsData.filter(a => a.status === 'hadir' && a.date === today).length;
+    const lateCount = 0; // Not tracked in model yet
+    const alphaCount = statsData.filter(a => a.status === 'alpha' && a.date === today).length;
+    // Total students is tricky with pagination, but we use unique students found in attendances or fall back to schedule
+    const uniqueStudents = new Set(statsData.map(a => a.student_id));
+    const totalStudentsCount = uniqueStudents.size || (activeSchedule?.classroom?.students?.length || 0);
+
+    const stats = {
+        presentToday: presentTodayCount,
+        totalStudents: totalStudentsCount, // Approximate if paginated
+        late: lateCount,
+        alpha: alphaCount,
+        teachersPresent: 48, // Mock for now as requested
+        totalTeachers: 50    // Mock for now
+    };
+
+    // Initialize Students from Schedule for Entry Tab
+    const [students, setStudents] = useState<Student[]>([]);
+
+    useEffect(() => {
+        if (activeSchedule?.classroom?.students) {
+            const mappedStudents: Student[] = activeSchedule.classroom.students.map(s => ({
+                ...s,
+                status: 'Hadir' // Default status for new entry
+            }));
+            setStudents(mappedStudents);
+        }
+    }, [activeSchedule]);
 
     // History for Undo
     const historyRef = useRef<Student[]>([]);
@@ -71,6 +150,12 @@ export default function AbsensiIndex() {
             return student;
         }));
     };
+
+    // Initialize Students from Schedule for Entry Tab
+    // const [students, setStudents] = useState<Student[]>([]); -- Already declared above
+
+    // History for Undo
+    // const historyRef = useRef<Student[]>([]); -- Already declared above
 
     const getStatusColor = (status: AttendanceStatus) => {
         switch (status) {
@@ -108,14 +193,7 @@ export default function AbsensiIndex() {
     };
 
     // --- Mock Data Stats for Dashboard ---
-    const stats = {
-        presentToday: 850,
-        totalStudents: 900,
-        late: 45,
-        alpha: 5,
-        teachersPresent: 48,
-        totalTeachers: 50
-    };
+    // REMOVED: const stats = { ... } (Replaced by calculated stats above)
 
     // --- Components ---
 

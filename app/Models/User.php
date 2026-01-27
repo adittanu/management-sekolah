@@ -21,6 +21,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        // 'role', // F1: Removed from fillable for security
+        'identity_number',
+        'gender',
+        'avatar',
     ];
 
     /**
@@ -44,5 +48,43 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->role === 'teacher';
+    }
+
+    public function isStudent(): bool
+    {
+        return $this->role === 'student';
+    }
+
+    // Relationships
+    public function homeroomClass()
+    {
+        return $this->hasOne(Classroom::class, 'teacher_id');
+    }
+
+    public function classrooms()
+    {
+        return $this->belongsToMany(Classroom::class, 'classroom_user')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class, 'teacher_id');
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class, 'student_id');
     }
 }

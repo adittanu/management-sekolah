@@ -1,28 +1,145 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { DataTable, ColumnDef } from '@/Components/admin/DataTable';
-import { mockUsers } from '@/data/mockData';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect, FormEventHandler } from 'react';
 import * as Icons from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import { QRCodeSVG } from 'qrcode.react';
+import { Link, useForm, router } from '@inertiajs/react';
+import { PageProps } from '@/types';
+import InputError from '@/Components/InputError';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/Components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 
 interface User {
     id: number;
     name: string;
     email: string;
-    role: string;
-    status: string;
-    detail: string;
-    avatar: string;
+    role: 'admin' | 'teacher' | 'student';
+    identity_number: string | null;
+    gender: 'L' | 'P' | null;
+    avatar: string | null;
+    created_at: string;
 }
 
-export default function UserIndex() {
-    const [qrUser, setQrUser] = useState<User | null>(null);
+interface PaginatedUsers {
+    data: User[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    links: {
+        url: string | null;
+        label: string;
+        active: boolean;
+    }[];
+}
 
+interface Props extends PageProps {
+    users: PaginatedUsers;
+    filters?: {
+        search?: string;
+    };
+}
+
+const ROLE_LABELS: Record<string, string> = {
+    admin: 'ADMIN',
+    teacher: 'GURU',
+    student: 'SISWA'
+};
+
+const getAvatarUrl = (user: User) => {
+    if (user.avatar) return user.avatar;
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`;
+};
+
+export default function UserIndex({ users, filters }: Props) {
+    const [qrUser, setQrUser] = useState<User | null>(null);
+    const [activeTab, setActiveTab] = useState('Semua');
+    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+    const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+    const [userToEdit, setUserToEdit] = useState<User | null>(null);
+    const [userToDelete, setUserToDelete] = useState<User | null>(null);
+    const [searchQuery, setSearchQuery] = useState(filters?.search || '');
+    
+    // Search functionality
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.get(route('admin.user.index'), { search: searchQuery }, { preserveState: true, replace: true });
+    };
+
+    // Create User Form
+    const { data: createData, setData: setCreateData, post: createPost, processing: createProcessing, errors: createErrors, reset: createReset } = useForm({
+        name: '',
+        email: '',
+        password: '',
+        role: 'student' as 'admin' | 'teacher' | 'student',
+        identity_number: '',
+        gender: '' as 'L' | 'P' | '',
+        avatar: '' // Placeholder if needed in future
+    });
+
+    const handleCreateUser: FormEventHandler = (e) => {
+        e.preventDefault();
+        createPost(route('admin.user.store'), {
+            onSuccess: () => {
+                setIsAddUserOpen(false);
+                createReset();
+            }
+        });
+    };
+
+    // Edit User Form
+    const { data: editData, setData: setEditData, put: editPut, processing: editProcessing, errors: editErrors, reset: editReset, clearErrors: editClearErrors } = useForm({
+        name: '',
+        email: '',
+        password: '',
+        role: 'student' as 'admin' | 'teacher' | 'student',
+        identity_number: '',
+        gender: '' as 'L' | 'P' | '',
+        avatar: ''
+    });
+
+    const openEditModal = (user: User) => {
+        setUserToEdit(user);
+        setEditData({
+            name: user.name,
+            email: user.email,
+            password: '', // Empty for no change
+            role: user.role,
+            identity_number: user.identity_number || '',
+            gender: user.gender || '',
+            avatar: user.avatar || ''
+        });
+        editClearErrors();
+        setIsEditUserOpen(true);
+    };
+
+    const handleEditUser: FormEventHandler = (e) => {
+        e.preventDefault();
+        if (!userToEdit) return;
+        
+        editPut(route('admin.user.update', userToEdit.id), {
+            onSuccess: () => {
+                setIsEditUserOpen(false);
+                editReset();
+                setUserToEdit(null);
+            }
+        });
+    };
+
+    // Delete User
+    const handleDeleteUser = () => {
+        if (!userToDelete) return;
+        router.delete(route('admin.user.destroy', userToDelete.id), {
+            onSuccess: () => setUserToDelete(null)
+        });
+    };
+
+    // Columns Definition
     const columns: ColumnDef<User>[] = [
         {
             header: "User Info",
@@ -30,7 +147,11 @@ export default function UserIndex() {
             cell: (row: User) => (
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
-                         <img src={row.avatar} alt={row.name} className="w-full h-full object-cover" />
+                         <img 
+                            src={getAvatarUrl(row)} 
+                            alt={row.name} 
+                            className="w-full h-full object-cover" 
+                        />
                     </div>
                     <div>
                         <div className="font-bold text-slate-900">{row.name}</div>
@@ -42,52 +163,76 @@ export default function UserIndex() {
         {
             header: "Role & Status",
             accessorKey: "role",
-            cell: (row: User) => (
-                <div className="flex flex-col items-start gap-1">
-                    <Badge variant="secondary" className={`
-                        ${row.role === 'SISWA' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''}
-                        ${row.role === 'GURU' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''}
-                        ${row.role === 'WAKA' ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : ''}
-                    `}>
-                        {row.role}
-                    </Badge>
-                     <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                        {row.status}
+            cell: (row: User) => {
+                const displayRole = ROLE_LABELS[row.role] || row.role.toUpperCase();
+                return (
+                    <div className="flex flex-col items-start gap-1">
+                        <Badge variant="secondary" className={`
+                            ${row.role === 'student' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''}
+                            ${row.role === 'teacher' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''}
+                            ${row.role === 'admin' ? 'bg-red-100 text-red-700 hover:bg-red-200' : ''}
+                        `}>
+                            {displayRole}
+                        </Badge>
+                         <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                            <Icons.CheckCircle2 className="w-3 h-3" />
+                            Aktif
+                        </div>
                     </div>
-                </div>
-            )
+                );
+            }
         },
         {
-            header: "Detail (Kelas)",
-            accessorKey: "detail",
+            header: "Detail (NIS/NIP)",
+            accessorKey: "identity_number",
             cell: (row: User) => (
-                <div className="text-sm font-medium text-slate-700">{row.detail}</div>
+                <div className="text-sm font-medium text-slate-700">
+                    {row.identity_number || '-'}
+                </div>
             )
         },
         {
             header: "Aksi",
             accessorKey: "id",
             cell: (row: User) => (
-                <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-colors"
-                    onClick={() => setQrUser(row)}
-                    title="Lihat Kartu Identitas"
-                >
-                    <Icons.QrCode className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        onClick={() => setQrUser(row)}
+                        title="Lihat Kartu Identitas"
+                    >
+                        <Icons.QrCode className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                        onClick={() => openEditModal(row)}
+                        title="Edit User"
+                    >
+                        <Icons.Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        onClick={() => setUserToDelete(row)}
+                        title="Hapus User"
+                    >
+                        <Icons.Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
             )
         }
     ];
 
-    const [activeTab, setActiveTab] = useState('Semua');
-    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-
+    // Client-side filtering for the current page of data
+    // Note: server-side search handles the main filtering, this is just for the "tabs" on the current page
     const filteredUsers = activeTab === 'Semua' 
-        ? mockUsers 
-        : mockUsers.filter(user => user.role === activeTab);
+        ? users.data 
+        : users.data.filter(user => ROLE_LABELS[user.role] === activeTab || user.role.toUpperCase() === activeTab);
 
     const handlePrint = () => {
         window.print();
@@ -141,17 +286,32 @@ export default function UserIndex() {
                     </div>
                 </div>
 
-                <div className="flex gap-2 pb-2 overflow-x-auto">
-                    {['Semua', 'SISWA', 'GURU', 'WAKA', 'ADMIN'].map((tab) => (
-                        <Button 
-                            key={tab} 
-                            onClick={() => setActiveTab(tab)}
-                            variant={activeTab === tab ? 'default' : 'ghost'} 
-                            className={`rounded-full px-6 transition-all ${activeTab === tab ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-900 bg-white shadow-sm hover:bg-slate-50'}`}
-                        >
-                            {tab}
-                        </Button>
-                    ))}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex gap-2 pb-2 overflow-x-auto w-full sm:w-auto">
+                        {['Semua', 'SISWA', 'GURU', 'ADMIN'].map((tab) => (
+                            <Button 
+                                key={tab} 
+                                onClick={() => setActiveTab(tab)}
+                                variant={activeTab === tab ? 'default' : 'ghost'} 
+                                className={`rounded-full px-6 transition-all ${activeTab === tab ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-900 bg-white shadow-sm hover:bg-slate-50'}`}
+                            >
+                                {tab}
+                            </Button>
+                        ))}
+                    </div>
+
+                    <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Icons.Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                type="search"
+                                placeholder="Cari nama atau email..."
+                                className="pl-9 bg-white border-slate-200"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    </form>
                 </div>
 
                 <DataTable 
@@ -161,93 +321,268 @@ export default function UserIndex() {
                     onAction={() => setIsAddUserOpen(true)}
                 />
 
+                {/* Server-side Pagination Links */}
+                {users.links.length > 3 && (
+                     <div className="flex justify-center mt-4 gap-1 flex-wrap">
+                        {users.links.map((link, i) => (
+                            <Link
+                                key={i}
+                                href={link.url || '#'}
+                                className={`
+                                    px-3 py-1 rounded-md text-sm border
+                                    ${link.active 
+                                        ? 'bg-blue-600 text-white border-blue-600' 
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                    }
+                                    ${!link.url ? 'opacity-50 pointer-events-none' : ''}
+                                `}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
+                    </div>
+                )}
+
                 {/* Add User Dialog */}
                 <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
                     <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-100 shadow-2xl">
-                        <DialogHeader className="p-6 pb-2">
-                            <DialogTitle className="text-xl font-bold text-slate-900">Tambah Pengguna Baru</DialogTitle>
-                            <DialogDescription>
-                                Masukkan detail pengguna baru untuk didaftarkan ke sistem.
-                            </DialogDescription>
-                        </DialogHeader>
-                        
-                        <div className="px-6 py-4 space-y-6">
-                            {/* Profile Upload Placeholder */}
-                            <div className="flex flex-col items-center justify-center gap-3">
-                                <div className="w-24 h-24 rounded-full bg-slate-50 border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors group relative overflow-hidden">
-                                    <div className="text-center group-hover:scale-110 transition-transform">
-                                        <Icons.Camera className="w-6 h-6 text-slate-400 mx-auto" />
-                                        <span className="text-[10px] text-slate-400 mt-1 block">Upload Foto</span>
+                        <form onSubmit={handleCreateUser}>
+                            <DialogHeader className="p-6 pb-2">
+                                <DialogTitle className="text-xl font-bold text-slate-900">Tambah Pengguna Baru</DialogTitle>
+                                <DialogDescription>
+                                    Masukkan detail pengguna baru untuk didaftarkan ke sistem.
+                                </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="px-6 py-4 space-y-6">
+                                {/* Role Selection */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium text-slate-700">Peran Pengguna (Role)</Label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {(['student', 'teacher', 'admin'] as const).map((role) => (
+                                            <div 
+                                                key={role}
+                                                onClick={() => setCreateData('role', role)}
+                                                className={`
+                                                    cursor-pointer rounded-lg border px-4 py-2 text-center text-sm font-medium transition-all
+                                                    ${createData.role === role ? 
+                                                        (role === 'student' ? 'border-blue-500 bg-blue-50 text-blue-700' :
+                                                         role === 'teacher' ? 'border-purple-500 bg-purple-50 text-purple-700' :
+                                                         'border-red-500 bg-red-50 text-red-700')
+                                                        : 'hover:bg-slate-50 text-slate-600'
+                                                    }
+                                                `}
+                                            >
+                                                {ROLE_LABELS[role]}
+                                            </div>
+                                        ))}
                                     </div>
-                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    <InputError message={createErrors.role} />
                                 </div>
-                                <p className="text-xs text-slate-500">
-                                    Format: JPG, PNG. Maks 2MB.
-                                </p>
-                            </div>
 
-                            {/* Role Selection */}
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium text-slate-700">Peran Pengguna (Role)</Label>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {['SISWA', 'GURU', 'WAKA', 'ADMIN'].map((role) => (
-                                        <div 
-                                            key={role}
-                                            className={`
-                                                cursor-pointer rounded-lg border px-4 py-2 text-center text-sm font-medium transition-all
-                                                ${role === 'SISWA' ? 'hover:border-blue-500 hover:bg-blue-50' : ''}
-                                                ${role === 'GURU' ? 'hover:border-purple-500 hover:bg-purple-50' : ''}
-                                                ${role === 'WAKA' ? 'hover:border-orange-500 hover:bg-orange-50' : ''}
-                                                ${role === 'ADMIN' ? 'hover:border-red-500 hover:bg-red-50' : ''}
-                                                peer-checked:border-blue-600 peer-checked:bg-blue-50
-                                            `}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-name">Nama Lengkap</Label>
+                                        <Input 
+                                            id="create-name" 
+                                            placeholder="Contoh: Budi Santoso" 
+                                            value={createData.name}
+                                            onChange={(e) => setCreateData('name', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={createErrors.name} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-email">Email</Label>
+                                        <Input 
+                                            id="create-email" 
+                                            type="email"
+                                            placeholder="nama@sekolah.sch.id" 
+                                            value={createData.email}
+                                            onChange={(e) => setCreateData('email', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={createErrors.email} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-password">Password</Label>
+                                        <Input 
+                                            id="create-password" 
+                                            type="password"
+                                            placeholder="Minimal 8 karakter" 
+                                            value={createData.password}
+                                            onChange={(e) => setCreateData('password', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={createErrors.password} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="create-identity">Nomor Induk (NISN/NIP)</Label>
+                                        <Input 
+                                            id="create-identity" 
+                                            placeholder="Opsional" 
+                                            value={createData.identity_number}
+                                            onChange={(e) => setCreateData('identity_number', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={createErrors.identity_number} />
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label htmlFor="create-gender">Jenis Kelamin</Label>
+                                        <Select 
+                                            value={createData.gender || ''} 
+                                            onValueChange={(val) => setCreateData('gender', val as 'L' | 'P')}
                                         >
-                                            <input type="radio" name="role" id={role} className="sr-only peer" />
-                                            <label htmlFor={role} className="cursor-pointer w-full h-full block">
-                                                {role}
-                                            </label>
-                                        </div>
-                                    ))}
+                                            <SelectTrigger className="bg-slate-50 border-slate-200">
+                                                <SelectValue placeholder="Pilih..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="L">Laki-laki</SelectItem>
+                                                <SelectItem value="P">Perempuan</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError message={createErrors.gender} />
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Nama Lengkap</Label>
-                                    <Input id="name" placeholder="Contoh: Budi Santoso" className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input id="email" placeholder="nama@sekolah.sch.id" className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="nisn">Nomor Induk (NISN/NIP)</Label>
-                                    <Input id="nisn" placeholder="1234567890" className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="kelas">Kelas (Opsional)</Label>
-                                    <Input id="kelas" placeholder="Pilih Kelas..." className="bg-slate-50 border-slate-200 focus-visible:ring-blue-500" />
-                                </div>
-                            </div>
-
-                            {/* Info Alert */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-3">
-                                <Icons.AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                                <div>
-                                    <h4 className="text-sm font-semibold text-amber-800">Verifikasi Akun Diperlukan</h4>
-                                    <p className="text-xs text-amber-700 mt-1">
-                                        Setelah ditambahkan, sistem akan mengirimkan email verifikasi otomatis. User harus memverifikasi email sebelum bisa login.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <DialogFooter className="p-6 pt-2 bg-slate-50/50">
-                            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Batal</Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">Simpan Pengguna</Button>
-                        </DialogFooter>
+                            <DialogFooter className="p-6 pt-2 bg-slate-50/50">
+                                <Button type="button" variant="outline" onClick={() => setIsAddUserOpen(false)}>Batal</Button>
+                                <Button type="submit" disabled={createProcessing} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
+                                    {createProcessing ? 'Menyimpan...' : 'Simpan Pengguna'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
+
+                {/* Edit User Dialog */}
+                <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+                    <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-100 shadow-2xl">
+                         <form onSubmit={handleEditUser}>
+                            <DialogHeader className="p-6 pb-2">
+                                <DialogTitle className="text-xl font-bold text-slate-900">Edit Pengguna</DialogTitle>
+                                <DialogDescription>
+                                    Perbarui detail informasi pengguna.
+                                </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="px-6 py-4 space-y-6">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium text-slate-700">Peran Pengguna (Role)</Label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {(['student', 'teacher', 'admin'] as const).map((role) => (
+                                            <div 
+                                                key={role}
+                                                onClick={() => setEditData('role', role)}
+                                                className={`
+                                                    cursor-pointer rounded-lg border px-4 py-2 text-center text-sm font-medium transition-all
+                                                    ${editData.role === role ? 
+                                                        (role === 'student' ? 'border-blue-500 bg-blue-50 text-blue-700' :
+                                                         role === 'teacher' ? 'border-purple-500 bg-purple-50 text-purple-700' :
+                                                         'border-red-500 bg-red-50 text-red-700')
+                                                        : 'hover:bg-slate-50 text-slate-600'
+                                                    }
+                                                `}
+                                            >
+                                                {ROLE_LABELS[role]}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <InputError message={editErrors.role} />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-name">Nama Lengkap</Label>
+                                        <Input 
+                                            id="edit-name" 
+                                            value={editData.name}
+                                            onChange={(e) => setEditData('name', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={editErrors.name} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-email">Email</Label>
+                                        <Input 
+                                            id="edit-email" 
+                                            type="email"
+                                            value={editData.email}
+                                            onChange={(e) => setEditData('email', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={editErrors.email} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-password">Password Baru</Label>
+                                        <Input 
+                                            id="edit-password" 
+                                            type="password"
+                                            placeholder="Kosongkan jika tidak berubah" 
+                                            value={editData.password}
+                                            onChange={(e) => setEditData('password', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <p className="text-[10px] text-slate-500">Minimal 8 karakter jika diisi</p>
+                                        <InputError message={editErrors.password} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-identity">Nomor Induk (NISN/NIP)</Label>
+                                        <Input 
+                                            id="edit-identity" 
+                                            value={editData.identity_number}
+                                            onChange={(e) => setEditData('identity_number', e.target.value)}
+                                            className="bg-slate-50 border-slate-200" 
+                                        />
+                                        <InputError message={editErrors.identity_number} />
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label htmlFor="edit-gender">Jenis Kelamin</Label>
+                                        <Select 
+                                            value={editData.gender || ''} 
+                                            onValueChange={(val) => setEditData('gender', val as 'L' | 'P')}
+                                        >
+                                            <SelectTrigger className="bg-slate-50 border-slate-200">
+                                                <SelectValue placeholder="Pilih..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="L">Laki-laki</SelectItem>
+                                                <SelectItem value="P">Perempuan</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <InputError message={editErrors.gender} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="p-6 pt-2 bg-slate-50/50">
+                                <Button type="button" variant="outline" onClick={() => setIsEditUserOpen(false)}>Batal</Button>
+                                <Button type="submit" disabled={editProcessing} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
+                                    {editProcessing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Delete Confirmation Dialog */}
+                <AlertDialog open={!!userToDelete} onOpenChange={(open: boolean) => !open && setUserToDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Tindakan ini tidak dapat dibatalkan. Data pengguna <strong>{userToDelete?.name}</strong> akan dihapus permanen dari sistem.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700 text-white">
+                                Hapus Pengguna
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
 
                 {/* QR Code / ID Card Dialog */}
                 <Dialog open={!!qrUser} onOpenChange={(open) => !open && setQrUser(null)}>
@@ -274,7 +609,7 @@ export default function UserIndex() {
                                 <div className="flex justify-center mb-4">
                                     <div className="p-1.5 bg-white rounded-2xl shadow-lg">
                                         <img 
-                                            src={qrUser?.avatar} 
+                                            src={qrUser ? getAvatarUrl(qrUser) : ''} 
                                             alt={qrUser?.name} 
                                             className="w-24 h-24 rounded-xl object-cover bg-slate-100 border border-slate-100" 
                                         />
@@ -285,11 +620,11 @@ export default function UserIndex() {
                                     <h2 className="font-bold text-xl text-slate-900 leading-tight">{qrUser?.name}</h2>
                                     <div className="flex items-center justify-center gap-2">
                                         <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
-                                            {qrUser?.role}
+                                            {qrUser ? ROLE_LABELS[qrUser.role] : ''}
                                         </span>
-                                        {qrUser?.detail && (
+                                        {qrUser?.identity_number && (
                                             <span className="text-sm text-slate-500 font-medium border-l border-slate-200 pl-2">
-                                                {qrUser.detail}
+                                                {qrUser.identity_number}
                                             </span>
                                         )}
                                     </div>

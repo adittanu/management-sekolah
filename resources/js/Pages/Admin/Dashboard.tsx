@@ -2,19 +2,97 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Badge } from '@/Components/ui/badge';
-import { Link, usePage } from '@inertiajs/react';
-import { mockStats, mockReports, mockAttendanceData } from '@/data/mockData';
+import { Link } from '@inertiajs/react';
 import * as Icons from 'lucide-react';
 import { LucideIcon, BookOpen, Clock, Calendar, AlertCircle, CheckCircle2, Trophy, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-export default function Dashboard({ role = 'admin' }: { role?: string }) {
+interface Stat {
+    title: string;
+    value: string;
+    icon: string;
+    bg: string;
+    color: string;
+}
+
+interface Report {
+    id: number;
+    user: string;
+    action: string;
+    time: string;
+    avatar: string | null;
+}
+
+interface AttendanceDataPoint {
+    day: string;
+    present: number;
+    absent: number;
+}
+
+interface Props {
+    role?: string;
+    totalStudents?: number;
+    totalTeachers?: number;
+    totalClasses?: number;
+    totalSubjects?: number;
+    attendanceData?: AttendanceDataPoint[];
+    reports?: Report[];
+    todayStats?: {
+        present: number;
+        sick: number;
+        permit: number;
+        absent: number;
+    };
+}
+
+export default function Dashboard({ 
+    role = 'admin', 
+    totalStudents = 0,
+    totalTeachers = 0,
+    totalClasses = 0,
+    totalSubjects = 0,
+    attendanceData = [], 
+    reports = [] 
+}: Props) {
     
     // Admin Dashboard Component
-    const AdminDashboard = () => (
+    const AdminDashboard = () => {
+        // Map real props to the UI card format
+        const stats: Stat[] = [
+            {
+                title: 'Total Siswa',
+                value: totalStudents.toString(),
+                icon: 'Users',
+                bg: 'bg-blue-100',
+                color: 'text-blue-600'
+            },
+            {
+                title: 'Total Guru',
+                value: totalTeachers.toString(),
+                icon: 'GraduationCap',
+                bg: 'bg-green-100',
+                color: 'text-green-600'
+            },
+            {
+                title: 'Total Kelas',
+                value: totalClasses.toString(),
+                icon: 'School',
+                bg: 'bg-orange-100',
+                color: 'text-orange-600'
+            },
+            {
+                title: 'Mata Pelajaran',
+                value: totalSubjects.toString(),
+                icon: 'BookOpen',
+                bg: 'bg-purple-100',
+                color: 'text-purple-600'
+            }
+        ];
+
+        return (
         <div className="space-y-8">
-             {/* Header */}
-             <div className="flex justify-between items-center">
+            {/* Header */}
+            <div className="flex justify-between items-center">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard Admin</h2>
                     <p className="text-slate-500">Ringkasan aktivitas sekolah hari ini.</p>
@@ -23,7 +101,7 @@ export default function Dashboard({ role = 'admin' }: { role?: string }) {
 
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {mockStats.map((stat, index) => {
+                {stats.map((stat, index) => {
                     const IconComponent = (Icons as unknown as Record<string, LucideIcon>)[stat.icon];
                     return (
                         <Card key={index} className="overflow-hidden border-none shadow-sm hover:shadow-md transition-all">
@@ -55,7 +133,7 @@ export default function Dashboard({ role = 'admin' }: { role?: string }) {
                     <CardContent className="pl-2 pt-4">
                          <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={mockAttendanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <BarChart data={attendanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
@@ -75,7 +153,7 @@ export default function Dashboard({ role = 'admin' }: { role?: string }) {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
-                            {mockReports.map((report) => (
+                            {reports.map((report) => (
                                 <div key={report.id} className="flex items-start gap-4">
                                     <div className="w-9 h-9 rounded-full overflow-hidden bg-white border border-slate-200">
                                         {report.avatar ? (
@@ -123,7 +201,8 @@ export default function Dashboard({ role = 'admin' }: { role?: string }) {
                 </div>
             </div>
         </div>
-    );
+        );
+    };
 
     // Student Dashboard Component
     const StudentDashboard = () => (

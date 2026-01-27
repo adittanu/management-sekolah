@@ -1,18 +1,58 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { mockSchedule, mockClasses, mockSubjects } from '@/data/mockData';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Search, Clock, MapPin, CalendarDays, Plus } from 'lucide-react';
 import { Card } from '@/Components/ui/card';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
 import { Label } from "@/Components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Badge } from '@/Components/ui/badge';
 import { DndContext, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { DraggableScheduleCard, DroppableCell } from '@/Components/Jadwal/DragDropComponents';
+import { Head, router } from '@inertiajs/react';
 
-export default function JadwalIndex() {
+// Define Interfaces
+interface Subject {
+    id: number;
+    name: string;
+    code?: string;
+}
+
+interface Classroom {
+    id: number;
+    name: string;
+    level?: string;
+}
+
+interface Teacher {
+    id: number;
+    name: string;
+    nip?: string;
+}
+
+interface Schedule {
+    id: number;
+    subject_id: number;
+    classroom_id: number;
+    teacher_id: number;
+    day: string;
+    start_time: string;
+    end_time: string;
+    room: string;
+    subject?: Subject;
+    classroom?: Classroom;
+    teacher?: Teacher;
+}
+
+interface Props {
+    schedules: { data: Schedule[] };
+    subjects: Subject[];
+    classrooms: Classroom[];
+    teachers: Teacher[];
+}
+
+export default function JadwalIndex({ schedules, subjects, classrooms, teachers }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
     const [formState, setFormState] = useState({
@@ -23,10 +63,8 @@ export default function JadwalIndex() {
         room: ''
     });
 
-    // State for Schedule Data - Initialize from mock data
-    const [scheduleData, setScheduleData] = useState<any>(mockSchedule);
-
-    const [selectedClass, setSelectedClass] = useState(mockClasses[0].name);
+    // Determine initial class from classrooms prop if available
+    const [selectedClass, setSelectedClass] = useState(classrooms.length > 0 ? classrooms[0].name : '');
     const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -35,8 +73,72 @@ export default function JadwalIndex() {
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
     
+    // Transform schedules data into grid format
+    // Map time strings to jam slots. This is a heuristic based on start_time.
+    // Example: 07:00 -> 1, 07:45 -> 2, etc.
+    // Assuming standard 45 min lessons starting at 07:00
+    const getJamFromTime = (time: string): number => {
+        const [hour, minute] = time.split(':').map(Number);
+        const totalMinutes = hour * 60 + minute;
+        const startMinutes = 7 * 60; // 07:00
+        if (totalMinutes < startMinutes) return 1;
+        const slot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
+        return slot > 8 ? 8 : slot; // Cap at 8 slots for now
+    };
+
+    // Transform raw schedules to the structure expected by the UI
+    const transformedScheduleData = useMemo(() => {
+        const data: Record<string, any[]> = {};
+        
+        // Initialize days
+        days.forEach(day => {
+            data[day] = [];
+        });
+
+        // Use schedules.data if paginated, otherwise assume array
+        const scheduleList = schedules.data || [];
+
+        scheduleList.forEach(schedule => {
+            if (!schedule.subject || !schedule.classroom || !schedule.teacher) return;
+            
+            const jam = getJamFromTime(schedule.start_time);
+            
+            // Push to day bucket
+            if (!data[schedule.day]) data[schedule.day] = [];
+            
+            data[schedule.day].push({
+                id: schedule.id,
+                jam: jam,
+                subject: schedule.subject.name,
+                class: schedule.classroom.name,
+                teacher: schedule.teacher.name,
+                room: schedule.room,
+                time: `${schedule.start_time.substring(0, 5)} - ${schedule.end_time.substring(0, 5)}`,
+                original: schedule // Keep original for reference
+            });
+        });
+
+        return data;
+    }, [schedules]);
+
+    // Local state for drag-and-drop UI updates (optimistic UI)
+    const [scheduleData, setScheduleData] = useState<any>(transformedScheduleData);
+
+    // Sync state when props change
+    useEffect(() => {
+        setScheduleData(transformedScheduleData);
+    }, [transformedScheduleData]);
+
+    // Handle class selection change
+    // If selectedClass is empty and we have classrooms, set the first one
+    useEffect(() => {
+        if (!selectedClass && classrooms.length > 0) {
+            setSelectedClass(classrooms[0].name);
+        }
+    }, [classrooms]);
+
     const handleAddSchedule = (day: string = '', jam: string = '') => {
-        const cls = mockClasses.find(c => c.name === selectedClass);
+        const cls = classrooms.find(c => c.name === selectedClass);
         setFormState(prev => ({ 
             ...prev, 
             day, 
@@ -45,8 +147,8 @@ export default function JadwalIndex() {
         }));
         setIsAddScheduleOpen(true);
     };
-
-    // Dnd Sensors
+    
+    // ... Dnd Sensors ...
     const sensors = useSensors(
         useSensor(MouseSensor, {
             activationConstraint: {
@@ -149,7 +251,7 @@ export default function JadwalIndex() {
                                     <SelectValue placeholder="Pilih Kelas" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {mockClasses.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                                    {classrooms.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -343,7 +445,7 @@ export default function JadwalIndex() {
                                         <SelectValue placeholder="Pilih Mata Pelajaran" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {mockSubjects.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.name} - {s.teacher}</SelectItem>)}
+                                        {subjects.map((subj) => <SelectItem key={subj.id} value={subj.id.toString()}>{subj.name} ({subj.code})</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -356,7 +458,7 @@ export default function JadwalIndex() {
                                             <SelectValue placeholder="Pilih Kelas" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {mockClasses.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+                                            {classrooms.map((cls) => <SelectItem key={cls.id} value={cls.id.toString()}>{cls.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>

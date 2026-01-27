@@ -1,11 +1,25 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
+    // Redirect logged-in users to their dashboard based on role
+    if (Auth::check()) {
+        $user = Auth::user();
+        return match ($user->role) {
+            'admin' => redirect()->route('admin.dashboard'),
+            'teacher' => redirect()->route('guru.dashboard'),
+            'student' => redirect()->route('siswa.dashboard'),
+            default => redirect()->route('dashboard'),
+        };
+    }
+
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
@@ -24,89 +38,75 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
-// For now let's just expose them
-Route::prefix('admin')->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Admin/Dashboard');
-    })->name('admin.dashboard');
+// Admin Routes
+Route::prefix('admin')
+    ->middleware(['auth', RoleMiddleware::class . ':admin'])
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/user', function () {
-        return Inertia::render('Admin/User/Index');
-    })->name('admin.user');
+        Route::resource('user', UserController::class);
 
-    Route::get('/kelas', function () {
-        return Inertia::render('Admin/Kelas/Index');
-    })->name('admin.kelas');
+        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
 
-    Route::get('/kelas/{id}', function ($id) {
-        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
-    })->name('admin.kelas.show');
+        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
 
-    Route::get('/jadwal', function () {
-        return Inertia::render('Admin/Jadwal/Index');
-    })->name('admin.jadwal');
+        Route::resource('mapel', App\Http\Controllers\Admin\SubjectController::class)->except(['create', 'show', 'edit']);
 
-    Route::get('/mapel', function () {
-        return Inertia::render('Admin/Mapel/Index');
-    })->name('admin.mapel');
+        Route::get('/laporan', function () {
+            return Inertia::render('Admin/Laporan/Index');
+        })->name('laporan');
 
-    Route::get('/laporan', function () {
-        return Inertia::render('Admin/Laporan/Index');
-    })->name('admin.laporan');
+        Route::get('/setting', function () {
+            return Inertia::render('Admin/Setting/Index');
+        })->name('setting');
 
-    Route::get('/setting', function () {
-        return Inertia::render('Admin/Setting/Index');
-    })->name('admin.setting');
+        Route::get('/lisensi', function () {
+            return Inertia::render('Admin/Lisensi/Index');
+        })->name('lisensi');
 
-    Route::get('/lisensi', function () {
-        return Inertia::render('Admin/Lisensi/Index');
-    })->name('admin.lisensi');
+        Route::get('/daring', function () {
+            return Inertia::render('Admin/Daring/Index');
+        })->name('daring');
 
-    Route::get('/daring', function () {
-        return Inertia::render('Admin/Daring/Index');
-    })->name('admin.daring');
+        Route::get('/keuangan', function () {
+            return Inertia::render('Admin/Keuangan/Index');
+        })->name('keuangan');
 
-    Route::get('/keuangan', function () {
-        return Inertia::render('Admin/Keuangan/Index');
-    })->name('admin.keuangan');
+        Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
 
-    Route::get('/absensi', function () {
-        return Inertia::render('Admin/Absensi/Index');
-    })->name('admin.absensi');
+        Route::get('/perpustakaan', function () {
+            return Inertia::render('Admin/Perpustakaan/Index');
+        })->name('perpustakaan');
 
-    Route::get('/perpustakaan', function () {
-        return Inertia::render('Admin/Perpustakaan/Index');
-    })->name('admin.perpustakaan');
+        Route::get('/ppdb', function () {
+            return Inertia::render('Admin/PPDB/Index');
+        })->name('ppdb');
 
-    Route::get('/ppdb', function () {
-        return Inertia::render('Admin/PPDB/Index');
-    })->name('admin.ppdb');
+        Route::get('/lms', function () {
+            return Inertia::render('Admin/LMS/Index');
+        })->name('lms');
 
-    Route::get('/lms', function () {
-        return Inertia::render('Admin/LMS/Index');
-    })->name('admin.lms');
+        Route::get('/chat', function () {
+            return Inertia::render('Admin/Chat/Index');
+        })->name('chat');
 
-    Route::get('/chat', function () {
-        return Inertia::render('Admin/Chat/Index');
-    })->name('admin.chat');
+        Route::get('/office-frame', function () {
+            return Inertia::render('Admin/SSO/Office');
+        })->name('office-frame');
 
-    Route::get('/office-frame', function () {
-        return Inertia::render('Admin/SSO/Office');
-    })->name('admin.office-frame');
+        Route::get('/sarpras', function () {
+            return Inertia::render('Admin/Sarpras/Index');
+        })->name('sarpras');
 
-    Route::get('/sarpras', function () {
-        return Inertia::render('Admin/Sarpras/Index');
-    })->name('admin.sarpras');
+        Route::get('/ekskul', function () {
+            return Inertia::render('Admin/Ekskul/Index');
+        })->name('ekskul');
 
-    Route::get('/ekskul', function () {
-        return Inertia::render('Admin/Ekskul/Index');
-    })->name('admin.ekskul');
-
-    Route::get('/pkl', function () {
-        return Inertia::render('Admin/PKL/Index');
-    })->name('admin.pkl');
-});
+        Route::get('/pkl', function () {
+            return Inertia::render('Admin/PKL/Index');
+        })->name('pkl');
+    });
 
 // Student (Murid) Routes
 Route::prefix('siswa')->group(function () {
@@ -121,5 +121,8 @@ Route::prefix('guru')->group(function () {
         return Inertia::render('Admin/Dashboard', ['role' => 'teacher']);
     })->name('guru.dashboard');
 });
+
+// QR Login Route
+Route::post('/auth/qr-login', App\Http\Controllers\Auth\QrLoginController::class)->name('auth.qr-login');
 
 require __DIR__ . '/auth.php';

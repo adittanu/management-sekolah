@@ -272,7 +272,9 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
             <div className={cn("border-t border-slate-100 shrink-0 bg-white z-10", isCollapsed ? "p-2" : "p-3")}>
                 <div className="space-y-1">
                     <Link
-                        href="/"
+                        href={route('logout')}
+                        method="post"
+                        as="button"
                         title={isCollapsed ? "Keluar" : ''}
                         className={cn(
                             "w-full flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-all",

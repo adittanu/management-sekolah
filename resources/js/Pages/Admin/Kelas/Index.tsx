@@ -1,26 +1,100 @@
 import AdminLayout from '@/Layouts/AdminLayout';
-import { mockClasses } from '@/data/mockData';
 import { Button } from '@/Components/ui/button';
-import { Link } from '@inertiajs/react';
+import { Link, useForm, router } from '@inertiajs/react';
 import { Input } from '@/Components/ui/input';
 import { Search, School, Users } from 'lucide-react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
-import { useState } from 'react';
+import { useState, FormEventHandler, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog";
 import { Label } from "@/Components/ui/label";
+import { useDebounce } from 'use-debounce';
 
-export default function KelasIndex() {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedLevel, setSelectedLevel] = useState('Semua');
+interface User {
+    id: number;
+    name: string;
+}
+
+interface Classroom {
+    id: number;
+    name: string;
+    level: '10' | '11' | '12';
+    major: string;
+    academic_year: string;
+    teacher_id: number | null;
+    teacher?: User;
+    students_count?: number;
+}
+
+interface Props {
+    classrooms: {
+        data: Classroom[];
+        links: any[];
+        meta: any;
+    };
+    teachers: User[];
+}
+
+export default function KelasIndex({ classrooms, teachers }: Props) {
+    const [searchQuery, setSearchQuery] = useState(new URLSearchParams(window.location.search).get('search') || '');
+    const [selectedLevel, setSelectedLevel] = useState(new URLSearchParams(window.location.search).get('level') || 'Semua');
     const [isAddClassOpen, setIsAddClassOpen] = useState(false);
+    const [debouncedSearch] = useDebounce(searchQuery, 300);
 
-    const filteredClasses = mockClasses.filter(kelas => {
-        const matchesSearch = kelas.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              kelas.wali.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesLevel = selectedLevel === 'Semua' || kelas.tingkat === selectedLevel.replace('Kelas ', '');
-        return matchesSearch && matchesLevel;
+    // Initial load sync
+    useEffect(() => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const search = queryParams.get('search');
+        const level = queryParams.get('level');
+        if (search !== null) setSearchQuery(search);
+        if (level !== null) setSelectedLevel(level);
+    }, []);
+
+    useEffect(() => {
+        const params: Record<string, any> = {};
+        if (debouncedSearch) params.search = debouncedSearch;
+        
+        // Map display text to value for backend
+        let levelValue = selectedLevel;
+        if (selectedLevel === 'Kelas X') levelValue = '10';
+        else if (selectedLevel === 'Kelas XI') levelValue = '11';
+        else if (selectedLevel === 'Kelas XII') levelValue = '12';
+        
+        if (selectedLevel !== 'Semua') params.level = levelValue;
+
+        router.get(route('admin.kelas.index'), params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true
+        });
+    }, [debouncedSearch, selectedLevel]);
+
+    const { data, setData, post, processing, errors, reset } = useForm({
+        name: '',
+        level: '10' as '10' | '11' | '12',
+        major: '',
+        academic_year: new Date().getFullYear().toString() + '/' + (new Date().getFullYear() + 1).toString(),
+        teacher_id: '',
     });
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post(route('admin.kelas.store'), {
+            onSuccess: () => {
+                setIsAddClassOpen(false);
+                reset();
+            },
+        });
+    };
+
+    const getLevelDisplay = (level: string) => {
+        switch(level) {
+            case '10': return 'X';
+            case '11': return 'XI';
+            case '12': return 'XII';
+            default: return level;
+        }
+    };
 
     return (
         <AdminLayout title="Data Rombongan Belajar">
@@ -63,15 +137,15 @@ export default function KelasIndex() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {filteredClasses.length > 0 ? (
-                        filteredClasses.map((kelas) => (
-                            <Link href={`/admin/kelas/${kelas.id}`} key={kelas.id}>
+                    {classrooms.data.length > 0 ? (
+                        classrooms.data.map((kelas) => (
+                            <Link href={route('admin.kelas.show', kelas.id)} key={kelas.id}>
                                 <Card className="group hover:shadow-xl transition-all border-slate-200 overflow-hidden cursor-pointer hover:-translate-y-1 bg-white h-full">
                                     <CardContent className="p-0">
                                         <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center text-white h-48 relative overflow-hidden">
                                             <div className="absolute top-4 left-4 z-10">
                                                 <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-sm">
-                                                    Tingkat {kelas.tingkat}
+                                                    Tingkat {getLevelDisplay(kelas.level)}
                                                 </Badge>
                                             </div>
                                             <School className="w-16 h-16 opacity-90 mb-4 group-hover:scale-110 transition-transform duration-300 relative z-10" />
@@ -86,7 +160,7 @@ export default function KelasIndex() {
                                             <div className="flex items-center justify-between text-sm text-slate-500 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
                                                 <div className="flex items-center gap-2">
                                                     <Users className="w-4 h-4 text-blue-500" />
-                                                    <span className="font-semibold text-slate-700">{kelas.siswa} Siswa</span>
+                                                    <span className="font-semibold text-slate-700">{kelas.students_count || 0} Siswa</span>
                                                 </div>
                                                 <div className="w-px h-4 bg-slate-300"></div>
                                                 <span>Aktif</span>
@@ -94,7 +168,7 @@ export default function KelasIndex() {
                                             <div>
                                                 <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Wali Kelas</div>
                                                 <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors truncate">
-                                                    {kelas.wali}
+                                                    {kelas.teacher?.name || 'Belum ada wali kelas'}
                                                 </div>
                                             </div>
                                         </div>
@@ -121,60 +195,103 @@ export default function KelasIndex() {
                             </DialogDescription>
                         </DialogHeader>
                         
-                        <div className="p-6 space-y-6">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="level" className="text-sm font-semibold text-slate-700">Tingkat Kelas</Label>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {['X', 'XI', 'XII'].map((lvl) => (
-                                            <div key={lvl} className="relative">
-                                                <input type="radio" name="level" id={`lvl-${lvl}`} className="peer sr-only" />
-                                                <label 
-                                                    htmlFor={`lvl-${lvl}`}
-                                                    className="flex items-center justify-center py-3 px-4 rounded-lg border border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50 hover:border-slate-300 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 cursor-pointer transition-all"
-                                                >
-                                                    Kelas {lvl}
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
+                        <form onSubmit={submit}>
+                            <div className="p-6 space-y-6">
+                                <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="className">Nama Kelas</Label>
-                                        <Input id="className" placeholder="Contoh: X IPA 1" className="bg-slate-50 border-slate-200 focus:ring-blue-500" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="capacity">Kapasitas</Label>
-                                        <div className="relative">
-                                            <Input id="capacity" type="number" placeholder="36" className="pl-9 bg-slate-50 border-slate-200 focus:ring-blue-500" />
-                                            <Users className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                                        <Label htmlFor="level" className="text-sm font-semibold text-slate-700">Tingkat Kelas</Label>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {[
+                                                { val: '10', label: 'Kelas X' },
+                                                { val: '11', label: 'Kelas XI' },
+                                                { val: '12', label: 'Kelas XII' }
+                                            ].map((opt) => (
+                                                <div key={opt.val} className="relative">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="level" 
+                                                        id={`lvl-${opt.val}`} 
+                                                        className="peer sr-only"
+                                                        checked={data.level === opt.val}
+                                                        onChange={() => setData('level', opt.val as '10' | '11' | '12')}
+                                                    />
+                                                    <label 
+                                                        htmlFor={`lvl-${opt.val}`}
+                                                        className="flex items-center justify-center py-3 px-4 rounded-lg border border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50 hover:border-slate-300 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 cursor-pointer transition-all"
+                                                    >
+                                                        {opt.label}
+                                                    </label>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="className">Nama Kelas</Label>
+                                            <Input 
+                                                id="className" 
+                                                placeholder="Contoh: X IPA 1" 
+                                                className="bg-slate-50 border-slate-200 focus:ring-blue-500" 
+                                                value={data.name}
+                                                onChange={(e) => setData('name', e.target.value)}
+                                            />
+                                            {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="major">Jurusan</Label>
+                                            <Input 
+                                                id="major" 
+                                                placeholder="IPA / IPS / TKJ" 
+                                                className="bg-slate-50 border-slate-200 focus:ring-blue-500" 
+                                                value={data.major}
+                                                onChange={(e) => setData('major', e.target.value)}
+                                            />
+                                            {errors.major && <p className="text-red-500 text-xs">{errors.major}</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="academic_year">Tahun Ajaran</Label>
+                                        <Input 
+                                            id="academic_year" 
+                                            placeholder="2023/2024" 
+                                            className="bg-slate-50 border-slate-200 focus:ring-blue-500" 
+                                            value={data.academic_year}
+                                            onChange={(e) => setData('academic_year', e.target.value)}
+                                        />
+                                        {errors.academic_year && <p className="text-red-500 text-xs">{errors.academic_year}</p>}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="homeroom">Wali Kelas</Label>
+                                        <select 
+                                            className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                            value={data.teacher_id}
+                                            onChange={(e) => setData('teacher_id', e.target.value)}
+                                        >
+                                            <option value="">Pilih Wali Kelas...</option>
+                                            {teachers.map((teacher) => (
+                                                <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
+                                            ))}
+                                        </select>
+                                        {errors.teacher_id && <p className="text-red-500 text-xs">{errors.teacher_id}</p>}
+                                    </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="homeroom">Wali Kelas</Label>
-                                    <select className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-                                        <option value="">Pilih Wali Kelas...</option>
-                                        <option>Pak Budi Hartono</option>
-                                        <option>Bu Siti Aminah</option>
-                                        <option>Pak Joko</option>
-                                    </select>
+                                <div className="bg-blue-50 text-blue-700 p-4 rounded-lg text-sm flex gap-3 border border-blue-100">
+                                    <School className="w-5 h-5 shrink-0" />
+                                    <p>Kelas baru akan otomatis aktif. Pastikan wali kelas belum memegang kelas lain untuk tahun ajaran yang sama.</p>
                                 </div>
                             </div>
 
-                            <div className="bg-blue-50 text-blue-700 p-4 rounded-lg text-sm flex gap-3 border border-blue-100">
-                                <School className="w-5 h-5 shrink-0" />
-                                <p>Kelas baru akan otomatis aktif. Pastikan wali kelas belum memegang kelas lain untuk tahun ajaran yang sama.</p>
-                            </div>
-                        </div>
-
-                        <DialogFooter className="p-6 pt-2 bg-slate-50/50">
-                            <Button variant="outline" onClick={() => setIsAddClassOpen(false)}>Batal</Button>
-                            <Button className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">Buat Kelas</Button>
-                        </DialogFooter>
+                            <DialogFooter className="p-6 pt-2 bg-slate-50/50">
+                                <Button type="button" variant="outline" onClick={() => setIsAddClassOpen(false)}>Batal</Button>
+                                <Button type="submit" disabled={processing} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">
+                                    {processing ? 'Menyimpan...' : 'Buat Kelas'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
             </div>
