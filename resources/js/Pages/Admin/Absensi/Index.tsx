@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { ScanFace, MapPin, CheckCircle, XCircle, Clock, Calendar, Search, Users, UserCheck, BookOpen, Download, List, Grid, Save, User, Undo2, ArrowRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Toaster } from "@/Components/ui/sonner"
+import { router } from '@inertiajs/react';
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
 
@@ -125,13 +126,24 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
 
     useEffect(() => {
         if (activeSchedule?.classroom?.students) {
-            const mappedStudents: Student[] = activeSchedule.classroom.students.map(s => ({
-                ...s,
-                status: 'Hadir' // Default status for new entry
-            }));
+            // First try to use existing attendance data if available
+            // Check if there are attendances for this schedule in statsData
+            const existingAttendances = statsData.filter(a => a.schedule.id === activeSchedule.id);
+            
+            // Map students
+            const mappedStudents: Student[] = activeSchedule.classroom.students.map(s => {
+                // Check if this student has an attendance record for this schedule today
+                const attendance = existingAttendances.find(a => a.student_id === s.id);
+                
+                return {
+                    ...s,
+                    status: attendance ? normalizeStatus(attendance.status) : 'Hadir' // Default to Hadir if no record
+                };
+            });
+            
             setStudents(mappedStudents);
         }
-    }, [activeSchedule]);
+    }, [activeSchedule, attendances]);
 
     // History for Undo
     const historyRef = useRef<Student[]>([]);
@@ -176,19 +188,42 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
     };
 
     const handleSaveAttendance = () => {
-        // Save current state to history before saving (mocking API call)
+        // Save current state to history before saving
         historyRef.current = JSON.parse(JSON.stringify(students));
 
-        // Optimistic UI
-        toast.success("Data Tersimpan", {
-            description: `${students.filter(s => s.status === 'Hadir').length} Hadir, ${students.filter(s => s.status !== 'Hadir').length} Tidak Hadir`,
-            action: {
-                label: "Undo",
-                onClick: () => {
-                    setStudents(historyRef.current);
-                    toast("Perubahan dibatalkan");
-                }
+        const activeScheduleId = activeSchedule?.id;
+
+        if (!activeScheduleId) {
+            toast.error("Tidak ada jadwal aktif untuk disimpan.");
+            return;
+        }
+
+        router.post(route('admin.absensi.store'), {
+            schedule_id: activeScheduleId,
+            date: today,
+            students: students.map(s => ({
+                student_id: s.id,
+                status: s.status.toLowerCase(),
+            })),
+        }, {
+            onSuccess: () => {
+                 toast.success("Data Tersimpan", {
+                    description: `${students.filter(s => s.status === 'Hadir').length} Hadir, ${students.filter(s => s.status !== 'Hadir').length} Tidak Hadir`,
+                    action: {
+                        label: "Undo",
+                        onClick: () => {
+                            // Revert UI state
+                            setStudents(historyRef.current);
+                            // Ideally, we would also revert the backend change here or handle undo properly
+                            toast("Perubahan dibatalkan (UI Only)");
+                        }
+                    },
+                });
             },
+            onError: (errors) => {
+                toast.error("Gagal menyimpan data absensi.");
+                console.error(errors);
+            }
         });
     };
 

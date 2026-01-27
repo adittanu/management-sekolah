@@ -16,6 +16,19 @@ class AttendanceController extends Controller
      */
     public function index()
     {
+        $today = Carbon::now()->locale('id')->isoFormat('dddd');
+        $mapDay = [
+            'Senin' => 'Senin',
+            'Selasa' => 'Selasa',
+            'Rabu' => 'Rabu',
+            'Kamis' => 'Kamis',
+            'Jumat' => 'Jumat',
+            'Sabtu' => 'Sabtu',
+            'Minggu' => 'Minggu',
+        ];
+        
+        $currentDay = $mapDay[$today] ?? 'Senin';
+
         $attendances = Attendance::query()
             ->with(['schedule.subject', 'schedule.classroom', 'student'])
             ->when(request('date'), function ($query, $date) {
@@ -25,9 +38,12 @@ class AttendanceController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $schedules = Schedule::with(['subject', 'classroom'])
+        $schedules = Schedule::with(['subject', 'classroom', 'classroom.students'])
             ->when(request('day'), function ($query, $day) {
                 $query->where('day', $day);
+            }, function ($query) use ($currentDay) {
+                // Default to current day if no filter
+                 $query->where('day', $currentDay);
             })
             ->get();
 

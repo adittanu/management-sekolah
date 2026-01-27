@@ -55,6 +55,7 @@ class ScheduleController extends Controller
             'day' => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
+            'room' => 'nullable|string|max:255',
         ]);
 
         $this->checkConflict(
@@ -82,6 +83,7 @@ class ScheduleController extends Controller
             'day' => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Minggu',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
+            'room' => 'nullable|string|max:255',
         ]);
 
         $this->checkConflict(

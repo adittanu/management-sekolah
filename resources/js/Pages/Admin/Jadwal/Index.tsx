@@ -1,7 +1,7 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Search, Clock, MapPin, CalendarDays, Plus } from 'lucide-react';
+import { Search, Clock, MapPin, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/Components/ui/card';
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from '@/Components/ui/badge';
 import { DndContext, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { DraggableScheduleCard, DroppableCell } from '@/Components/Jadwal/DragDropComponents';
-import { Head, router } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
+import { toast } from 'sonner';
 
 // Define Interfaces
 interface Subject {
@@ -55,12 +56,17 @@ interface Props {
 export default function JadwalIndex({ schedules, subjects, classrooms, teachers }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
-    const [formState, setFormState] = useState({
+
+    // Use Inertia Form
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         day: '',
         jam: '',
-        subject: '',
-        classId: '',
-        room: ''
+        subject_id: '',
+        classroom_id: '',
+        teacher_id: '',
+        room: '',
+        start_time: '',
+        end_time: ''
     });
 
     // Determine initial class from classrooms prop if available
@@ -73,10 +79,22 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
     
+    // Helper to calculate time from slot
+    const getTimesFromSlot = (slot: number) => {
+        const startMinutes = 7 * 60 + (slot - 1) * 45;
+        const endMinutes = startMinutes + 45;
+        
+        const format = (mins: number) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        };
+        
+        return { start: format(startMinutes), end: format(endMinutes) };
+    }
+
     // Transform schedules data into grid format
-    // Map time strings to jam slots. This is a heuristic based on start_time.
-    // Example: 07:00 -> 1, 07:45 -> 2, etc.
-    // Assuming standard 45 min lessons starting at 07:00
+    // Map time strings to jam slots.
     const getJamFromTime = (time: string): number => {
         const [hour, minute] = time.split(':').map(Number);
         const totalMinutes = hour * 60 + minute;
@@ -130,7 +148,6 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
     }, [transformedScheduleData]);
 
     // Handle class selection change
-    // If selectedClass is empty and we have classrooms, set the first one
     useEffect(() => {
         if (!selectedClass && classrooms.length > 0) {
             setSelectedClass(classrooms[0].name);
@@ -139,13 +156,60 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
 
     const handleAddSchedule = (day: string = '', jam: string = '') => {
         const cls = classrooms.find(c => c.name === selectedClass);
-        setFormState(prev => ({ 
-            ...prev, 
-            day, 
-            jam, 
-            classId: cls ? cls.id.toString() : '' 
-        }));
+        clearErrors();
+        
+        let start = '';
+        let end = '';
+        
+        if (jam) {
+            const times = getTimesFromSlot(parseInt(jam));
+            start = times.start;
+            end = times.end;
+        }
+
+        setData({
+            day: day,
+            jam: jam,
+            subject_id: '',
+            classroom_id: cls ? cls.id.toString() : '',
+            teacher_id: '',
+            room: '',
+            start_time: start,
+            end_time: end
+        });
         setIsAddScheduleOpen(true);
+    };
+
+    const handleSaveSchedule = () => {
+        // Calculate times if jam is selected but times are empty (fallback)
+        let toSubmit = { ...data };
+        if (data.jam && (!data.start_time || !data.end_time)) {
+             const times = getTimesFromSlot(parseInt(data.jam));
+             toSubmit.start_time = times.start;
+             toSubmit.end_time = times.end;
+        }
+
+        post(route('jadwal.store'), {
+            // @ts-ignore
+            data: toSubmit,
+            onSuccess: () => {
+                setIsAddScheduleOpen(false);
+                reset();
+                toast.success('Jadwal berhasil ditambahkan');
+            },
+            onError: (err) => {
+                toast.error('Gagal menambahkan jadwal. Periksa input anda.');
+                console.error(err);
+            }
+        });
+    };
+
+    const handleDeleteSchedule = (id: number) => {
+        if (confirm('Apakah anda yakin ingin menghapus jadwal ini?')) {
+            router.delete(route('jadwal.destroy', id), {
+                onSuccess: () => toast.success('Jadwal berhasil dihapus')
+            });
+        }
     };
     
     // ... Dnd Sensors ...
@@ -169,9 +233,6 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         if (!over) return;
 
         // Parse IDs
-        // Active ID: card-{day}-{jam}-... (We passed entire item data, but simpler to find in state)
-        // Over ID: {day}-{jam}
-        
         const activeData = active.data.current; // access data passed to Draggable
         if (!activeData) return;
 
@@ -180,47 +241,75 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
 
         const sourceDay = activeData.day;
         const sourceJam = activeData.jam;
-        const sourceClass = activeData.class;
+        const scheduleId = activeData.id;
 
         // Same slot check
         if (targetDay === sourceDay && targetJam === sourceJam) return;
 
+        // Optimistic update
+        const previousData = { ...scheduleData };
+        
         setScheduleData((prev: any) => {
             const newData = { ...prev };
-            
-            // 1. Remove from Source
+            // ... (Simple move logic for UI responsiveness) ...
+            // We can reuse the existing logic or simplify it just for visual feedback
+            // But real update happens via API
+             // 1. Remove from Source
             const sourceList = newData[sourceDay] || [];
-            const itemIndex = sourceList.findIndex((s: any) => s.jam === sourceJam && s.class === sourceClass);
-            if (itemIndex === -1) return prev; // Should not happen
+            const itemIndex = sourceList.findIndex((s: any) => s.id === scheduleId);
+            if (itemIndex === -1) return prev; 
 
             const [movedItem] = sourceList.splice(itemIndex, 1);
-            newData[sourceDay] = [...sourceList]; // Update source day
+            newData[sourceDay] = [...sourceList]; 
 
-            // 2. Check Target
-            const targetList = newData[targetDay] || [];
-            const targetItemIndex = targetList.findIndex((s: any) => s.jam === targetJam && s.class === selectedClass); 
+            // 2. Add to Target (If occupied, we might need to handle swap or reject)
+            // For now, let's just push and let backend validate
+            if (!newData[targetDay]) newData[targetDay] = [];
             
-            if (targetItemIndex !== -1) {
-                // SWAP LOGIC
-                // Target occupied by: targetList[targetItemIndex]
-                const [swappedItem] = targetList.splice(targetItemIndex, 1);
-                
-                // Move swapped item to Source
-                swappedItem.jam = sourceJam;
-                swappedItem.day = sourceDay; 
-                
-                // Add swapped item to Source Day List
-                newData[sourceDay].push(swappedItem);
+            // Check if target is occupied by SAME CLASS
+            const targetList = newData[targetDay];
+            const isOccupied = targetList.some((s:any) => s.jam === targetJam && s.class === selectedClass);
+            
+            if (isOccupied) {
+                // If occupied, revert (or handle swap later)
+                toast.error('Slot waktu sudah terisi!');
+                return previousData;
             }
 
-            // 3. Add Moved Item to Target
             movedItem.jam = targetJam;
-            // movedItem.day = targetDay; // If data stores day
-            
-            if (!newData[targetDay]) newData[targetDay] = [];
-            newData[targetDay].push(movedItem);
+            movedItem.day = targetDay; // Update day
+            // Update time display string for UI
+            const newTimes = getTimesFromSlot(targetJam);
+            movedItem.time = `${newTimes.start} - ${newTimes.end}`;
 
+            newData[targetDay].push(movedItem);
             return newData;
+        });
+
+        // Backend Update
+        const newTimes = getTimesFromSlot(targetJam);
+        
+        router.put(route('jadwal.update', scheduleId), {
+            day: targetDay,
+            start_time: newTimes.start,
+            end_time: newTimes.end,
+            // We need to send other required fields too because update validates them
+            // But we only changed day/time.
+            // Wait, the update method requires ALL fields: subject_id, classroom_id, teacher_id
+            // We need to extract them from original data
+            subject_id: activeData.original.subject_id,
+            classroom_id: activeData.original.classroom_id,
+            teacher_id: activeData.original.teacher_id,
+            room: activeData.original.room,
+        }, {
+            onSuccess: () => {
+                toast.success('Jadwal berhasil dipindahkan');
+            },
+            onError: (err) => {
+                toast.error('Gagal memindahkan jadwal: ' + (Object.values(err)[0] || 'Unknown error'));
+                // Revert UI
+                setScheduleData(previousData);
+            }
         });
     };
 
@@ -328,7 +417,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                                 {jam}
                                             </div>
                                             <div className="text-[10px] font-mono text-slate-400 mt-1 py-1 px-2 rounded bg-slate-100">
-                                                07:{(jam * 45).toString().padStart(2, '0').slice(-2)}
+                                                {getTimesFromSlot(jam).start}
                                             </div>
                                         </div>
 
@@ -355,14 +444,29 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                                                     id={`card-${day}-${jam}-${scheduleItem.id}`}
                                                                     data={{ ...scheduleItem, day }}
                                                                 >
-                                                                    <Card className="h-full w-full bg-white hover:border-blue-300 border-slate-200 p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-move relative overflow-hidden">
+                                                                    <Card className="h-full w-full bg-white hover:border-blue-300 border-slate-200 p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-move relative overflow-hidden group/card">
                                                                         <div className={`absolute top-0 left-0 w-1 h-full ${
                                                                             scheduleItem.subject === 'Matematika' ? 'bg-blue-500' :
                                                                             scheduleItem.subject === 'Fisika' ? 'bg-purple-500' :
                                                                             scheduleItem.subject === 'Kimia' ? 'bg-pink-500' : 'bg-orange-500'
                                                                         }`}></div>
+                                                                        
+                                                                        <div className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
+                                                                            <Button 
+                                                                                variant="ghost" 
+                                                                                size="icon" 
+                                                                                className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDeleteSchedule(scheduleItem.id);
+                                                                                }}
+                                                                            >
+                                                                                <Trash2 className="w-3 h-3" />
+                                                                            </Button>
+                                                                        </div>
+
                                                                         <div>
-                                                                            <div className="flex items-center justify-between mb-2">
+                                                                            <div className="flex items-center justify-between mb-2 pr-6">
                                                                                 <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50 border-slate-200 text-slate-600 font-medium rounded">
                                                                                     {scheduleItem.class}
                                                                                 </Badge>
@@ -376,7 +480,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                                                         </div>
                                                                         <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-2 bg-slate-50 w-fit px-2 py-1 rounded-full">
                                                                             <MapPin className="w-3 h-3" />
-                                                                            {scheduleItem.room}
+                                                                            {scheduleItem.room || '-'}
                                                                         </div>
                                                                     </Card>
                                                                 </DraggableScheduleCard>
@@ -416,7 +520,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Hari</Label>
-                                    <Select value={formState.day} onValueChange={(val) => setFormState(s => ({ ...s, day: val }))}>
+                                    <Select value={data.day} onValueChange={(val) => setData('day', val)}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Hari" />
                                         </SelectTrigger>
@@ -424,23 +528,28 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                             {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
+                                    {errors.day && <p className="text-xs text-red-500">{errors.day}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Jam Ke-</Label>
-                                    <Select value={formState.jam} onValueChange={(val) => setFormState(s => ({ ...s, jam: val }))}>
+                                    <Select value={data.jam} onValueChange={(val) => {
+                                        const times = getTimesFromSlot(parseInt(val));
+                                        setData(prev => ({ ...prev, jam: val, start_time: times.start, end_time: times.end }));
+                                    }}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Jam" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {timeSlots.map(t => <SelectItem key={t} value={t.toString()}>{t} (07:{(t*45).toString()})</SelectItem>)}
+                                            {timeSlots.map(t => <SelectItem key={t} value={t.toString()}>{t} (07:{(t*45).toString().padStart(2, '0').slice(-2)})</SelectItem>)}
                                         </SelectContent>
                                     </Select>
+                                    {errors.start_time && <p className="text-xs text-red-500">{errors.start_time}</p>}
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <Label>Mata Pelajaran</Label>
-                                <Select value={formState.subject} onValueChange={(val) => setFormState(s => ({ ...s, subject: val }))}>
+                                <Select value={data.subject_id} onValueChange={(val) => setData('subject_id', val)}>
                                     <SelectTrigger className="bg-slate-50 border-slate-200">
                                         <SelectValue placeholder="Pilih Mata Pelajaran" />
                                     </SelectTrigger>
@@ -448,12 +557,26 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                         {subjects.map((subj) => <SelectItem key={subj.id} value={subj.id.toString()}>{subj.name} ({subj.code})</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                {errors.subject_id && <p className="text-xs text-red-500">{errors.subject_id}</p>}
+                            </div>
+
+                             <div className="space-y-2">
+                                <Label>Guru Pengajar</Label>
+                                <Select value={data.teacher_id} onValueChange={(val) => setData('teacher_id', val)}>
+                                    <SelectTrigger className="bg-slate-50 border-slate-200">
+                                        <SelectValue placeholder="Pilih Guru" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {teachers.map((teacher) => <SelectItem key={teacher.id} value={teacher.id.toString()}>{teacher.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                {errors.teacher_id && <p className="text-xs text-red-500">{errors.teacher_id}</p>}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Kelas</Label>
-                                    <Select value={formState.classId} onValueChange={(val) => setFormState(s => ({ ...s, classId: val }))}>
+                                    <Select value={data.classroom_id} onValueChange={(val) => setData('classroom_id', val)}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Kelas" />
                                         </SelectTrigger>
@@ -461,15 +584,17 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                             {classrooms.map((cls) => <SelectItem key={cls.id} value={cls.id.toString()}>{cls.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
+                                    {errors.classroom_id && <p className="text-xs text-red-500">{errors.classroom_id}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Ruangan</Label>
                                     <Input 
                                         placeholder="Contoh: Lab Komputer" 
                                         className="bg-slate-50 border-slate-200"
-                                        value={formState.room}
-                                        onChange={(e) => setFormState(s => ({ ...s, room: e.target.value }))}
+                                        value={data.room}
+                                        onChange={(e) => setData('room', e.target.value)}
                                     />
+                                    {errors.room && <p className="text-xs text-red-500">{errors.room}</p>}
                                 </div>
                             </div>
 
@@ -477,11 +602,22 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                 <Clock className="w-4 h-4 shrink-0" />
                                 <p>Pastikan tidak ada jadwal bentrok untuk Guru dan Ruangan yang dipilih pada jam tersebut.</p>
                             </div>
+                             {Object.keys(errors).length > 0 && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-800">
+                                    <p>Terdapat kesalahan input. Mohon periksa kembali.</p>
+                                </div>
+                            )}
                         </div>
 
                         <DialogFooter className="p-6 pt-2 bg-slate-50/50">
                             <Button variant="outline" onClick={() => setIsAddScheduleOpen(false)}>Batal</Button>
-                            <Button className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]">Simpan Jadwal</Button>
+                            <Button 
+                                className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]"
+                                onClick={handleSaveSchedule}
+                                disabled={processing}
+                            >
+                                {processing ? 'Menyimpan...' : 'Simpan Jadwal'}
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
