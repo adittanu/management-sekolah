@@ -9,6 +9,7 @@ import { Label } from "@/Components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Badge } from '@/Components/ui/badge';
 import { useForm, router } from '@inertiajs/react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/Components/ui/alert-dialog";
 
 interface Subject {
     id: number;
@@ -90,6 +91,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
     }, [searchQuery]);
 
     const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+    const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
 
     // Form handling
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
@@ -117,11 +119,15 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
     };
 
     const handleDelete = (subject: Subject) => {
-        if (confirm(`Apakah Anda yakin ingin menghapus mata pelajaran "${subject.name}"?`)) {
-            router.delete(route('admin.mapel.destroy', subject.id), {
+        setSubjectToDelete(subject);
+    };
+
+    const confirmDelete = () => {
+        if (subjectToDelete) {
+            router.delete(route('admin.mapel.destroy', subjectToDelete.id), {
                 preserveScroll: true,
                 onSuccess: () => {
-                    // Toast success handled globally if set up, or just refresh happens
+                    setSubjectToDelete(null);
                 }
             });
         }
@@ -334,6 +340,24 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Delete Confirmation Dialog */}
+                <AlertDialog open={!!subjectToDelete} onOpenChange={(open) => !open && setSubjectToDelete(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Tindakan ini tidak dapat dibatalkan. Mata pelajaran <strong>{subjectToDelete?.name}</strong> akan dihapus permanen.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white">
+                                Hapus
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </AdminLayout>
     );
