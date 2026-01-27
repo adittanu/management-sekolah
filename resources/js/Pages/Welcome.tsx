@@ -1,4 +1,4 @@
-import { Link, Head, router, useForm } from '@inertiajs/react';
+import { Link, Head, router, useForm, usePage } from '@inertiajs/react';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
@@ -13,6 +13,8 @@ import InputError from '@/Components/InputError';
 import axios from 'axios';
 
 export default function Welcome() {
+    const { props } = usePage();
+    const { school_settings } = props as any;
     const [currentTime, setCurrentTime] = useState(new Date());
 
     // Login Form State (using Inertia useForm)
@@ -155,7 +157,7 @@ export default function Welcome() {
 
     return (
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white selection:bg-blue-100 selection:text-blue-900 font-sans">
-            <Head title="Login - Sekolah Kita" />
+            <Head title={`Login - ${school_settings?.app_name || 'Sekolah Kita'}`} />
 
             {/* Left Column - Hero / Brand (Hidden on mobile) */}
             <div className="hidden lg:flex flex-col relative bg-slate-900 text-white overflow-hidden">
@@ -174,10 +176,14 @@ export default function Welcome() {
                 <div className="relative z-10 flex-1 flex flex-col p-12 justify-between">
                     <div>
                         <div className="flex items-center gap-3">
-                           <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-                                <School className="w-6 h-6 text-white" />
+                           <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md overflow-hidden">
+                                {school_settings?.logo ? (
+                                    <img src={`/storage/${school_settings.logo}`} className="w-6 h-6 object-cover" alt="Logo" />
+                                ) : (
+                                    <School className="w-6 h-6 text-white" />
+                                )}
                            </div>
-                           <span className="font-bold text-lg tracking-wide uppercase">Sekolah Kita</span>
+                           <span className="font-bold text-lg tracking-wide uppercase">{school_settings?.app_name || 'Sekolah Kita'}</span>
                         </div>
                     </div>
 
@@ -192,7 +198,7 @@ export default function Welcome() {
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-slate-400 font-medium tracking-wide">
-                        <span>© 2025 Sekolah Kita</span>
+                        <span>© 2025 {school_settings?.app_name || 'Sekolah Kita'}</span>
                         <div className="h-1 w-1 rounded-full bg-slate-600" />
                         <span>v2.0.0</span>
                     </div>
@@ -205,10 +211,14 @@ export default function Welcome() {
                     
                     {/* Header for Mobile */}
                     <div className="lg:hidden text-center mb-8">
-                         <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-blue-600 shadow-xl shadow-blue-200 mb-4">
-                            <School className="w-8 h-8 text-white" />
+                         <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-blue-600 shadow-xl shadow-blue-200 mb-4 overflow-hidden">
+                            {school_settings?.logo ? (
+                                <img src={`/storage/${school_settings.logo}`} className="w-8 h-8 object-cover" alt="Logo" />
+                            ) : (
+                                <School className="w-8 h-8 text-white" />
+                            )}
                          </div>
-                         <h2 className="text-2xl font-bold text-slate-900">Sekolah Kita</h2>
+                         <h2 className="text-2xl font-bold text-slate-900">{school_settings?.app_name || 'Sekolah Kita'}</h2>
                     </div>
 
                     <div className="text-center lg:text-left space-y-2">

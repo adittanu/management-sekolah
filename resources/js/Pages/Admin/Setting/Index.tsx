@@ -3,26 +3,75 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Card, CardContent } from '@/Components/ui/card';
 import { Label } from '@/Components/ui/label';
-import { Save, School, Bell, FileText, Database, Upload, Clock, Plus, Trash2, Music, AlertTriangle, Calendar, ShieldAlert, RefreshCw, Eraser, FileUp, ExternalLink } from 'lucide-react';
-import { useState } from 'react';
+import { Save, School as SchoolIcon, Bell, FileText, Database, Upload, Clock, Plus, Trash2, Music, AlertTriangle, Calendar, ShieldAlert, RefreshCw, Eraser, FileUp, ExternalLink, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { mockSchedule } from '@/data/mockData';
-import { Link } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
+import { toast } from 'sonner';
 
-export default function SettingIndex() {
+interface SchoolProps {
+    id: number;
+    name: string;
+    app_name: string;
+    address: string;
+    phone: string;
+    email: string;
+    website: string;
+    npsn: string;
+    accreditation: string;
+    headmaster_name: string;
+    headmaster_id: string;
+    logo: string | null;
+}
+
+export default function SettingIndex({ school }: { school: SchoolProps }) {
     const [activeTab, setActiveTab] = useState('profil');
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [actionToConfirm, setActionToConfirm] = useState<{ title: string, desc: string, action: () => void } | null>(null);
     const [confirmInput, setConfirmInput] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [previewLogo, setPreviewLogo] = useState<string | null>(school.logo ? `/storage/${school.logo}` : null);
 
-    // State for Document Preview
-    const [docHeader, setDocHeader] = useState({
-        schoolName: "Sekolah Kita Bisa Berkarya",
-        address: "Jl. Bergerak Berkarya Berdampak No. 123",
-        contact: "Telp: (021) 1234567 | Email: info@sekolah.sch.id",
-        kasek: "Dr. Budi Santoso, M.Pd",
-        nip: "19800101 200501 1 001"
+    const { data, setData, post, processing, errors, recentlySuccessful } = useForm({
+        name: school.name || '',
+        app_name: school.app_name || '',
+        address: school.address || '',
+        phone: school.phone || '',
+        email: school.email || '',
+        website: school.website || '',
+        npsn: school.npsn || '',
+        accreditation: school.accreditation || '',
+        headmaster_name: school.headmaster_name || '',
+        headmaster_id: school.headmaster_id || '',
+        logo: null as File | null,
     });
+
+    useEffect(() => {
+        if (recentlySuccessful) {
+            toast.success("Pengaturan berhasil disimpan");
+        }
+    }, [recentlySuccessful]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        post(route('admin.setting.update'), {
+            preserveScroll: true,
+            forceFormData: true,
+        });
+    };
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setData('logo', file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewLogo(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSecureAction = (title: string, desc: string, action: () => void) => {
         setActionToConfirm({ title, desc, action });
@@ -51,16 +100,20 @@ export default function SettingIndex() {
                         <h2 className="text-3xl font-bold tracking-tight text-slate-900">Pengaturan Sistem</h2>
                         <p className="text-slate-500">Konfigurasi profil sekolah, dokumen surat, jam KBM dan data sistem.</p>
                     </div>
-                    <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20">
-                        <Save className="w-4 h-4 mr-2" />
-                        Simpan Perubahan
+                    <Button 
+                        className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20"
+                        onClick={handleSubmit}
+                        disabled={processing}
+                    >
+                        {processing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                        {processing ? 'Menyimpan...' : 'Simpan Perubahan'}
                     </Button>
                 </div>
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-2 p-1 bg-slate-100 rounded-xl w-fit">
                     {[
-                        { id: 'profil', label: 'Profil Sekolah', icon: School },
+                        { id: 'profil', label: 'Profil Sekolah', icon: SchoolIcon },
                         { id: 'jadwal', label: 'Jadwal & Bel', icon: Bell },
                         { id: 'dokumen', label: 'Dokumen & KOP', icon: FileText },
                         { id: 'data', label: 'Data & System', icon: Database },
@@ -88,50 +141,104 @@ export default function SettingIndex() {
                                 {/* Logo Section */}
                                 <div className="space-y-4">
                                     <Label className="text-base font-semibold">Logo Sekolah</Label>
-                                    <div className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-4 hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group">
-                                        <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-3 group-hover:scale-110 transition-transform">
-                                            <School className="w-10 h-10" />
+                                    <div 
+                                        className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-4 hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group relative overflow-hidden"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        {previewLogo ? (
+                                            <img src={previewLogo} alt="Logo Sekolah" className="w-full h-full object-contain" />
+                                        ) : (
+                                            <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-3 group-hover:scale-110 transition-transform">
+                                                <SchoolIcon className="w-10 h-10" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <span className="text-white text-xs font-medium">Klik untuk ganti</span>
                                         </div>
-                                        <span className="text-xs text-slate-500 text-center">Klik gambar untuk ganti</span>
-                                        <Input type="file" className="hidden" />
+                                        <Input 
+                                            type="file" 
+                                            className="hidden" 
+                                            ref={fileInputRef}
+                                            accept="image/*"
+                                            onChange={handleLogoChange}
+                                        />
                                     </div>
+                                    <div className="text-xs text-slate-500 text-center">
+                                        Format: PNG, JPG (Max 2MB)
+                                    </div>
+                                    {errors.logo && <div className="text-red-500 text-xs text-center">{errors.logo}</div>}
                                 </div>
 
                                 {/* Form Section */}
                                 <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <Label>Nama Sekolah</Label>
-                                        <Input 
-                                            value={docHeader.schoolName} 
-                                            onChange={(e) => setDocHeader({...docHeader, schoolName: e.target.value})} 
-                                            className="h-11" 
-                                        />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <Label>Nama Sekolah</Label>
+                                            <Input 
+                                                value={data.name} 
+                                                onChange={(e) => setData('name', e.target.value)} 
+                                                className="h-11" 
+                                            />
+                                            {errors.name && <div className="text-red-500 text-xs">{errors.name}</div>}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Nama Aplikasi</Label>
+                                            <Input 
+                                                value={data.app_name} 
+                                                onChange={(e) => setData('app_name', e.target.value)} 
+                                                className="h-11" 
+                                                placeholder="Contoh: Sekolah Kita"
+                                            />
+                                            {errors.app_name && <div className="text-red-500 text-xs">{errors.app_name}</div>}
+                                        </div>
                                     </div>
                                     
                                     <div className="space-y-2">
                                         <Label>Alamat Lengkap</Label>
-                                        <Input defaultValue="Jl. Bergerak Berkarya Berdampak" className="h-11" />
+                                        <Input 
+                                            value={data.address}
+                                            onChange={(e) => setData('address', e.target.value)}
+                                            className="h-11" 
+                                        />
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <Label>Website</Label>
-                                            <Input defaultValue="https://www.gendhis.a" className="h-11" />
+                                            <Input 
+                                                value={data.website}
+                                                onChange={(e) => setData('website', e.target.value)}
+                                                className="h-11" 
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Email</Label>
-                                            <Input defaultValue="kita.bisa.berkarya2018" className="h-11" />
+                                            <Input 
+                                                value={data.email}
+                                                onChange={(e) => setData('email', e.target.value)}
+                                                className="h-11" 
+                                            />
                                         </div>
                                     </div>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <Label>NPSN</Label>
-                                            <Input placeholder="Nomor Pokok Sekolah Nasional" className="h-11" />
+                                            <Input 
+                                                value={data.npsn}
+                                                onChange={(e) => setData('npsn', e.target.value)}
+                                                placeholder="Nomor Pokok Sekolah Nasional" 
+                                                className="h-11" 
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Akreditasi</Label>
-                                            <Input placeholder="Contoh: A (Unggul)" className="h-11" />
+                                            <Input 
+                                                value={data.accreditation}
+                                                onChange={(e) => setData('accreditation', e.target.value)}
+                                                placeholder="Contoh: A (Unggul)" 
+                                                className="h-11" 
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -224,16 +331,16 @@ export default function SettingIndex() {
                                             <div className="space-y-2">
                                                 <Label>Nama Lengkap</Label>
                                                 <Input 
-                                                    value={docHeader.kasek}
-                                                    onChange={(e) => setDocHeader({...docHeader, kasek: e.target.value})}
+                                                    value={data.headmaster_name}
+                                                    onChange={(e) => setData('headmaster_name', e.target.value)}
                                                     className="h-10" 
                                                 />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>NIP / NIY</Label>
                                                 <Input 
-                                                    value={docHeader.nip}
-                                                    onChange={(e) => setDocHeader({...docHeader, nip: e.target.value})}
+                                                    value={data.headmaster_id}
+                                                    onChange={(e) => setData('headmaster_id', e.target.value)}
                                                     className="h-10" 
                                                 />
                                             </div>
@@ -245,16 +352,18 @@ export default function SettingIndex() {
                                         <div className="space-y-2">
                                             <Label>Alamat Lengkap</Label>
                                             <Input 
-                                                value={docHeader.address}
-                                                onChange={(e) => setDocHeader({...docHeader, address: e.target.value})}
+                                                value={data.address}
+                                                onChange={(e) => setData('address', e.target.value)}
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Kontak (Telp/Email)</Label>
                                             <Input 
-                                                value={docHeader.contact}
-                                                onChange={(e) => setDocHeader({...docHeader, contact: e.target.value})}
+                                                value={`Telp: ${data.phone} | Email: ${data.email}`}
+                                                readOnly
+                                                className="bg-slate-50"
                                             />
+                                            <span className="text-xs text-slate-500">Diambil dari data Profil Sekolah</span>
                                         </div>
                                     </div>
                                 </div>
@@ -268,13 +377,17 @@ export default function SettingIndex() {
                                         <div className="bg-white aspect-[1/1.4] w-full shadow-lg p-6 text-[10px] flex flex-col relative overflow-hidden">
                                             {/* KOP */}
                                             <div className="flex border-b-2 border-slate-900 pb-2 mb-4 items-center gap-3">
-                                                 <div className="w-10 h-10 bg-blue-900 rounded-full flex items-center justify-center text-white shrink-0">
-                                                    <School className="w-5 h-5" />
+                                                 <div className="w-10 h-10 bg-blue-900 rounded-full flex items-center justify-center text-white shrink-0 overflow-hidden">
+                                                    {previewLogo ? (
+                                                        <img src={previewLogo} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <SchoolIcon className="w-5 h-5" />
+                                                    )}
                                                  </div>
                                                  <div className="text-center w-full">
-                                                    <h3 className="font-bold text-sm uppercase">{docHeader.schoolName}</h3>
-                                                    <p className="text-slate-600">{docHeader.address}</p>
-                                                    <p className="text-slate-500">{docHeader.contact}</p>
+                                                    <h3 className="font-bold text-sm uppercase">{data.name}</h3>
+                                                    <p className="text-slate-600">{data.address}</p>
+                                                    <p className="text-slate-500">Telp: {data.phone} | Email: {data.email}</p>
                                                  </div>
                                             </div>
 
@@ -299,8 +412,8 @@ export default function SettingIndex() {
                                                         ttd
                                                     </div>
                                                 </div>
-                                                <p className="font-bold underline">{docHeader.kasek}</p>
-                                                <p>NIP. {docHeader.nip}</p>
+                                                <p className="font-bold underline">{data.headmaster_name}</p>
+                                                <p>NIP. {data.headmaster_id}</p>
                                             </div>
                                         </div>
                                     </div>

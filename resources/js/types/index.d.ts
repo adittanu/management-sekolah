@@ -14,4 +14,10 @@ export type PageProps<
         user: User;
     };
     ziggy: Config & { location: string };
+    flash: {
+        success?: string;
+        error?: string;
+        message?: string;
+        conflict_data?: any[];
+    };
 };

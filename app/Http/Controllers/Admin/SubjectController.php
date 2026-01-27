@@ -70,13 +70,37 @@ class SubjectController extends Controller
     public function destroy(Subject $mapel)
     {
         try {
+            if (request()->has('force') && request('force') == 'true') {
+                // Hapus data terkait di Schedule
+                \App\Models\Schedule::where('subject_id', $mapel->id)->delete();
+                $mapel->delete();
+                return back(303)->with('success', 'Mata pelajaran dan data terkait berhasil dihapus secara paksa.');
+            }
+
             $mapel->delete();
-            return redirect()->back()->with('success', 'Mata pelajaran berhasil dihapus.');
+            return back(303)->with('success', 'Mata pelajaran berhasil dihapus.');
         } catch (\Illuminate\Database\QueryException $e) {
             if ($e->getCode() == "23000") {
-                return redirect()->back()->withErrors(['error' => 'Mata pelajaran tidak dapat dihapus karena masih digunakan di jadwal atau data lain.']);
+                // Ambil data schedule yang menggunakan mapel ini untuk ditampilkan di modal konfirmasi
+                $relatedSchedules = \App\Models\Schedule::with(['classroom', 'teacher'])
+                    ->where('subject_id', $mapel->id)
+                    ->get()
+                    ->map(function ($schedule) {
+                        return [
+                            'id' => $schedule->id,
+                            'classroom' => $schedule->classroom ? $schedule->classroom->name : 'Kelas tidak ditemukan',
+                            'teacher' => $schedule->teacher ? $schedule->teacher->name : 'Guru tidak ditemukan',
+                            'day' => $schedule->day,
+                            'time' => $schedule->start_time . ' - ' . $schedule->end_time,
+                        ];
+                    });
+
+                return back(303)->with([
+                    'error' => 'Mata pelajaran tidak dapat dihapus karena masih digunakan di jadwal atau data lain.',
+                    'conflict_data' => $relatedSchedules->toArray()
+                ]);
             }
-            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus data.']);
+            return back(303)->withErrors(['error' => 'Terjadi kesalahan saat menghapus data.']);
         }
     }
 }

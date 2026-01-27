@@ -26,7 +26,8 @@ import {
 import { Button } from '@/Components/ui/button';
 
 export default function Sidebar({ className = "", userRole = "admin", isCollapsed = false, toggleSidebar }: { className?: string, userRole?: string, isCollapsed?: boolean, toggleSidebar?: () => void }) {
-    const { url } = usePage();
+    const { url, props } = usePage();
+    const { school_settings } = props as any;
 
     // Define Menus based on Role
     type NavItem = {
@@ -135,14 +136,14 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 //         { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
                 //     ]
                 // },
-            {
-                groupLabel: "Aplikasi Terintegrasi (SSO)",
-                items: [
-                    { name: 'Office (Embedded)', href: '/admin/office-frame', icon: ExternalLink, external: false },
-                    { name: 'Masuk ke Office', href: 'https://smkn12bandung.edukati.com/', icon: ExternalLink, external: true },
-                    { name: 'Masuk ke Sekolah', href: 'https://smkn12bandung.sch.id/', icon: School, external: true },
-                ]
-            }
+            // {
+            //     groupLabel: "Aplikasi Terintegrasi (SSO)",
+            //     items: [
+            //         { name: 'Office (Embedded)', href: '/admin/office-frame', icon: ExternalLink, external: false },
+            //         { name: 'Masuk ke Office', href: 'https://smkn12bandung.edukati.com/', icon: ExternalLink, external: true },
+            //         { name: 'Masuk ke Sekolah', href: 'https://smkn12bandung.sch.id/', icon: School, external: true },
+            //     ]
+            // }
         ];
     }
 
@@ -176,12 +177,18 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
             )}>
                  {/* Logo Area */}
                 <div className={cn("flex items-center gap-3 font-bold text-lg text-slate-800 transition-all", isCollapsed ? "flex-col justify-center" : "")}>
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
-                        <School className="w-4 h-4" />
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0 overflow-hidden">
+                        {school_settings?.logo ? (
+                            <img src={`/storage/${school_settings.logo}`} className="w-full h-full object-cover" alt="Logo" />
+                        ) : (
+                            <School className="w-4 h-4" />
+                        )}
                     </div>
                     {!isCollapsed && (
                         <div className="animate-in fade-in zoom-in duration-300">
-                            <div className="leading-none tracking-tight">SEKOLAH KITA</div>
+                            <div className="leading-none tracking-tight uppercase truncate max-w-[140px]" title={school_settings?.app_name || 'Sekolah Kita'}>
+                                {school_settings?.app_name || 'SEKOLAH KITA'}
+                            </div>
                         </div>
                     )}
                 </div>

@@ -235,7 +235,10 @@ export default function UserIndex({ users, filters }: Props) {
     // Note: server-side search handles the main filtering, this is just for the "tabs" on the current page
     const filteredUsers = activeTab === 'Semua' 
         ? users.data 
-        : users.data.filter(user => ROLE_LABELS[user.role] === activeTab || user.role.toUpperCase() === activeTab);
+        : users.data.filter(user => {
+            const roleLabel = ROLE_LABELS[user.role];
+            return roleLabel === activeTab;
+        });
 
     const handlePrint = () => {
         window.print();

@@ -36,6 +36,7 @@ const DB_COLUMNS = [
   { value: "password", label: "Password" },
   { value: "username", label: "Username / NIS / NIP" },
   { value: "cohort1", label: "Cohort / Class / Role" },
+  { value: "classroom", label: "Class / Rombel" },
   { value: "role", label: "Role (Direct)" },
   { value: "phone", label: "Phone Number" },
   { value: "address", label: "Address" },
@@ -131,7 +132,8 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                     else if (lower === 'firstname' || (lower.includes('name') && lower.includes('first'))) initialMapping[header] = 'firstname';
                     else if (lower === 'lastname' || (lower.includes('name') && lower.includes('last'))) initialMapping[header] = 'lastname';
                     else if (lower.includes('pass')) initialMapping[header] = 'password';
-                    else if (lower.includes('cohort') || lower.includes('class')) initialMapping[header] = 'cohort1';
+                    else if (lower.includes('rombel') || lower.includes('class')) initialMapping[header] = 'classroom';
+                    else if (lower.includes('cohort')) initialMapping[header] = 'cohort1';
                     else if (lower.includes('user') || lower.includes('nis') || lower.includes('nip')) initialMapping[header] = 'username';
                     else if (lower.includes('name') && !lower.includes('user')) initialMapping[header] = 'name'; 
                 }
@@ -179,19 +181,46 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
       onSuccess: (page) => {
         clearInterval(interval)
         setProgress(100)
-        // Ideally the backend would return stats, mocking for now if not in flash
+        
+        const flash = (page.props as any).flash || {}
+        const pageErrors = (page.props as any).errors || {}
+        
+        // Check if there are validation errors or import errors
+        const errorList: string[] = flash.error_messages || []
+        if (typeof pageErrors === 'object' && Object.keys(pageErrors).length > 0) {
+          Object.values(pageErrors).forEach((err: any) => {
+            if (typeof err === 'string') errorList.push(err)
+            else if (Array.isArray(err)) errorList.push(...err)
+          })
+        }
+        
         setImportResult({
-          success: (page.props.flash as any)?.success_count || previewData.length, // Fallback/Mock
-          failed: (page.props.flash as any)?.failed_count || 0,
-          errors: (page.props.flash as any)?.error_messages || []
+          success: flash.success_count ?? (errorList.length === 0 ? previewData.length : 0),
+          failed: flash.failed_count ?? (errorList.length > 0 ? previewData.length : 0),
+          errors: errorList
         })
         setStep(4)
-        if (onSuccess) onSuccess()
+        if (errorList.length === 0 && onSuccess) onSuccess()
       },
-      onError: () => {
+      onError: (errors) => {
         clearInterval(interval)
-        setProgress(0)
-        setStep(2) // Go back to mapping on error
+        setProgress(100)
+        
+        // Convert errors object to array
+        const errorList: string[] = []
+        if (typeof errors === 'object') {
+          Object.values(errors).forEach((err: any) => {
+            if (typeof err === 'string') errorList.push(err)
+            else if (Array.isArray(err)) errorList.push(...err)
+          })
+        }
+        
+        setImportResult({
+          success: 0,
+          failed: previewData.length,
+          errors: errorList.length > 0 ? errorList : ['Import gagal. Silakan cek format file dan coba lagi.']
+        })
+        setStep(4) // Go to result step to show error
       }
     })
   }

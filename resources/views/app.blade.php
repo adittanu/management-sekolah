@@ -9,6 +9,11 @@
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        
+        <!-- PWA  -->
+        <meta name="theme-color" content="#ffffff"/>
+        <link rel="apple-touch-icon" href="{{ asset('icon-192x192.png') }}">
+        <link rel="manifest" href="{{ asset('build/manifest.webmanifest') }}">
 
         <!-- Scripts -->
         @routes

@@ -5,6 +5,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import { Toaster } from 'sonner';
+import { RegisterSW } from './Components/RegisterSW';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -24,6 +25,7 @@ createInertiaApp({
         const root = createRoot(el);
         root.render(
             <>
+                <RegisterSW />
                 <Toaster position="top-center" richColors />
                 <App {...props} />
             </>

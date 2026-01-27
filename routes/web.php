@@ -65,9 +65,8 @@ Route::prefix('admin')
             return Inertia::render('Admin/Laporan/Index');
         })->name('laporan');
 
-        Route::get('/setting', function () {
-            return Inertia::render('Admin/Setting/Index');
-        })->name('setting');
+        Route::get('/setting', [App\Http\Controllers\Admin\SettingController::class, 'index'])->name('setting');
+        Route::post('/setting', [App\Http\Controllers\Admin\SettingController::class, 'update'])->name('setting.update');
 
         Route::get('/lisensi', function () {
             return Inertia::render('Admin/Lisensi/Index');

@@ -26,6 +26,7 @@ class ImportUserController extends Controller
                 'password' => 'password',
                 'username' => 'username',
                 'cohort1' => 'cohort1',
+                'classroom' => 'classroom',
             ]
         ]);
     }
@@ -37,10 +38,24 @@ class ImportUserController extends Controller
             $request->input('mapping', [])
         );
 
+        // Return detailed result via flash for frontend
         if (!empty($result['errors'])) {
-            return Redirect::back()->withErrors($result['errors']);
+            return Redirect::back()
+                ->with('flash', [
+                    'success_count' => $result['success'],
+                    'failed_count' => $result['failed'],
+                    'error_messages' => $result['errors'],
+                ])
+                ->withErrors($result['errors']);
         }
 
-        return Redirect::back()->with('success', "Import completed: {$result['success']} imported, {$result['failed']} failed.");
+        return Redirect::back()->with([
+            'success' => "Import berhasil: {$result['success']} data diimport.",
+            'flash' => [
+                'success_count' => $result['success'],
+                'failed_count' => $result['failed'],
+                'error_messages' => [],
+            ]
+        ]);
     }
 }
