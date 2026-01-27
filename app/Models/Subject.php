@@ -16,4 +16,9 @@ class Subject extends Model
     {
         return $this->hasMany(Schedule::class);
     }
+
+    public function teachers()
+    {
+        return $this->belongsToMany(User::class, 'subject_user')->where('role', 'teacher');
+    }
 }

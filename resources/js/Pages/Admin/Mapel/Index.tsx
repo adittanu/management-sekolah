@@ -19,6 +19,7 @@ interface Subject {
     name: string;
     code: string;
     category: string | null;
+    teachers?: Teacher[];
 }
 
 interface Teacher {
@@ -35,14 +36,12 @@ interface PaginationLink {
 interface PaginatedSubjects {
     data: Subject[];
     links: PaginationLink[];
-    meta: {
-        current_page: number;
-        last_page: number;
-        from: number;
-        to: number;
-        total: number;
-        per_page: number;
-    };
+    current_page: number;
+    last_page: number;
+    from: number;
+    to: number;
+    total: number;
+    per_page: number;
 }
 
 interface Props {
@@ -121,7 +120,8 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         name: '',
         code: '',
-        category: 'Wajib'
+        category: 'Wajib',
+        teacher_ids: [] as number[],
     });
 
     const openAddModal = () => {
@@ -131,12 +131,13 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
         setIsAddMapelOpen(true);
     };
 
-    const openEditModal = (subject: Subject) => {
+    const openEditModal = (subject: Subject & { teachers?: Teacher[] }) => {
         setEditingSubject(subject);
         setData({
             name: subject.name,
             code: subject.code,
-            category: subject.category || 'Wajib'
+            category: subject.category || 'Wajib',
+            teacher_ids: subject.teachers?.map(t => t.id) || []
         });
         clearErrors();
         setIsAddMapelOpen(true);
@@ -317,11 +318,24 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                         </div>
                                         
                                         <div className="space-y-3 pt-4 border-t border-slate-100">
-                                            <div className="flex items-center text-sm text-slate-600">
-                                                <div className="w-8 flex justify-center">
+                                            <div className="flex items-start text-sm text-slate-600">
+                                                <div className="w-8 flex justify-center mt-0.5">
                                                     <UserIcon className="w-4 h-4 text-slate-400" />
                                                 </div>
-                                                <span className="text-slate-500 italic">Guru belum diatur</span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {subject.teachers && subject.teachers.length > 0 ? (
+                                                        subject.teachers.slice(0, 3).map((teacher, idx) => (
+                                                            <span key={idx} className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs border border-slate-200">
+                                                                {teacher.name.split(' ')[0]}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-slate-500 italic">Guru belum diatur</span>
+                                                    )}
+                                                    {subject.teachers && subject.teachers.length > 3 && (
+                                                        <span className="text-xs text-slate-400 self-center">+{subject.teachers.length - 3} lainnya</span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="flex items-center text-sm text-slate-600">
                                                 <div className="w-8 flex justify-center">
@@ -365,7 +379,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                         return (
                                             <TableRow key={subject.id} className="hover:bg-slate-50/50">
                                                 <TableCell className="font-medium text-slate-500">
-                                                    {(subjects.meta.current_page - 1) * subjects.meta.per_page + index + 1}
+                                                    {(subjects.current_page - 1) * subjects.per_page + index + 1}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
@@ -476,6 +490,35 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                     </Select>
                                     {errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
                                 </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="teachers">Guru Pengajar</Label>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-slate-200 rounded-md p-2 bg-slate-50">
+                                    {teachers.map((teacher) => (
+                                        <div key={teacher.id} className="flex items-center space-x-2">
+                                            <input
+                                                type="checkbox"
+                                                id={`teacher-${teacher.id}`}
+                                                value={teacher.id}
+                                                checked={data.teacher_ids.includes(teacher.id)}
+                                                onChange={(e) => {
+                                                    const id = parseInt(e.target.value);
+                                                    if (e.target.checked) {
+                                                        setData('teacher_ids', [...data.teacher_ids, id]);
+                                                    } else {
+                                                        setData('teacher_ids', data.teacher_ids.filter(tid => tid !== id));
+                                                    }
+                                                }}
+                                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <Label htmlFor={`teacher-${teacher.id}`} className="text-sm font-normal cursor-pointer select-none">
+                                                {teacher.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-slate-500">Pilih guru yang dapat mengajar mata pelajaran ini.</p>
                             </div>
 
                             <div className="bg-blue-50 p-4 rounded-lg flex items-start gap-3">

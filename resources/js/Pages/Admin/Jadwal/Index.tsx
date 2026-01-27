@@ -18,6 +18,7 @@ interface Subject {
     id: number;
     name: string;
     code?: string;
+    teachers?: Teacher[];
 }
 
 interface Classroom {
@@ -624,31 +625,56 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Mata Pelajaran</Label>
-                                <Select value={data.subject_id} onValueChange={(val) => setData('subject_id', val)}>
-                                    <SelectTrigger className="bg-slate-50 border-slate-200">
-                                        <SelectValue placeholder="Pilih Mata Pelajaran" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {subjects.map((subj) => <SelectItem key={subj.id} value={subj.id.toString()}>{subj.name} ({subj.code})</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {errors.subject_id && <p className="text-xs text-red-500">{errors.subject_id}</p>}
-                            </div>
+                                <div className="space-y-2">
+                                    <Label>Mata Pelajaran</Label>
+                                    <Select value={data.subject_id} onValueChange={(val) => {
+                                        setData(prev => ({ ...prev, subject_id: val, teacher_id: '' })); // Reset teacher when subject changes
+                                    }}>
+                                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                                            <SelectValue placeholder="Pilih Mata Pelajaran" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {subjects.map((subj) => <SelectItem key={subj.id} value={subj.id.toString()}>{subj.name} ({subj.code})</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.subject_id && <p className="text-xs text-red-500">{errors.subject_id}</p>}
+                                </div>
 
-                             <div className="space-y-2">
-                                <Label>Guru Pengajar</Label>
-                                <Select value={data.teacher_id} onValueChange={(val) => setData('teacher_id', val)}>
-                                    <SelectTrigger className="bg-slate-50 border-slate-200">
-                                        <SelectValue placeholder="Pilih Guru" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {teachers.map((teacher) => <SelectItem key={teacher.id} value={teacher.id.toString()}>{teacher.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                {errors.teacher_id && <p className="text-xs text-red-500">{errors.teacher_id}</p>}
-                            </div>
+                                <div className="space-y-2">
+                                    <Label>Guru Pengajar</Label>
+                                    <Select 
+                                        value={data.teacher_id} 
+                                        onValueChange={(val) => setData('teacher_id', val)}
+                                        disabled={!data.subject_id} // Disable if no subject selected
+                                    >
+                                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                                            <SelectValue placeholder={data.subject_id ? "Pilih Guru" : "Pilih Mapel Dahulu"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {data.subject_id ? (
+                                                (() => {
+                                                    const selectedSubject = subjects.find(s => s.id.toString() === data.subject_id);
+                                                    const linkedTeachers = selectedSubject?.teachers || [];
+                                                    
+                                                    // Show all teachers if no specific teachers linked, OR show only linked teachers
+                                                    const displayTeachers = linkedTeachers.length > 0 ? linkedTeachers : teachers;
+
+                                                    return displayTeachers.map((teacher) => (
+                                                        <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                                                            {teacher.name} {linkedTeachers.length > 0 ? '(Pengajar Mapel)' : ''}
+                                                        </SelectItem>
+                                                    ));
+                                                })()
+                                            ) : (
+                                                <SelectItem value="dummy" disabled>Pilih Mata Pelajaran Terlebih Dahulu</SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.teacher_id && <p className="text-xs text-red-500">{errors.teacher_id}</p>}
+                                    {data.subject_id && subjects.find(s => s.id.toString() === data.subject_id)?.teachers?.length === 0 && (
+                                        <p className="text-[10px] text-amber-600 mt-1">* Mapel ini belum memiliki guru spesifik. Menampilkan semua guru.</p>
+                                    )}
+                                </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">

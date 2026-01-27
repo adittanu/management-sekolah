@@ -16,6 +16,7 @@ class SubjectController extends Controller
     public function index()
     {
         $subjects = Subject::query()
+            ->with('teachers')
             ->when(request('search'), function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%");
@@ -41,9 +42,19 @@ class SubjectController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:20|unique:subjects',
             'category' => 'required|string|max:100',
+            'teacher_ids' => 'nullable|array',
+            'teacher_ids.*' => 'exists:users,id',
         ]);
 
-        Subject::create($validated);
+        $subject = Subject::create([
+            'name' => $validated['name'],
+            'code' => $validated['code'],
+            'category' => $validated['category'],
+        ]);
+
+        if (isset($validated['teacher_ids'])) {
+            $subject->teachers()->sync($validated['teacher_ids']);
+        }
 
         return redirect()->back()->with('success', 'Mata pelajaran berhasil ditambahkan.');
     }
@@ -57,9 +68,19 @@ class SubjectController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:20|unique:subjects,code,' . $mapel->id,
             'category' => 'required|string|max:100',
+            'teacher_ids' => 'nullable|array',
+            'teacher_ids.*' => 'exists:users,id',
         ]);
 
-        $mapel->update($validated);
+        $mapel->update([
+            'name' => $validated['name'],
+            'code' => $validated['code'],
+            'category' => $validated['category'],
+        ]);
+
+        if (isset($validated['teacher_ids'])) {
+            $mapel->teachers()->sync($validated['teacher_ids']);
+        }
 
         return redirect()->back()->with('success', 'Mata pelajaran berhasil diupdate.');
     }

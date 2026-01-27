@@ -30,7 +30,8 @@ class ScheduleController extends Controller
             ->latest()
             ->get(); // Changed from paginate(10) to get() to ensure all schedules are available for the grid view
 
-        $subjects = Subject::all();
+        // Eager load teachers for each subject
+        $subjects = Subject::with('teachers')->get();
         $classrooms = Classroom::all();
         $teachers = User::where('role', 'teacher')->get();
 

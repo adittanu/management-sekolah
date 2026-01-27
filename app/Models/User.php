@@ -78,6 +78,11 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function subjects()
+    {
+        return $this->belongsToMany(Subject::class, 'subject_user');
+    }
+
     public function schedules()
     {
         return $this->hasMany(Schedule::class, 'teacher_id');
