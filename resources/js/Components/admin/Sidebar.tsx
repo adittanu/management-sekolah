@@ -50,7 +50,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Menu Utama",
                 items: [
                     { name: 'Dashboard', href: '/siswa/dashboard', icon: LayoutDashboard },
-                    { name: 'Jadwal Pelajaran', href: '/siswa/jadwal', icon: Calendar },
+                    // { name: 'Jadwal Pelajaran', href: '/siswa/jadwal', icon: Calendar },
                     // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
             },
@@ -58,16 +58,16 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Akademik",
                 items: [
                    
-                    { name: 'Kelas Saya (LMS)', href: '/siswa/lms', icon: GraduationCap },
-                    { name: 'Tugas & Materi', href: '/siswa/tugas', icon: BookOpen },
-                    { name: 'Riwayat Presensi', href: '/siswa/absensi', icon: ScanFace },
+                    // { name: 'Kelas Saya (LMS)', href: '/siswa/lms', icon: GraduationCap },
+                    // { name: 'Tugas & Materi', href: '/siswa/tugas', icon: BookOpen },
+                    // { name: 'Riwayat Presensi', href: '/siswa/absensi', icon: ScanFace },
                 ]
             },
             {
                 groupLabel: "Laporan",
                 items: [
-                    { name: 'Kartu Hasil Studi', href: '/siswa/khs', icon: FileText },
-                    { name: 'Tagihan SPP', href: '/siswa/keuangan', icon: Wallet },
+                    // { name: 'Kartu Hasil Studi', href: '/siswa/khs', icon: FileText },
+                    // { name: 'Tagihan SPP', href: '/siswa/keuangan', icon: Wallet },
                 ]
             }
         ];
@@ -77,23 +77,19 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Menu Utama",
                 items: [
                     { name: 'Dashboard Guru', href: '/guru/dashboard', icon: LayoutDashboard },
-                    { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
-                    // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
             },
             {
                 groupLabel: "Manajemen Kelas",
                 items: [
-                    { name: 'Input Nilai', href: '/guru/nilai', icon: FileText },
-                    { name: 'Input Presensi', href: '/guru/absensi', icon: ScanFace },
-                    { name: 'E-Learning (LMS)', href: '/guru/lms', icon: GraduationCap },
+                    { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
+                    { name: 'Presensi', href: '/guru/absensi', icon: ScanFace },
                 ]
             },
             {
                 groupLabel: "Kepegawaian",
                 items: [
                     { name: 'Data Pribadi', href: '/guru/profile', icon: Users },
-                    { name: 'Slip Gaji', href: '/guru/gaji', icon: Wallet },
                 ]
             }
         ];
@@ -158,9 +154,16 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
 
     // Determine Profile Label
     const getProfile = () => {
-        if (userRole === 'student') return { name: 'Siswa Teladan', role: 'Murid Kelas X', initials: 'ST' };
-        if (userRole === 'teacher') return { name: 'Budi Santoso, S.Pd', role: 'Guru Matematika', initials: 'BS' };
-        return { name: 'Administrator', role: 'Super Admin', initials: 'AD' };
+        if (userRole === 'student') {
+            const { auth } = usePage<any>().props;
+            return { name: auth?.user?.name || 'Siswa Teladan', role: 'Murid Kelas X', initials: auth?.user?.name ? auth.user.name.substring(0, 2).toUpperCase() : 'ST' };
+        }
+        if (userRole === 'teacher') {
+            const { auth } = usePage<any>().props;
+            return { name: auth?.user?.name || 'Budi Santoso, S.Pd', role: 'Guru Matematika', initials: auth?.user?.name ? auth.user.name.substring(0, 2).toUpperCase() : 'BS' };
+        }
+        const { auth } = usePage<any>().props;
+        return { name: auth?.user?.name || 'Administrator', role: 'Super Admin', initials: auth?.user?.name ? auth.user.name.substring(0, 2).toUpperCase() : 'AD' };
     };
     const profile = getProfile();
 

@@ -30,7 +30,13 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+    $user = Auth::user();
+    return match ($user->role) {
+        'admin' => redirect()->route('admin.dashboard'),
+        'teacher' => redirect()->route('guru.dashboard'),
+        'student' => redirect()->route('siswa.dashboard'),
+        default => Inertia::render('Dashboard'),
+    };
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -116,18 +122,34 @@ Route::prefix('admin')
     });
 
 // Student (Murid) Routes
-Route::prefix('siswa')->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Admin/Dashboard', ['role' => 'student']);
-    })->name('siswa.dashboard');
-});
+Route::prefix('siswa')
+    ->middleware(['auth', RoleMiddleware::class . ':student'])
+    ->name('siswa.')
+    ->group(function () {
+        Route::get('/dashboard', function () {
+            return Inertia::render('Admin/Dashboard', ['role' => 'student']);
+        })->name('dashboard');
+    });
 
 // Teacher (Guru) Routes
-Route::prefix('guru')->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Admin/Dashboard', ['role' => 'teacher']);
-    })->name('guru.dashboard');
-});
+Route::prefix('guru')
+    ->middleware(['auth', RoleMiddleware::class . ':teacher'])
+    ->name('guru.')
+    ->group(function () {
+        Route::get('/dashboard', function () {
+            return Inertia::render('Admin/Dashboard', ['role' => 'teacher']);
+        })->name('dashboard');
+
+        // Placeholder Routes
+        Route::get('/jadwal', [App\Http\Controllers\Guru\ScheduleController::class, 'index'])->name('jadwal');
+        
+        Route::get('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'index'])->name('absensi');
+        Route::post('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('absensi.store');
+
+        Route::get('/profile', function () {
+             return Inertia::render('Admin/Dashboard', ['role' => 'teacher']); 
+        })->name('profile');
+    });
 
 // QR Login Route
 Route::post('/auth/qr-login', App\Http\Controllers\Auth\QrLoginController::class)->name('auth.qr-login');

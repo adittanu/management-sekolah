@@ -1,4 +1,4 @@
-import AdminLayout from '@/Layouts/AdminLayout';
+import TeacherLayout from '@/Layouts/TeacherLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Textarea } from '@/Components/ui/textarea';
@@ -111,7 +111,6 @@ interface Props {
     history: Paginated<JournalModel>;
     schedules: ScheduleModel[];
     stats: Stats;
-    attendances: any; // Kept for backward compatibility if needed, but not used in new History Tab
 }
 
 interface Student extends StudentModel {
@@ -122,7 +121,7 @@ interface ExtendedSchedule extends ScheduleModel {
     has_attendance?: boolean;
 }
 
-export default function AbsensiIndex({ history, schedules, stats }: Props) {
+export default function TeacherAbsensiIndex({ history, schedules, stats }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isAttendanceSessionActive, setIsAttendanceSessionActive] = useState(false);
@@ -173,20 +172,10 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
 
     useEffect(() => {
         if (activeSchedule?.classroom?.students) {
-            // Logic needs update since we don't fetch all attendances anymore in 'attendances' prop
-            // We only have history (Journals).
-            // For now, we rely on fresh fetch or we can't pre-fill if we don't load specific schedule attendance.
-            // But let's keep it simple: Reset to default 'Hadir' or try to find in history if matches today + schedule
-            
             // Try to find today's session in history
             const todaySession = history.data.find(h => 
                 h.schedule.id === activeSchedule.id && h.date === today
             );
-            
-            // If we found a session, we would ideally need the detailed attendance records for that session
-            // But 'history' only contains summary stats.
-            // So for now, we just default to Hadir.
-            // To properly support "Edit" mode, we would need to fetch attendance details for this schedule.
             
             const mappedStudents: Student[] = activeSchedule.classroom.students.map(s => {
                 return {
@@ -273,7 +262,7 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
             formData.append(`students[${index}][status]`, s.status.toLowerCase());
         });
 
-        router.post(route('admin.absensi.store'), formData, {
+        router.post(route('absensi.store'), formData, {
             onSuccess: () => {
                  toast.success("Data Tersimpan", {
                     description: `Absensi Siswa & Guru Berhasil Disimpan`,
@@ -294,9 +283,6 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
             }
         });
     };
-
-    // --- Mock Data Stats for Dashboard ---
-    // REMOVED: const stats = { ... } (Replaced by calculated stats above)
 
     // --- Components ---
 
@@ -375,7 +361,7 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
     };
 
     return (
-        <AdminLayout title="Absensi & Kehadiran">
+        <TeacherLayout title="Absensi & Kehadiran">
             <Toaster position="bottom-right" />
             
             {/* Attendance Details Modal */}
@@ -938,7 +924,6 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                     </TabsContent>
                 </Tabs>
             </div>
-        </AdminLayout>
+        </TeacherLayout>
     );
 }
-
