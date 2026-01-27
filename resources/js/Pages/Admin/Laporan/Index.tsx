@@ -211,7 +211,7 @@ export default function LaporanIndex() {
                                         <SelectValue placeholder="Pilih Jenis Laporan" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="presensi_siswa">Rekapitulasi Presensi Siswa</SelectItem>
+                                        <SelectItem value="presensi_siswa">Rekapitulasi Presensi Siswa & Guru</SelectItem>
                                         <SelectItem value="jurnal_guru">Jurnal Mengajar Guru</SelectItem>
                                         <SelectItem value="nilai_akademik">Rekap Nilai Akademik</SelectItem>
                                         <SelectItem value="aktivitas_sistem">Log Aktivitas Sistem</SelectItem>

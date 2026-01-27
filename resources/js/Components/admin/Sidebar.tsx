@@ -120,7 +120,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 items: [
                     { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
                     // { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
-                    { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
+                    { name: 'Presensi', href: '/admin/absensi', icon: ScanFace },
                     // { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
                     // { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
                     // { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
