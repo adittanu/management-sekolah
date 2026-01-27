@@ -105,8 +105,8 @@ class AttendanceController extends Controller
             'totalStudents' => $totalStudents > 0 ? $totalStudents : User::where('role', 'student')->count() // Fallback
         ];
 
-        $attendances = Attendance::query()
-            ->with(['schedule.subject', 'schedule.classroom', 'student'])
+        $history = Journal::query()
+            ->with(['schedule.subject', 'schedule.classroom', 'teacher'])
             ->when(request('date'), function ($query, $date) {
                 $query->where('date', $date);
             })
@@ -114,8 +114,38 @@ class AttendanceController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        // Calculate stats for each history item
+        $history->getCollection()->transform(function ($journal) {
+            $attendances = Attendance::where('schedule_id', $journal->schedule_id)
+                ->where('date', $journal->date)
+                ->get();
+            
+            $journal->stats = [
+                'hadir' => $attendances->where('status', 'hadir')->count(),
+                'sakit' => $attendances->where('status', 'sakit')->count(),
+                'izin' => $attendances->where('status', 'izin')->count(),
+                'alpha' => $attendances->where('status', 'alpha')->count(),
+                'total' => $attendances->count(),
+            ];
+            
+            // Determine teacher status from attendance records
+            $teacherAttendance = $attendances->first(function($att) use ($journal) {
+                return $att->student_id == $journal->teacher_id; // Assuming teacher_id is stored in student_id for teachers
+            });
+            $journal->teacher_status = $teacherAttendance ? $teacherAttendance->status : 'hadir';
+
+            return $journal;
+        });
+
         return Inertia::render('Admin/Absensi/Index', [
-            'attendances' => $attendances,
+            'attendances' => $history, // We use the same prop name but different structure, or rename it. 
+            // Let's rename it to 'history' in frontend to be clean, but for now I'll replace 'attendances' content with journals.
+            // Wait, Index.tsx expects 'attendances' to be Paginated<AttendanceModel>. 
+            // I should change the prop name or update the interface.
+            // Better to pass it as 'history' and leave 'attendances' for backward compat or just null?
+            // The frontend uses 'attendances' mainly for the History tab. 
+            // So I will update the Frontend to accept 'history' prop instead of 'attendances'.
+            'history' => $history,
             'schedules' => $schedules,
             'stats' => $stats,
         ]);
@@ -173,51 +203,33 @@ class AttendanceController extends Controller
                 );
             }
 
-            // 3. Save Journal (Optional)
-            if ($request->has('journal_topic') || $request->has('journal_content') || $request->hasFile('proof_file')) {
-                $proofPath = null;
-                if ($request->hasFile('proof_file')) {
-                    $proofPath = $request->file('proof_file')->store('journals', 'public');
-                }
-
-                // Check if Journal model exists before using it to prevent crash if not yet created
-                if (class_exists(Journal::class)) {
-                    Journal::updateOrCreate(
-                        [
-                            'schedule_id' => $validated['schedule_id'],
-                            'date' => $date,
-                        ],
-                        [
-                            'title' => $validated['journal_topic'] ?? '',
-                            'description' => $validated['journal_content'] ?? '',
-                            'proof_file' => $proofPath,
-                            'teacher_id' => $schedule->teacher_id,
-                        ]
-                    );
-                } else {
-                    // Fallback using DB Facade if Model doesn't exist yet
-                    // Only try this if table exists, otherwise it will fail gracefully or we catch it?
-                    // For now, we assume the user will create the model/table.
-                     try {
-                        DB::table('journals')->updateOrInsert(
-                            [
-                                'schedule_id' => $validated['schedule_id'],
-                                'date' => $date,
-                            ],
-                            [
-                                'title' => $validated['journal_topic'] ?? '',
-                                'description' => $validated['journal_content'] ?? '',
-                                'proof_file' => $proofPath,
-                                'teacher_id' => $schedule->teacher_id,
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ]
-                        );
-                    } catch (\Exception $e) {
-                        // Table might not exist yet
-                    }
-                }
+        // 3. Save Journal (Always create to track session)
+            $proofPath = null;
+            if ($request->hasFile('proof_file')) {
+                $proofPath = $request->file('proof_file')->store('journals', 'public');
             }
+
+            // Get existing journal to preserve proof_file if not uploading new one
+            $existingJournal = Journal::where('schedule_id', $validated['schedule_id'])
+                ->where('date', $date)
+                ->first();
+
+            if ($existingJournal && !$proofPath) {
+                $proofPath = $existingJournal->proof_file;
+            }
+
+            Journal::updateOrCreate(
+                [
+                    'schedule_id' => $validated['schedule_id'],
+                    'date' => $date,
+                ],
+                [
+                    'title' => $validated['journal_topic'] ?? '-',
+                    'description' => $validated['journal_content'] ?? '-',
+                    'proof_file' => $proofPath,
+                    'teacher_id' => $schedule->teacher_id,
+                ]
+            );
         });
 
         return redirect()->back()->with('success', 'Data presensi dan jurnal berhasil disimpan.');

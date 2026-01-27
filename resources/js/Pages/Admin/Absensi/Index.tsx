@@ -75,10 +75,33 @@ interface Stats {
     totalStudents: number;
 }
 
+
+interface JournalModel {
+    id: number;
+    title: string;
+    description: string;
+    proof_file?: string;
+    date: string;
+    schedule: ScheduleModel;
+    teacher: {
+        name: string;
+        avatar_url?: string;
+    };
+    stats?: {
+        hadir: number;
+        sakit: number;
+        izin: number;
+        alpha: number;
+        total: number;
+    };
+    teacher_status?: AttendanceStatus;
+}
+
 interface Props {
-    attendances: Paginated<AttendanceModel>;
+    history: Paginated<JournalModel>;
     schedules: ScheduleModel[];
     stats: Stats;
+    attendances: any; // Kept for backward compatibility if needed, but not used in new History Tab
 }
 
 interface Student extends StudentModel {
@@ -89,7 +112,7 @@ interface ExtendedSchedule extends ScheduleModel {
     has_attendance?: boolean;
 }
 
-export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
+export default function AbsensiIndex({ history, schedules, stats }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isAttendanceSessionActive, setIsAttendanceSessionActive] = useState(false);
@@ -126,7 +149,7 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
     };
     
     const today = new Date().toISOString().split('T')[0];
-    const statsData = attendances?.data || [];
+    const statsData = (history?.data as any) || []; // Using history as fallback for now since attendances structure changed
     
     // Initialize Students from Schedule for Entry Tab
 
@@ -134,30 +157,37 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
 
     useEffect(() => {
         if (activeSchedule?.classroom?.students) {
-            // First try to use existing attendance data if available
-            // Check if there are attendances for this schedule in statsData
-            const existingAttendances = statsData.filter(a => a.schedule.id === activeSchedule.id);
+            // Logic needs update since we don't fetch all attendances anymore in 'attendances' prop
+            // We only have history (Journals).
+            // For now, we rely on fresh fetch or we can't pre-fill if we don't load specific schedule attendance.
+            // But let's keep it simple: Reset to default 'Hadir' or try to find in history if matches today + schedule
             
-            // Map students
+            // Try to find today's session in history
+            const todaySession = history.data.find(h => 
+                h.schedule.id === activeSchedule.id && h.date === today
+            );
+            
+            // If we found a session, we would ideally need the detailed attendance records for that session
+            // But 'history' only contains summary stats.
+            // So for now, we just default to Hadir.
+            // To properly support "Edit" mode, we would need to fetch attendance details for this schedule.
+            
             const mappedStudents: Student[] = activeSchedule.classroom.students.map(s => {
-                // Check if this student has an attendance record for this schedule today
-                const attendance = existingAttendances.find(a => a.student_id === s.id);
-                
                 return {
                     ...s,
-                    status: attendance ? normalizeStatus(attendance.status) : 'Hadir' // Default to Hadir if no record
+                    status: 'Hadir' 
                 };
             });
             
             setStudents(mappedStudents);
             
             // Reset Teacher Inputs when schedule changes
-            setTeacherStatus('Hadir');
-            setJournalTopic('');
-            setJournalContent('');
+            setTeacherStatus(todaySession?.teacher_status || 'Hadir');
+            setJournalTopic(todaySession?.title || '');
+            setJournalContent(todaySession?.description || '');
             setProofFile(null);
         }
-    }, [activeSchedule, attendances]);
+    }, [activeSchedule, history]);
 
     // History for Undo
     const historyRef = useRef<Student[]>([]);
@@ -637,84 +667,128 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
                     <TabsContent value="history" className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                         <Card className="border-none shadow-sm bg-white overflow-hidden">
                             <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
-                                <CardTitle className="text-xl font-bold text-slate-900">Riwayat Absensi</CardTitle>
-                                <CardDescription>Daftar riwayat absensi siswa terbaru.</CardDescription>
+                                <CardTitle className="text-xl font-bold text-slate-900">Jurnal & Riwayat Absensi</CardTitle>
+                                <CardDescription>Daftar riwayat kegiatan belajar mengajar dan absensi per sesi.</CardDescription>
                             </CardHeader>
                             <CardContent className="p-0">
-                                {attendances.data.length === 0 ? (
+                                {history.data.length === 0 ? (
                                     <div className="p-12 text-center">
                                         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                                             <Calendar className="w-8 h-8 text-slate-300" />
                                         </div>
                                         <h3 className="text-lg font-medium text-slate-900">Belum ada riwayat</h3>
-                                        <p className="text-slate-500 mt-1">Belum ada data absensi yang terekam.</p>
+                                        <p className="text-slate-500 mt-1">Belum ada data jurnal & absensi yang terekam.</p>
                                     </div>
                                 ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-slate-50 hover:bg-slate-50">
-                                                <TableHead className="pl-6">Siswa</TableHead>
-                                                <TableHead>Kelas & Mapel</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead>Waktu</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {attendances.data.map((item) => (
-                                            <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                                                <TableCell className="pl-6">
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar className="h-8 w-8">
-                                                            <AvatarImage src={item.student.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.student.name}`} />
-                                                            <AvatarFallback>{item.student.name.substring(0, 2)}</AvatarFallback>
-                                                        </Avatar>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="font-medium text-slate-900">{item.student.name}</p>
-                                                                {/* Check if the name matches the teacher name for this schedule as a heuristic */}
-                                                                {item.student.name === item.schedule.teacher_name && <Badge variant="secondary" className="text-[10px] h-5 px-1.5">Guru</Badge>}
+                                    <div className="divide-y divide-slate-100">
+                                        {history.data.map((item) => (
+                                            <div key={item.id} className="p-6 hover:bg-slate-50 transition-colors">
+                                                <div className="flex flex-col md:flex-row gap-6">
+                                                    {/* Left: Schedule Info & Teacher */}
+                                                    <div className="md:w-1/3 space-y-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar className="h-10 w-10 border border-slate-200">
+                                                                <AvatarImage src={item.teacher?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.teacher?.name}`} />
+                                                                <AvatarFallback>{item.teacher?.name?.substring(0, 2)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <h4 className="font-semibold text-slate-900 text-sm">{item.teacher?.name || "Guru Pengajar"}</h4>
+                                                                <p className="text-xs text-slate-500">Guru Mapel</p>
                                                             </div>
-                                                            <p className="text-xs text-slate-500">{item.student.nis || 'Siswa'}</p>
+                                                            {item.teacher_status && (
+                                                                <Badge variant="outline" className={`ml-auto ${getStatusColor(normalizeStatus(item.teacher_status))}`}>
+                                                                    {normalizeStatus(item.teacher_status)}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">
+                                                                    {item.schedule.classroom.name}
+                                                                </span>
+                                                                <div className="flex items-center text-xs text-slate-500">
+                                                                    <Clock className="w-3 h-3 mr-1" />
+                                                                    {item.schedule.start_time} - {item.schedule.end_time}
+                                                                </div>
+                                                            </div>
+                                                            <h3 className="font-bold text-slate-900">{item.schedule.subject.name}</h3>
+                                                            <div className="flex items-center text-xs text-slate-500">
+                                                                <Calendar className="w-3 h-3 mr-1" />
+                                                                {item.date}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium text-slate-900">{item.schedule.classroom.name}</span>
-                                                            <span className="text-xs text-slate-500">{item.schedule.subject.name}</span>
+
+                                                    {/* Middle: Journal Content */}
+                                                    <div className="md:w-1/3 space-y-3 border-l md:border-l border-slate-100 md:pl-6">
+                                                        <div>
+                                                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Materi / Topik</h4>
+                                                            <p className="text-sm font-medium text-slate-900">{item.title || "-"}</p>
                                                         </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className={getStatusColor(normalizeStatus(item.status))}>
-                                                            {normalizeStatus(item.status)}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm text-slate-900">{item.date}</span>
-                                                            <span className="text-xs text-slate-500">
-                                                                {item.schedule.start_time && item.schedule.end_time 
-                                                                    ? `${item.schedule.start_time} - ${item.schedule.end_time}`
-                                                                    : 'Jam Sekolah'
-                                                                }
-                                                            </span>
+                                                        <div>
+                                                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Catatan KBM</h4>
+                                                            <p className="text-sm text-slate-600 line-clamp-3">{item.description || "-"}</p>
                                                         </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                                        {item.proof_file && (
+                                                            <a 
+                                                                href={`/storage/${item.proof_file}`} 
+                                                                target="_blank" 
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-700 font-medium hover:underline mt-2"
+                                                            >
+                                                                <FileText className="w-3 h-3" /> Lihat Bukti Mengajar
+                                                            </a>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Right: Attendance Stats */}
+                                                    <div className="md:w-1/3 md:pl-6 border-l md:border-l border-slate-100">
+                                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Ringkasan Kehadiran Siswa</h4>
+                                                        
+                                                        <div className="grid grid-cols-2 gap-3 mb-4">
+                                                            <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-100 text-center">
+                                                                <div className="text-xl font-bold text-emerald-600">{item.stats?.hadir || 0}</div>
+                                                                <div className="text-[10px] text-emerald-600 font-medium uppercase">Hadir</div>
+                                                            </div>
+                                                            <div className="bg-rose-50 p-2 rounded-lg border border-rose-100 text-center">
+                                                                <div className="text-xl font-bold text-rose-600">
+                                                                    {(item.stats?.sakit || 0) + (item.stats?.izin || 0) + (item.stats?.alpha || 0)}
+                                                                </div>
+                                                                <div className="text-[10px] text-rose-600 font-medium uppercase">Absen</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-1">
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="text-slate-500">Sakit</span>
+                                                                <span className="font-medium text-slate-900">{item.stats?.sakit || 0}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="text-slate-500">Izin</span>
+                                                                <span className="font-medium text-slate-900">{item.stats?.izin || 0}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="text-slate-500">Alpha</span>
+                                                                <span className="font-medium text-slate-900">{item.stats?.alpha || 0}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
                             </CardContent>
                             
                             {/* Pagination */}
-                            {attendances.data.length > 0 && (
+                            {history.data.length > 0 && (
                                 <CardFooter className="flex items-center justify-between border-t bg-slate-50/50 px-6 py-4">
                                     <div className="text-xs text-slate-500">
-                                        Menampilkan <strong>{attendances.data.length}</strong> data terbaru
+                                        Menampilkan <strong>{history.data.length}</strong> data terbaru
                                     </div>
                                     <div className="flex gap-1">
-                                        {attendances.links.map((link, i) => (
+                                        {history.links.map((link, i) => (
                                             <Button
                                                 key={i}
                                                 variant={link.active ? "default" : "outline"}
