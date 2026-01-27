@@ -265,7 +265,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                     </div>
                 </div>
 
-                {/* Content */}
+                        {/* Content */}
                 {viewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {subjects.data.map((subject) => {
@@ -359,7 +359,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {subjects.data.length > 0 ? (
+                                {subjects.data && subjects.data.length > 0 ? (
                                     subjects.data.map((subject, index) => {
                                         const color = getSubjectColor(subject.id);
                                         return (
