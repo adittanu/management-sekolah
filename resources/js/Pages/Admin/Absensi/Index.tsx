@@ -9,13 +9,22 @@ import { Label } from '@/Components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { 
     ScanFace, MapPin, CheckCircle, XCircle, Clock, Calendar, Search, Users, UserCheck, 
-    BookOpen, Download, List, Grid, Save, User, Undo2, ArrowRight, FileText, Upload 
+    BookOpen, Download, List, Grid, Save, User, Undo2, ArrowRight, FileText, Upload,
+    X
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Toaster } from "@/Components/ui/sonner"
 import { router } from '@inertiajs/react';
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/Components/ui/dialog"
+import { ScrollArea } from "@/Components/ui/scroll-area"
 
 // Types
 type AttendanceStatus = 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
@@ -95,6 +104,7 @@ interface JournalModel {
         total: number;
     };
     teacher_status?: AttendanceStatus;
+    attendance_details?: Student[];
 }
 
 interface Props {
@@ -117,6 +127,12 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isAttendanceSessionActive, setIsAttendanceSessionActive] = useState(false);
     const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
+    
+    // Modal State
+    const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalStudents, setModalStudents] = useState<Student[]>([]);
+    const [modalType, setModalType] = useState<'Hadir' | 'Absen'>('Hadir');
 
     // Teacher Attendance State
     const [teacherStatus, setTeacherStatus] = useState<AttendanceStatus>('Hadir');
@@ -340,9 +356,67 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
         </div>
     );
 
+    const handleOpenAttendanceModal = (item: JournalModel, type: 'Hadir' | 'Absen') => {
+        if (!item.attendance_details) return;
+
+        setModalTitle(`${type === 'Hadir' ? 'Siswa Hadir' : 'Siswa Absen (Sakit/Izin/Alpha)'} - ${item.schedule.classroom.name}`);
+        setModalType(type);
+        
+        const filteredStudents = item.attendance_details.filter(s => {
+            const status = normalizeStatus(s.status);
+            if (type === 'Hadir') return status === 'Hadir';
+            return ['Sakit', 'Izin', 'Alpha'].includes(status);
+        });
+        
+        // Map to ensure shape matches Student interface if needed, currently reusing backend response structure
+        // Backend response: { id, name, nis, avatar_url, status } which matches Student interface
+        setModalStudents(filteredStudents as Student[]);
+        setIsAttendanceModalOpen(true);
+    };
+
     return (
         <AdminLayout title="Absensi & Kehadiran">
             <Toaster position="bottom-right" />
+            
+            {/* Attendance Details Modal */}
+            <Dialog open={isAttendanceModalOpen} onOpenChange={setIsAttendanceModalOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{modalTitle}</DialogTitle>
+                        <DialogDescription>
+                            Daftar siswa yang {modalType === 'Hadir' ? 'hadir' : 'tidak hadir'} pada sesi ini.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                        {modalStudents.length === 0 ? (
+                            <div className="text-center text-slate-500 py-8">
+                                Tidak ada data siswa.
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {modalStudents.map((student) => (
+                                    <div key={student.id} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`} />
+                                                <AvatarFallback>{student.name.substring(0, 2)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="text-sm font-medium leading-none">{student.name}</p>
+                                                <p className="text-xs text-slate-500">{student.nis}</p>
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" className={getStatusColor(normalizeStatus(student.status))}>
+                                            {normalizeStatus(student.status)}
+                                        </Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </ScrollArea>
+                </DialogContent>
+            </Dialog>
+
             <div className="space-y-6 max-w-7xl mx-auto pb-20">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -794,12 +868,18 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                                                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Ringkasan Kehadiran Siswa</h4>
                                                         
                                                         <div className="grid grid-cols-2 gap-3 mb-4">
-                                                            <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-100 text-center">
-                                                                <div className="text-xl font-bold text-emerald-600">{item.stats?.hadir || 0}</div>
+                                                            <div 
+                                                                onClick={() => handleOpenAttendanceModal(item, 'Hadir')}
+                                                                className="bg-emerald-50 p-2 rounded-lg border border-emerald-100 text-center cursor-pointer hover:bg-emerald-100 transition-colors group"
+                                                            >
+                                                                <div className="text-xl font-bold text-emerald-600 group-hover:scale-110 transition-transform">{item.stats?.hadir || 0}</div>
                                                                 <div className="text-[10px] text-emerald-600 font-medium uppercase">Hadir</div>
                                                             </div>
-                                                            <div className="bg-rose-50 p-2 rounded-lg border border-rose-100 text-center">
-                                                                <div className="text-xl font-bold text-rose-600">
+                                                            <div 
+                                                                onClick={() => handleOpenAttendanceModal(item, 'Absen')}
+                                                                className="bg-rose-50 p-2 rounded-lg border border-rose-100 text-center cursor-pointer hover:bg-rose-100 transition-colors group"
+                                                            >
+                                                                <div className="text-xl font-bold text-rose-600 group-hover:scale-110 transition-transform">
                                                                     {(item.stats?.sakit || 0) + (item.stats?.izin || 0) + (item.stats?.alpha || 0)}
                                                                 </div>
                                                                 <div className="text-[10px] text-rose-600 font-medium uppercase">Absen</div>

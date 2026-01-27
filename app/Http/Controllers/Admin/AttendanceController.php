@@ -118,6 +118,7 @@ class AttendanceController extends Controller
         $history->getCollection()->transform(function ($journal) {
             $attendances = Attendance::where('schedule_id', $journal->schedule_id)
                 ->where('date', $journal->date)
+                ->with('student')
                 ->get();
             
             $journal->stats = [
@@ -127,6 +128,17 @@ class AttendanceController extends Controller
                 'alpha' => $attendances->where('status', 'alpha')->count(),
                 'total' => $attendances->count(),
             ];
+
+            // Attach detailed attendance records for the modal
+            $journal->attendance_details = $attendances->map(function($att) {
+                return [
+                    'id' => $att->student_id,
+                    'name' => $att->student->name ?? 'Unknown',
+                    'nis' => $att->student->nis ?? '-',
+                    'avatar_url' => $att->student->avatar_url, 
+                    'status' => $att->status,
+                ];
+            })->values();
             
             // Determine teacher status from attendance records
             $teacherAttendance = $attendances->first(function($att) use ($journal) {
