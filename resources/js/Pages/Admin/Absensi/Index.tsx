@@ -1,12 +1,16 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { Textarea } from '@/Components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
-import { ScanFace, MapPin, CheckCircle, XCircle, Clock, Calendar, Search, Users, UserCheck, BookOpen, Download, List, Grid, Save, User, Undo2, ArrowRight } from 'lucide-react';
+import { 
+    ScanFace, MapPin, CheckCircle, XCircle, Clock, Calendar, Search, Users, UserCheck, 
+    BookOpen, Download, List, Grid, Save, User, Undo2, ArrowRight, FileText, Upload 
+} from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Toaster } from "@/Components/ui/sonner"
 import { router } from '@inertiajs/react';
@@ -81,11 +85,21 @@ interface Student extends StudentModel {
     status: AttendanceStatus;
 }
 
+interface ExtendedSchedule extends ScheduleModel {
+    has_attendance?: boolean;
+}
+
 export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isAttendanceSessionActive, setIsAttendanceSessionActive] = useState(false);
     const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
+
+    // Teacher Attendance State
+    const [teacherStatus, setTeacherStatus] = useState<AttendanceStatus>('Hadir');
+    const [journalTopic, setJournalTopic] = useState('');
+    const [journalContent, setJournalContent] = useState('');
+    const [proofFile, setProofFile] = useState<File | null>(null);
     
     // Derived Data for Current Class
     const activeSchedule = selectedScheduleId ? schedules.find(s => s.id === selectedScheduleId) : null;
@@ -94,9 +108,11 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
         name: activeSchedule.classroom.name,
         subject: activeSchedule.subject.name,
         time: activeSchedule.start_time && activeSchedule.end_time ? `${activeSchedule.start_time} - ${activeSchedule.end_time}` : "07:30 - 09:00",
-        teacher: activeSchedule.teacher_name || "Guru Mata Pelajaran",
+        teacher: (activeSchedule as any).teacher || { name: activeSchedule.teacher_name || "Guru Mata Pelajaran" }, // Adjusted to handle relationship object if present
+        teacherName: activeSchedule.teacher_name || "Guru Mata Pelajaran", // Fallback string
         room: activeSchedule.room_name || "R. Kelas",
-        totalStudents: activeSchedule.classroom.students?.length || 0
+        totalStudents: activeSchedule.classroom.students?.length || 0,
+        hasAttendance: (activeSchedule as ExtendedSchedule).has_attendance
     } : null;
 
     // Helper to normalize status
@@ -134,6 +150,12 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
             });
             
             setStudents(mappedStudents);
+            
+            // Reset Teacher Inputs when schedule changes
+            setTeacherStatus('Hadir');
+            setJournalTopic('');
+            setJournalContent('');
+            setProofFile(null);
         }
     }, [activeSchedule, attendances]);
 
@@ -154,12 +176,6 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
             return student;
         }));
     };
-
-    // Initialize Students from Schedule for Entry Tab
-    // const [students, setStudents] = useState<Student[]>([]); -- Already declared above
-
-    // History for Undo
-    // const historyRef = useRef<Student[]>([]); -- Already declared above
 
     const getStatusColor = (status: AttendanceStatus) => {
         switch (status) {
@@ -196,17 +212,25 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
             return;
         }
 
-        router.post(route('admin.absensi.store'), {
-            schedule_id: activeScheduleId,
-            date: today,
-            students: students.map(s => ({
-                student_id: s.id,
-                status: s.status.toLowerCase(),
-            })),
-        }, {
+        const formData = new FormData();
+        formData.append('schedule_id', activeScheduleId.toString());
+        formData.append('date', today);
+        formData.append('teacher_status', teacherStatus.toLowerCase());
+        formData.append('journal_topic', journalTopic);
+        formData.append('journal_content', journalContent);
+        if (proofFile) {
+            formData.append('proof_file', proofFile);
+        }
+
+        students.forEach((s, index) => {
+            formData.append(`students[${index}][student_id]`, s.id.toString());
+            formData.append(`students[${index}][status]`, s.status.toLowerCase());
+        });
+
+        router.post(route('admin.absensi.store'), formData, {
             onSuccess: () => {
                  toast.success("Data Tersimpan", {
-                    description: `${students.filter(s => s.status === 'Hadir').length} Hadir, ${students.filter(s => s.status !== 'Hadir').length} Tidak Hadir`,
+                    description: `Absensi Siswa & Guru Berhasil Disimpan`,
                     action: {
                         label: "Undo",
                         onClick: () => {
@@ -315,8 +339,15 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
                                     <div className="h-2 bg-indigo-500 w-full"></div>
                                     <CardContent className="p-6">
                                         <div className="flex justify-between items-start mb-4">
-                                            <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                                                {schedule.classroom.name}
+                                            <div className="flex gap-2">
+                                                <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                                                    {schedule.classroom.name}
+                                                </div>
+                                                {(schedule as ExtendedSchedule).has_attendance && (
+                                                    <div className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                                                        <CheckCircle className="w-3 h-3" /> Sudah Absen
+                                                    </div>
+                                                )}
                                             </div>
                                             {schedule.start_time && schedule.end_time && (
                                                 <div className="flex items-center text-slate-500 text-sm font-medium">
@@ -443,12 +474,111 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
                             </div>
                         ) : (
                             <>
+                                {/* Teacher Attendance & Journal Section */}
+                                <Card className="border-none shadow-sm bg-white overflow-hidden mb-6">
+                                    <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
+                                        <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                            <UserCheck className="w-5 h-5 text-indigo-600" />
+                                            Presensi Guru & Jurnal Mengajar
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Input kehadiran guru dan jurnal kegiatan belajar mengajar (KBM) hari ini.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-6 space-y-6">
+                                        {/* Teacher Info & Status */}
+                                        <div className="flex flex-col md:flex-row gap-6 items-start">
+                                            <div className="flex items-center gap-4 min-w-[300px]">
+                                                <Avatar className="h-16 w-16 border-2 border-indigo-100">
+                                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentClass.teacher?.name || currentClass.teacherName}`} />
+                                                    <AvatarFallback>GU</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-900 text-lg">{currentClass.teacher?.name || currentClass.teacherName}</h4>
+                                                    <p className="text-sm text-slate-500">Guru Mata Pelajaran</p>
+                                                    <Badge variant="secondary" className="mt-1">
+                                                        {currentClass.subject}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex-1 space-y-2 w-full">
+                                                <Label>Status Kehadiran Guru</Label>
+                                                <div className="flex gap-2">
+                                                    {(['Hadir', 'Sakit', 'Izin', 'Alpha'] as AttendanceStatus[]).map((status) => (
+                                                        <div 
+                                                            key={status}
+                                                            onClick={() => setTeacherStatus(status)}
+                                                            className={`
+                                                                flex-1 p-3 rounded-lg border text-center cursor-pointer transition-all font-medium text-sm
+                                                                ${teacherStatus === status 
+                                                                    ? getStatusColor(status) + ' ring-2 ring-offset-1 ring-slate-200' 
+                                                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                                }
+                                                            `}
+                                                        >
+                                                            {status}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Journal Input */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="journal-topic">Materi / Topik Pembelajaran</Label>
+                                                    <Input 
+                                                        id="journal-topic" 
+                                                        placeholder="Contoh: Aljabar Linear - Persamaan Kuadrat" 
+                                                        value={journalTopic}
+                                                        onChange={(e) => setJournalTopic(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="journal-content">Catatan / Kegiatan Pembelajaran (Opsional)</Label>
+                                                    <Textarea 
+                                                        id="journal-content" 
+                                                        placeholder="Catatan kemajuan siswa, kendala, atau aktivitas kelas..." 
+                                                        className="h-24 resize-none"
+                                                        value={journalContent}
+                                                        onChange={(e) => setJournalContent(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label>Bukti Kegiatan (Foto / Dokumen) - Opsional</Label>
+                                                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
+                                                    <Input 
+                                                        type="file" 
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProofFile(e.target.files ? e.target.files[0] : null)}
+                                                        accept="image/*,application/pdf"
+                                                    />
+                                                        <div className="bg-blue-50 text-blue-600 p-3 rounded-full mb-3">
+                                                            <Upload className="w-6 h-6" />
+                                                        </div>
+                                                        <p className="text-sm font-medium text-slate-700">
+                                                            {proofFile ? proofFile.name : "Klik untuk upload bukti mengajar"}
+                                                        </p>
+                                                        <p className="text-xs text-slate-400 mt-1">
+                                                            JPG, PNG, atau PDF (Max 2MB)
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
                                     <div>
                                         <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                                             {currentClass.name}
                                             <span className="text-slate-300">|</span>
-                                            <span className="font-normal text-slate-600">{currentClass.subject}</span>
+                                            <span className="font-normal text-slate-600">Presensi Siswa</span>
                                         </h3>
                                         <p className="text-sm text-slate-500 mt-1">
                                             Total: {students.length} Siswa • {students.filter(s => s.status === 'Hadir').length} Hadir
@@ -531,19 +661,23 @@ export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
                                         </TableHeader>
                                         <TableBody>
                                             {attendances.data.map((item) => (
-                                                <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <TableCell className="pl-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <Avatar className="h-8 w-8">
-                                                                <AvatarImage src={item.student.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.student.name}`} />
-                                                                <AvatarFallback>{item.student.name.substring(0, 2)}</AvatarFallback>
-                                                            </Avatar>
-                                                            <div>
+                                            <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                                <TableCell className="pl-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-8 w-8">
+                                                            <AvatarImage src={item.student.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.student.name}`} />
+                                                            <AvatarFallback>{item.student.name.substring(0, 2)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
                                                                 <p className="font-medium text-slate-900">{item.student.name}</p>
-                                                                <p className="text-xs text-slate-500">{item.student.nis}</p>
+                                                                {/* Check if the name matches the teacher name for this schedule as a heuristic */}
+                                                                {item.student.name === item.schedule.teacher_name && <Badge variant="secondary" className="text-[10px] h-5 px-1.5">Guru</Badge>}
                                                             </div>
+                                                            <p className="text-xs text-slate-500">{item.student.nis || 'Siswa'}</p>
                                                         </div>
-                                                    </TableCell>
+                                                    </div>
+                                                </TableCell>
                                                     <TableCell>
                                                         <div className="flex flex-col">
                                                             <span className="font-medium text-slate-900">{item.schedule.classroom.name}</span>
