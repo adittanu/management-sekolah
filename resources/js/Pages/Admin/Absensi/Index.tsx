@@ -365,48 +365,66 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                         {/* Schedule List Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {schedules.map(schedule => (
-                                <Card key={schedule.id} className="border-none shadow-md bg-white overflow-hidden hover:shadow-lg transition-all duration-200 group">
-                                    <div className="h-2 bg-indigo-500 w-full"></div>
+                                <Card 
+                                    key={schedule.id} 
+                                    className={`
+                                        border-none shadow-sm bg-white overflow-hidden hover:shadow-lg transition-all duration-300 group
+                                        ${(schedule as ExtendedSchedule).has_attendance ? 'ring-2 ring-emerald-100 ring-offset-2' : ''}
+                                    `}
+                                >
+                                    <div className={`h-1.5 w-full ${(schedule as ExtendedSchedule).has_attendance ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
                                     <CardContent className="p-6">
                                         <div className="flex justify-between items-start mb-4">
-                                            <div className="flex gap-2">
-                                                <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                                            <div className="flex flex-wrap gap-2">
+                                                <Badge variant="secondary" className="bg-slate-100 text-slate-700 font-bold hover:bg-slate-200">
                                                     {schedule.classroom.name}
-                                                </div>
+                                                </Badge>
                                                 {(schedule as ExtendedSchedule).has_attendance && (
-                                                    <div className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                                                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none flex items-center gap-1 shadow-none">
                                                         <CheckCircle className="w-3 h-3" /> Sudah Absen
-                                                    </div>
+                                                    </Badge>
                                                 )}
                                             </div>
                                             {schedule.start_time && schedule.end_time && (
-                                                <div className="flex items-center text-slate-500 text-sm font-medium">
-                                                    <Clock className="w-3.5 h-3.5 mr-1" />
+                                                <div className="flex items-center text-slate-500 text-xs font-medium bg-slate-50 px-2 py-1 rounded-md">
+                                                    <Clock className="w-3 h-3 mr-1.5" />
                                                     {schedule.start_time} - {schedule.end_time}
                                                 </div>
                                             )}
                                         </div>
                                         
-                                        <h3 className="text-xl font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                                        <h3 className="text-xl font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors line-clamp-1" title={schedule.subject.name}>
                                             {schedule.subject.name}
                                         </h3>
                                         
-                                        <div className="space-y-2 mt-4">
+                                        <div className="space-y-3 mt-5 pt-5 border-t border-slate-50">
                                             <div className="flex items-center text-slate-600 text-sm">
-                                                <User className="w-4 h-4 mr-2 text-slate-400" />
-                                                {schedule.teacher_name || "Guru Mata Pelajaran"}
+                                                <div className="w-8 flex justify-center">
+                                                    <User className="w-4 h-4 text-slate-400" />
+                                                </div>
+                                                <span className="truncate">{schedule.teacher_name || "Guru Mata Pelajaran"}</span>
                                             </div>
                                             <div className="flex items-center text-slate-600 text-sm">
-                                                <MapPin className="w-4 h-4 mr-2 text-slate-400" />
-                                                {schedule.room_name || "R. Kelas"}
+                                                <div className="w-8 flex justify-center">
+                                                    <MapPin className="w-4 h-4 text-slate-400" />
+                                                </div>
+                                                <span className="truncate">{schedule.room_name || "R. Kelas"}</span>
                                             </div>
                                         </div>
 
                                         <Button 
                                             onClick={() => handleStartAttendance(schedule.id)}
-                                            className="w-full mt-6 bg-slate-50 text-slate-900 hover:bg-indigo-600 hover:text-white border border-slate-200 hover:border-indigo-600 transition-all shadow-sm"
+                                            variant={(schedule as ExtendedSchedule).has_attendance ? "outline" : "default"}
+                                            className={`
+                                                w-full mt-6 transition-all shadow-sm
+                                                ${(schedule as ExtendedSchedule).has_attendance 
+                                                    ? 'bg-white text-slate-700 border-slate-200 hover:border-emerald-500 hover:text-emerald-600' 
+                                                    : 'bg-white text-slate-900 hover:bg-indigo-600 hover:text-white border border-slate-200 hover:border-indigo-600'
+                                                }
+                                            `}
                                         >
-                                            Mulai Absen <ArrowRight className="w-4 h-4 ml-2" />
+                                            {(schedule as ExtendedSchedule).has_attendance ? 'Edit Absensi' : 'Mulai Absen'} 
+                                            <ArrowRight className={`w-4 h-4 ml-2 transition-transform group-hover:translate-x-1`} />
                                         </Button>
                                     </CardContent>
                                 </Card>
@@ -424,58 +442,87 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-300 group">
                                 <CardContent className="p-6">
-                                    <p className="text-slate-500 text-sm font-medium">Siswa Hadir</p>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <h3 className="text-2xl font-bold text-slate-900">{stats.present}</h3>
-                                        <span className="text-sm font-medium text-emerald-600">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <p className="text-slate-500 text-sm font-medium">Siswa Hadir</p>
+                                        <div className="p-2 bg-emerald-50 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                                            <UserCheck className="w-4 h-4 text-emerald-600" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-end gap-2 mb-3">
+                                        <h3 className="text-3xl font-bold text-slate-900">{stats.present}</h3>
+                                        <span className="text-sm font-bold text-emerald-600 mb-1">
                                             {stats.totalStudents > 0 ? Math.round((stats.present / stats.totalStudents) * 100) : 0}%
                                         </span>
                                     </div>
-                                    <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                                         <div 
-                                            className="bg-emerald-500 h-full" 
+                                            className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out" 
                                             style={{ width: `${stats.totalStudents > 0 ? (stats.present / stats.totalStudents) * 100 : 0}%` }}
                                         ></div>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
+                            
+                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-300 group">
                                 <CardContent className="p-6">
-                                    <p className="text-slate-500 text-sm font-medium">Terlambat</p>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <h3 className="text-2xl font-bold text-amber-600">{stats.late}</h3>
-                                        <span className="text-sm font-medium text-amber-600">Siswa</span>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <p className="text-slate-500 text-sm font-medium">Sakit / Izin</p>
+                                        <div className="p-2 bg-amber-50 rounded-lg group-hover:bg-amber-100 transition-colors">
+                                            <FileText className="w-4 h-4 text-amber-600" />
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                                        <div className="bg-amber-500 h-full" style={{ width: '15%' }}></div>
+                                    <div className="flex items-end gap-2 mb-3">
+                                        <h3 className="text-3xl font-bold text-slate-900">{stats.sick + stats.permit}</h3>
+                                        <span className="text-sm font-medium text-amber-600 mb-1">Siswa</span>
                                     </div>
-                                </CardContent>
-                            </Card>
-                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
-                                <CardContent className="p-6">
-                                    <p className="text-slate-500 text-sm font-medium">Alpha</p>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <h3 className="text-2xl font-bold text-rose-600">{stats.alpha}</h3>
-                                        <span className="text-sm font-medium text-rose-600">Siswa</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                                        <div className="bg-rose-500 h-full" style={{ width: '5%' }}></div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-shadow">
-                                <CardContent className="p-6">
-                                    <p className="text-slate-500 text-sm font-medium">Guru Hadir</p>
-                                    <div className="flex items-end gap-2 mt-2">
-                                        <h3 className="text-2xl font-bold text-blue-600">{stats.teachersPresent}</h3>
-                                        <span className="text-sm font-medium text-slate-400">/ {stats.totalTeachers}</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                                         <div 
-                                            className="bg-blue-500 h-full" 
+                                            className="bg-amber-500 h-full rounded-full transition-all duration-1000 ease-out" 
+                                            style={{ width: `${stats.totalStudents > 0 ? ((stats.sick + stats.permit) / stats.totalStudents) * 100 : 0}%` }}
+                                        ></div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            
+                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-300 group">
+                                <CardContent className="p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <p className="text-slate-500 text-sm font-medium">Alpha (Absen)</p>
+                                        <div className="p-2 bg-rose-50 rounded-lg group-hover:bg-rose-100 transition-colors">
+                                            <XCircle className="w-4 h-4 text-rose-600" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-end gap-2 mb-3">
+                                        <h3 className="text-3xl font-bold text-slate-900">{stats.alpha}</h3>
+                                        <span className="text-sm font-medium text-rose-600 mb-1">Siswa</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                        <div 
+                                            className="bg-rose-500 h-full rounded-full transition-all duration-1000 ease-out" 
+                                            style={{ width: `${stats.totalStudents > 0 ? (stats.alpha / stats.totalStudents) * 100 : 0}%` }}
+                                        ></div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            
+                            <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-300 group">
+                                <CardContent className="p-6">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <p className="text-slate-500 text-sm font-medium">Kehadiran Guru</p>
+                                        <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
+                                            <Users className="w-4 h-4 text-blue-600" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-end gap-2 mb-3">
+                                        <h3 className="text-3xl font-bold text-slate-900">{stats.teachersPresent}</h3>
+                                        <span className="text-sm font-medium text-slate-400 mb-1">/ {stats.totalTeachers} Guru</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                        <div 
+                                            className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-out" 
                                             style={{ width: `${stats.totalTeachers > 0 ? (stats.teachersPresent / stats.totalTeachers) * 100 : 0}%` }}
                                         ></div>
                                     </div>
