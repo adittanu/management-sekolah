@@ -198,7 +198,10 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                 variant="ghost" 
                                                 size="icon" 
                                                 className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                                                onClick={() => openEditModal(subject)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openEditModal(subject);
+                                                }}
                                             >
                                                 <Edit2 className="w-4 h-4" />
                                             </Button>
@@ -206,7 +209,10 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                 variant="ghost" 
                                                 size="icon" 
                                                 className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                onClick={() => handleDelete(subject)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(subject);
+                                                }}
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>

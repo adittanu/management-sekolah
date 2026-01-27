@@ -69,8 +69,14 @@ class SubjectController extends Controller
      */
     public function destroy(Subject $mapel)
     {
-        $mapel->delete();
-
-        return redirect()->back()->with('success', 'Mata pelajaran berhasil dihapus.');
+        try {
+            $mapel->delete();
+            return redirect()->back()->with('success', 'Mata pelajaran berhasil dihapus.');
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() == "23000") {
+                return redirect()->back()->withErrors(['error' => 'Mata pelajaran tidak dapat dihapus karena masih digunakan di jadwal atau data lain.']);
+            }
+            return redirect()->back()->withErrors(['error' => 'Terjadi kesalahan saat menghapus data.']);
+        }
     }
 }
