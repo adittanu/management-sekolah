@@ -47,7 +47,7 @@ interface Schedule {
 }
 
 interface Props {
-    schedules: { data: Schedule[] };
+    schedules: Schedule[]; // Changed from { data: Schedule[] } to Schedule[] because we switched to get()
     subjects: Subject[];
     classrooms: Classroom[];
     teachers: Teacher[];
@@ -56,6 +56,7 @@ interface Props {
 export default function JadwalIndex({ schedules, subjects, classrooms, teachers }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
+    const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class'); // New State
 
     // Use Inertia Form
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
@@ -69,8 +70,27 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         end_time: ''
     });
 
-    // Determine initial class from classrooms prop if available
-    const [selectedClass, setSelectedClass] = useState(classrooms.length > 0 ? classrooms[0].name : '');
+    // Generic selection state (can be class ID or teacher ID)
+    // We store the ID as string to be consistent, or name if that's what we used before.
+    // The previous code used `selectedClass` storing NAME. Let's switch to ID for better reliability,
+    // or keep using Name if it's easier for the current prop structure.
+    // Looking at previous code: `selectedClass` stored NAME.
+    // Let's make it generic: `selectedFilterValue`
+    
+    const [selectedFilterValue, setSelectedFilterValue] = useState('');
+
+    // Initialize selection when mode or data changes
+    useEffect(() => {
+        if (viewMode === 'class') {
+            if (classrooms.length > 0 && !classrooms.find(c => c.name === selectedFilterValue)) {
+                setSelectedFilterValue(classrooms[0].name);
+            }
+        } else {
+            if (teachers.length > 0 && !teachers.find(t => t.name === selectedFilterValue)) {
+                setSelectedFilterValue(teachers[0].name);
+            }
+        }
+    }, [viewMode, classrooms, teachers]);
     const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -105,7 +125,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
     };
 
     // Transform raw schedules to the structure expected by the UI
-    const transformedScheduleData = useMemo(() => {
+    const transformScheduleData = (scheduleList: Schedule[]) => {
         const data: Record<string, any[]> = {};
         
         // Initialize days
@@ -114,9 +134,9 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         });
 
         // Use schedules.data if paginated, otherwise assume array
-        const scheduleList = schedules.data || [];
+        const list = scheduleList || [];
 
-        scheduleList.forEach(schedule => {
+        list.forEach(schedule => {
             if (!schedule.subject || !schedule.classroom || !schedule.teacher) return;
             
             const jam = getJamFromTime(schedule.start_time);
@@ -137,6 +157,10 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         });
 
         return data;
+    };
+
+    const transformedScheduleData = useMemo(() => {
+        return transformScheduleData(schedules);
     }, [schedules]);
 
     // Local state for drag-and-drop UI updates (optimistic UI)
@@ -144,18 +168,13 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
 
     // Sync state when props change
     useEffect(() => {
-        setScheduleData(transformedScheduleData);
-    }, [transformedScheduleData]);
+        setScheduleData(transformScheduleData(schedules));
+    }, [schedules]);
 
-    // Handle class selection change
-    useEffect(() => {
-        if (!selectedClass && classrooms.length > 0) {
-            setSelectedClass(classrooms[0].name);
-        }
-    }, [classrooms]);
+    // Handle class selection change - REMOVED OLD LOGIC
+    // New logic handled by viewMode effect above
 
     const handleAddSchedule = (day: string = '', jam: string = '') => {
-        const cls = classrooms.find(c => c.name === selectedClass);
         clearErrors();
         
         let start = '';
@@ -167,12 +186,24 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
             end = times.end;
         }
 
+        // Pre-fill based on view mode
+        let initialClassId = '';
+        let initialTeacherId = '';
+
+        if (viewMode === 'class') {
+            const cls = classrooms.find(c => c.name === selectedFilterValue);
+            initialClassId = cls ? cls.id.toString() : '';
+        } else {
+            const tch = teachers.find(t => t.name === selectedFilterValue);
+            initialTeacherId = tch ? tch.id.toString() : '';
+        }
+
         setData({
             day: day,
             jam: jam,
             subject_id: '',
-            classroom_id: cls ? cls.id.toString() : '',
-            teacher_id: '',
+            classroom_id: initialClassId,
+            teacher_id: initialTeacherId,
             room: '',
             start_time: start,
             end_time: end
@@ -182,14 +213,20 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
 
     const handleSaveSchedule = () => {
         // Calculate times if jam is selected but times are empty (fallback)
-        let toSubmit = { ...data };
+        let toSubmit: any = { ...data };
         if (data.jam && (!data.start_time || !data.end_time)) {
              const times = getTimesFromSlot(parseInt(data.jam));
              toSubmit.start_time = times.start;
              toSubmit.end_time = times.end;
         }
 
-        post(route('jadwal.store'), {
+        // Ensure required fields are present
+        if (!toSubmit.day || !toSubmit.jam || !toSubmit.subject_id || !toSubmit.classroom_id || !toSubmit.teacher_id) {
+            toast.error('Mohon lengkapi semua data wajib!');
+            return;
+        }
+
+        post(route('admin.jadwal.store'), {
             // @ts-ignore
             data: toSubmit,
             onSuccess: () => {
@@ -206,7 +243,9 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
 
     const handleDeleteSchedule = (id: number) => {
         if (confirm('Apakah anda yakin ingin menghapus jadwal ini?')) {
-            router.delete(route('jadwal.destroy', id), {
+            router.delete(route('admin.jadwal.destroy', id), {
+                preserveState: true,
+                preserveScroll: true,
                 onSuccess: () => toast.success('Jadwal berhasil dihapus')
             });
         }
@@ -247,10 +286,12 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         if (targetDay === sourceDay && targetJam === sourceJam) return;
 
         // Optimistic update
-        const previousData = { ...scheduleData };
+        // Deep copy needed to properly revert state later if needed
+        const previousData = JSON.parse(JSON.stringify(scheduleData));
         
         setScheduleData((prev: any) => {
-            const newData = { ...prev };
+            // Deep copy for mutation
+            const newData = JSON.parse(JSON.stringify(prev));
             // ... (Simple move logic for UI responsiveness) ...
             // We can reuse the existing logic or simplify it just for visual feedback
             // But real update happens via API
@@ -266,14 +307,24 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
             // For now, let's just push and let backend validate
             if (!newData[targetDay]) newData[targetDay] = [];
             
-            // Check if target is occupied by SAME CLASS
+            // Check if target is occupied
             const targetList = newData[targetDay];
-            const isOccupied = targetList.some((s:any) => s.jam === targetJam && s.class === selectedClass);
+            
+            let isOccupied = false;
+            
+            if (viewMode === 'class') {
+                // Class Mode: Check if slot occupied by SAME CLASS
+                isOccupied = targetList.some((s:any) => s.jam === targetJam && s.class === selectedFilterValue);
+            } else {
+                 // Teacher Mode: Check if slot occupied by SAME TEACHER
+                 isOccupied = targetList.some((s:any) => s.jam === targetJam && s.teacher === selectedFilterValue);
+            }
             
             if (isOccupied) {
                 // If occupied, revert (or handle swap later)
                 toast.error('Slot waktu sudah terisi!');
-                return previousData;
+                // MUST RETURN A NEW OBJECT TO TRIGGER RENDER
+                return JSON.parse(JSON.stringify(previousData)); 
             }
 
             movedItem.jam = targetJam;
@@ -289,25 +340,24 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         // Backend Update
         const newTimes = getTimesFromSlot(targetJam);
         
-        router.put(route('jadwal.update', scheduleId), {
+        router.put(route('admin.jadwal.update', scheduleId), {
             day: targetDay,
             start_time: newTimes.start,
             end_time: newTimes.end,
-            // We need to send other required fields too because update validates them
-            // But we only changed day/time.
-            // Wait, the update method requires ALL fields: subject_id, classroom_id, teacher_id
-            // We need to extract them from original data
             subject_id: activeData.original.subject_id,
             classroom_id: activeData.original.classroom_id,
             teacher_id: activeData.original.teacher_id,
             room: activeData.original.room,
         }, {
+            preserveState: true, // Keep view mode and selection active
+            preserveScroll: true, // Keep scroll position
             onSuccess: () => {
                 toast.success('Jadwal berhasil dipindahkan');
             },
             onError: (err) => {
-                toast.error('Gagal memindahkan jadwal: ' + (Object.values(err)[0] || 'Unknown error'));
-                // Revert UI
+                const message = (Object.values(err)[0] as string) || 'Terjadi kesalahan yang tidak diketahui';
+                toast.error('Gagal memindahkan jadwal: ' + message);
+                // Revert UI - Explicitly set state back to previousData
                 setScheduleData(previousData);
             }
         });
@@ -316,7 +366,11 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
     // Helper to find item
     const getScheduleItem = (day: string, jam: number) => {
         const daySchedule = scheduleData[day] || [];
-        return daySchedule.find((s: any) => s.jam === jam && s.class === selectedClass);
+        if (viewMode === 'class') {
+            return daySchedule.find((s: any) => s.jam === jam && s.class === selectedFilterValue);
+        } else {
+             return daySchedule.find((s: any) => s.jam === jam && s.teacher === selectedFilterValue);
+        }
     };
 
     return (
@@ -334,13 +388,36 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                     </div>
                     
                     <div className="flex items-center gap-3">
-                        <div className="w-[200px]">
-                            <Select value={selectedClass} onValueChange={setSelectedClass}>
+                        {/* View Mode Toggle */}
+                        <div className="bg-slate-100 p-1 rounded-lg flex items-center">
+                            <Button 
+                                variant={viewMode === 'class' ? 'secondary' : 'ghost'} 
+                                size="sm"
+                                onClick={() => setViewMode('class')}
+                                className={viewMode === 'class' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}
+                            >
+                                Kelas
+                            </Button>
+                            <Button 
+                                variant={viewMode === 'teacher' ? 'secondary' : 'ghost'} 
+                                size="sm"
+                                onClick={() => setViewMode('teacher')}
+                                className={viewMode === 'teacher' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}
+                            >
+                                Guru
+                            </Button>
+                        </div>
+
+                        <div className="w-[250px]">
+                            <Select value={selectedFilterValue} onValueChange={setSelectedFilterValue}>
                                 <SelectTrigger className="bg-white border-slate-200 shadow-sm">
-                                    <SelectValue placeholder="Pilih Kelas" />
+                                    <SelectValue placeholder={viewMode === 'class' ? "Pilih Kelas" : "Pilih Guru"} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {classrooms.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                                    {viewMode === 'class' 
+                                        ? classrooms.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)
+                                        : teachers.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)
+                                    }
                                 </SelectContent>
                             </Select>
                         </div>

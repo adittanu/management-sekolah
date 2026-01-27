@@ -14,7 +14,7 @@ class Attendance extends Model
     ];
 
     protected $casts = [
-        'date' => 'date',
+        'date' => 'string',
     ];
 
     public function schedule()

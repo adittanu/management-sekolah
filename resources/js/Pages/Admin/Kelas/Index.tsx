@@ -20,7 +20,7 @@ interface User {
 interface Classroom {
     id: number;
     name: string;
-    level: '10' | '11' | '12';
+    level: string;
     major: string;
     academic_year: string;
     teacher_id: number | null;
@@ -35,9 +35,10 @@ interface Props {
         meta: any;
     };
     teachers: User[];
+    availableLevels: string[];
 }
 
-export default function KelasIndex({ classrooms, teachers }: Props) {
+export default function KelasIndex({ classrooms, teachers, availableLevels }: Props) {
     const [searchQuery, setSearchQuery] = useState(new URLSearchParams(window.location.search).get('search') || '');
     const [selectedLevel, setSelectedLevel] = useState(new URLSearchParams(window.location.search).get('level') || 'Semua');
     const [isAddClassOpen, setIsAddClassOpen] = useState(false);
@@ -61,10 +62,6 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
         
         // Map display text to value for backend
         let levelValue = selectedLevel;
-        if (selectedLevel === 'Kelas X') levelValue = '10';
-        else if (selectedLevel === 'Kelas XI') levelValue = '11';
-        else if (selectedLevel === 'Kelas XII') levelValue = '12';
-        
         if (selectedLevel !== 'Semua') params.level = levelValue;
 
         router.get(route('admin.kelas.index'), params, {
@@ -76,7 +73,7 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
 
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
-        level: '10' as '10' | '11' | '12',
+        level: '10',
         major: '',
         academic_year: new Date().getFullYear().toString() + '/' + (new Date().getFullYear() + 1).toString(),
         teacher_id: '',
@@ -92,7 +89,7 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
         clearErrors: editClearErrors 
     } = useForm({
         name: '',
-        level: '10' as '10' | '11' | '12',
+        level: '10',
         major: '',
         academic_year: '',
         teacher_id: '',
@@ -141,15 +138,6 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
         });
     };
 
-    const getLevelDisplay = (level: string) => {
-        switch(level) {
-            case '10': return 'X';
-            case '11': return 'XI';
-            case '12': return 'XII';
-            default: return level;
-        }
-    };
-
     return (
         <AdminLayout title="Data Rombongan Belajar">
             <div className="space-y-6">
@@ -177,14 +165,22 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
                         />
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
-                        {['Semua', 'Kelas X', 'Kelas XI', 'Kelas XII'].map((filter) => (
+                        <Button 
+                            key="Semua"
+                            onClick={() => setSelectedLevel('Semua')}
+                            variant={selectedLevel === 'Semua' ? 'secondary' : 'ghost'}
+                            className={`whitespace-nowrap ${selectedLevel === 'Semua' ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
+                        >
+                            Semua
+                        </Button>
+                        {availableLevels.map((filter) => (
                            <Button 
                                 key={filter}
                                 onClick={() => setSelectedLevel(filter)}
                                 variant={selectedLevel === filter ? 'secondary' : 'ghost'}
                                 className={`whitespace-nowrap ${selectedLevel === filter ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
                             >
-                                {filter}
+                                Kelas {filter}
                             </Button>
                         ))}
                     </div>
@@ -200,7 +196,7 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
                                             <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center text-white h-48 relative overflow-hidden">
                                                 <div className="absolute top-4 left-4 z-10">
                                                     <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-sm">
-                                                        Tingkat {getLevelDisplay(kelas.level)}
+                                                        Tingkat {kelas.level}
                                                     </Badge>
                                                 </div>
                                                 <School className="w-16 h-16 opacity-90 mb-4 group-hover:scale-110 transition-transform duration-300 relative z-10" />
@@ -273,33 +269,17 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
                         <form onSubmit={submit}>
                             <div className="p-6 space-y-6">
                                 <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="level" className="text-sm font-semibold text-slate-700">Tingkat Kelas</Label>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {[
-                                                { val: '10', label: 'Kelas X' },
-                                                { val: '11', label: 'Kelas XI' },
-                                                { val: '12', label: 'Kelas XII' }
-                                            ].map((opt) => (
-                                                <div key={opt.val} className="relative">
-                                                    <input 
-                                                        type="radio" 
-                                                        name="level" 
-                                                        id={`lvl-${opt.val}`} 
-                                                        className="peer sr-only"
-                                                        checked={data.level === opt.val}
-                                                        onChange={() => setData('level', opt.val as '10' | '11' | '12')}
-                                                    />
-                                                    <label 
-                                                        htmlFor={`lvl-${opt.val}`}
-                                                        className="flex items-center justify-center py-3 px-4 rounded-lg border border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50 hover:border-slate-300 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 cursor-pointer transition-all"
-                                                    >
-                                                        {opt.label}
-                                                    </label>
-                                                </div>
-                                            ))}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="level" className="text-sm font-semibold text-slate-700">Tingkat Kelas</Label>
+                                            <Input 
+                                                id="level" 
+                                                placeholder="Contoh: 10, 11, 12, atau Lainnya" 
+                                                className="bg-slate-50 border-slate-200 focus:ring-blue-500" 
+                                                value={data.level}
+                                                onChange={(e) => setData('level', e.target.value)}
+                                            />
+                                            {errors.level && <p className="text-red-500 text-xs">{errors.level}</p>}
                                         </div>
-                                    </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
@@ -383,33 +363,17 @@ export default function KelasIndex({ classrooms, teachers }: Props) {
                         <form onSubmit={submitEdit}>
                             <div className="p-6 space-y-6">
                                 <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="edit-level" className="text-sm font-semibold text-slate-700">Tingkat Kelas</Label>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {[
-                                                { val: '10', label: 'Kelas X' },
-                                                { val: '11', label: 'Kelas XI' },
-                                                { val: '12', label: 'Kelas XII' }
-                                            ].map((opt) => (
-                                                <div key={`edit-${opt.val}`} className="relative">
-                                                    <input 
-                                                        type="radio" 
-                                                        name="edit-level" 
-                                                        id={`edit-lvl-${opt.val}`} 
-                                                        className="peer sr-only"
-                                                        checked={editData.level === opt.val}
-                                                        onChange={() => setEditData('level', opt.val as '10' | '11' | '12')}
-                                                    />
-                                                    <label 
-                                                        htmlFor={`edit-lvl-${opt.val}`}
-                                                        className="flex items-center justify-center py-3 px-4 rounded-lg border border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50 hover:border-slate-300 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-600 cursor-pointer transition-all"
-                                                    >
-                                                        {opt.label}
-                                                    </label>
-                                                </div>
-                                            ))}
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-level" className="text-sm font-semibold text-slate-700">Tingkat Kelas</Label>
+                                            <Input 
+                                                id="edit-level" 
+                                                placeholder="Contoh: 10, 11, 12, atau Lainnya" 
+                                                className="bg-slate-50 border-slate-200 focus:ring-blue-500" 
+                                                value={editData.level}
+                                                onChange={(e) => setEditData('level', e.target.value)}
+                                            />
+                                            {editErrors.level && <p className="text-red-500 text-xs">{editErrors.level}</p>}
                                         </div>
-                                    </div>
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">

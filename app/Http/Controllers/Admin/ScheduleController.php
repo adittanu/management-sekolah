@@ -28,8 +28,7 @@ class ScheduleController extends Controller
                 });
             })
             ->latest()
-            ->paginate(10)
-            ->withQueryString();
+            ->get(); // Changed from paginate(10) to get() to ensure all schedules are available for the grid view
 
         $subjects = Subject::all();
         $classrooms = Classroom::all();

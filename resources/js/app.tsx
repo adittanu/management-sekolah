@@ -4,6 +4,7 @@ import './bootstrap';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot, hydrateRoot } from 'react-dom/client';
+import { Toaster } from 'sonner';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -20,7 +21,13 @@ createInertiaApp({
             return;
         }
 
-        createRoot(el).render(<App {...props} />);
+        const root = createRoot(el);
+        root.render(
+            <>
+                <Toaster position="top-center" richColors />
+                <App {...props} />
+            </>
+        );
     },
     progress: {
         color: '#4B5563',

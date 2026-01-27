@@ -14,6 +14,8 @@ import InputError from '@/Components/InputError';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/Components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 
+import { ImportUserWizard } from "@/Pages/Admin/User/Partials/ImportUserWizard";
+
 interface User {
     id: number;
     name: string;
@@ -58,6 +60,7 @@ const getAvatarUrl = (user: User) => {
 
 export default function UserIndex({ users, filters }: Props) {
     const [qrUser, setQrUser] = useState<User | null>(null);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('Semua');
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [isEditUserOpen, setIsEditUserOpen] = useState(false);
@@ -286,6 +289,17 @@ export default function UserIndex({ users, filters }: Props) {
                     </div>
                 </div>
 
+                {/* Import Wizard */}
+                <ImportUserWizard 
+                    isOpen={isImportOpen} 
+                    onClose={() => setIsImportOpen(false)} 
+                    onSuccess={() => {
+                        setIsImportOpen(false);
+                        // Optional: Refresh data (router.reload() happens automatically on success if backend redirects back)
+                        router.reload({ only: ['users'] });
+                    }} 
+                />
+
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex gap-2 pb-2 overflow-x-auto w-full sm:w-auto">
                         {['Semua', 'SISWA', 'GURU', 'ADMIN'].map((tab) => (
@@ -300,18 +314,28 @@ export default function UserIndex({ users, filters }: Props) {
                         ))}
                     </div>
 
-                    <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto">
-                        <div className="relative w-full sm:w-64">
-                            <Icons.Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                            <Input
-                                type="search"
-                                placeholder="Cari nama atau email..."
-                                className="pl-9 bg-white border-slate-200"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                    </form>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsImportOpen(true)}
+                            className="gap-2 bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm"
+                        >
+                            <Icons.UploadCloud className="w-4 h-4" />
+                            Import Data
+                        </Button>
+                        <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto">
+                            <div className="relative w-full sm:w-64">
+                                <Icons.Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                                <Input
+                                    type="search"
+                                    placeholder="Cari nama atau email..."
+                                    className="pl-9 bg-white border-slate-200"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
                 <DataTable 

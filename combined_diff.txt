@@ -1,0 +1,2972 @@
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 749c7b7..2a3d955 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -21,6 +21,10 @@ class User extends Authenticatable
+         'name',
+         'email',
+         'password',
++        'role',
++        'identity_number',
++        'gender',
++        'avatar',
+     ];
+ 
+     /**
+@@ -45,4 +49,19 @@ protected function casts(): array
+             'password' => 'hashed',
+         ];
+     }
++
++    public function isAdmin(): bool
++    {
++        return $this->role === 'admin';
++    }
++
++    public function isTeacher(): bool
++    {
++        return $this->role === 'teacher';
++    }
++
++    public function isStudent(): bool
++    {
++        return $this->role === 'student';
++    }
+ }
+diff --git a/routes/web.php b/routes/web.php
+index 0c14f3f..cf8cedb 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,6 +1,8 @@
+ <?php
+ 
++use App\Http\Controllers\Admin\UserController;
+ use App\Http\Controllers\ProfileController;
++use App\Http\Middleware\RoleMiddleware;
+ use Illuminate\Foundation\Application;
+ use Illuminate\Support\Facades\Route;
+ use Inertia\Inertia;
+@@ -24,89 +26,79 @@
+     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+ });
+ 
+-// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
+-// For now let's just expose them
+-Route::prefix('admin')->group(function () {
+-    Route::get('/dashboard', function () {
+-        return Inertia::render('Admin/Dashboard');
+-    })->name('admin.dashboard');
+-
+-    Route::get('/user', function () {
+-        return Inertia::render('Admin/User/Index');
+-    })->name('admin.user');
++// Admin Routes
++Route::prefix('admin')
++    ->middleware(['auth', RoleMiddleware::class . ':admin'])
++    ->name('admin.')
++    ->group(function () {
++        Route::get('/dashboard', function () {
++            return Inertia::render('Admin/Dashboard');
++        })->name('dashboard');
+ 
+-    Route::get('/kelas', function () {
+-        return Inertia::render('Admin/Kelas/Index');
+-    })->name('admin.kelas');
++        Route::resource('user', UserController::class);
+ 
+-    Route::get('/kelas/{id}', function ($id) {
+-        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
+-    })->name('admin.kelas.show');
++        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
+ 
+-    Route::get('/jadwal', function () {
+-        return Inertia::render('Admin/Jadwal/Index');
+-    })->name('admin.jadwal');
++        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
+ 
+-    Route::get('/mapel', function () {
+-        return Inertia::render('Admin/Mapel/Index');
+-    })->name('admin.mapel');
++        Route::get('/mapel', function () {
++            return Inertia::render('Admin/Mapel/Index');
++        })->name('mapel');
+ 
+-    Route::get('/laporan', function () {
+-        return Inertia::render('Admin/Laporan/Index');
+-    })->name('admin.laporan');
++        Route::get('/laporan', function () {
++            return Inertia::render('Admin/Laporan/Index');
++        })->name('laporan');
+ 
+-    Route::get('/setting', function () {
+-        return Inertia::render('Admin/Setting/Index');
+-    })->name('admin.setting');
++        Route::get('/setting', function () {
++            return Inertia::render('Admin/Setting/Index');
++        })->name('setting');
+ 
+-    Route::get('/lisensi', function () {
+-        return Inertia::render('Admin/Lisensi/Index');
+-    })->name('admin.lisensi');
++        Route::get('/lisensi', function () {
++            return Inertia::render('Admin/Lisensi/Index');
++        })->name('lisensi');
+ 
+-    Route::get('/daring', function () {
+-        return Inertia::render('Admin/Daring/Index');
+-    })->name('admin.daring');
++        Route::get('/daring', function () {
++            return Inertia::render('Admin/Daring/Index');
++        })->name('daring');
+ 
+-    Route::get('/keuangan', function () {
+-        return Inertia::render('Admin/Keuangan/Index');
+-    })->name('admin.keuangan');
++        Route::get('/keuangan', function () {
++            return Inertia::render('Admin/Keuangan/Index');
++        })->name('keuangan');
+ 
+-    Route::get('/absensi', function () {
+-        return Inertia::render('Admin/Absensi/Index');
+-    })->name('admin.absensi');
++        Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
+ 
+-    Route::get('/perpustakaan', function () {
+-        return Inertia::render('Admin/Perpustakaan/Index');
+-    })->name('admin.perpustakaan');
++        Route::get('/perpustakaan', function () {
++            return Inertia::render('Admin/Perpustakaan/Index');
++        })->name('perpustakaan');
+ 
+-    Route::get('/ppdb', function () {
+-        return Inertia::render('Admin/PPDB/Index');
+-    })->name('admin.ppdb');
++        Route::get('/ppdb', function () {
++            return Inertia::render('Admin/PPDB/Index');
++        })->name('ppdb');
+ 
+-    Route::get('/lms', function () {
+-        return Inertia::render('Admin/LMS/Index');
+-    })->name('admin.lms');
++        Route::get('/lms', function () {
++            return Inertia::render('Admin/LMS/Index');
++        })->name('lms');
+ 
+-    Route::get('/chat', function () {
+-        return Inertia::render('Admin/Chat/Index');
+-    })->name('admin.chat');
++        Route::get('/chat', function () {
++            return Inertia::render('Admin/Chat/Index');
++        })->name('chat');
+ 
+-    Route::get('/office-frame', function () {
+-        return Inertia::render('Admin/SSO/Office');
+-    })->name('admin.office-frame');
++        Route::get('/office-frame', function () {
++            return Inertia::render('Admin/SSO/Office');
++        })->name('office-frame');
+ 
+-    Route::get('/sarpras', function () {
+-        return Inertia::render('Admin/Sarpras/Index');
+-    })->name('admin.sarpras');
++        Route::get('/sarpras', function () {
++            return Inertia::render('Admin/Sarpras/Index');
++        })->name('sarpras');
+ 
+-    Route::get('/ekskul', function () {
+-        return Inertia::render('Admin/Ekskul/Index');
+-    })->name('admin.ekskul');
++        Route::get('/ekskul', function () {
++            return Inertia::render('Admin/Ekskul/Index');
++        })->name('ekskul');
+ 
+-    Route::get('/pkl', function () {
+-        return Inertia::render('Admin/PKL/Index');
+-    })->name('admin.pkl');
+-});
++        Route::get('/pkl', function () {
++            return Inertia::render('Admin/PKL/Index');
++        })->name('pkl');
++    });
+ 
+ // Student (Murid) Routes
+ Route::prefix('siswa')->group(function () {
+\n\n--- /dev/null\n+++ b/AGENTS.md
+# AI Agent Instructions
+
+## Critical Environment Rules
+1. **PHP Execution**: This environment runs on Windows with Laravel Herd accessed via Git Bash.
+   - **PROBLEM**: The `php` command is missing in Bash.
+   - **SOLUTION**: ALWAYS use `php.bat` explicitly.
+   - **Examples**:
+     - `php.bat artisan list`
+     - `php.bat -v`
+     - `composer` (usually works, but if not, try `composer.bat`)
+
+## Project Context
+- **Framework**: Laravel 12
+- **Frontend**: React + Inertia + Tailwind
+- **Architecture**: BMAD (see `_bmad/` directory)
+\n\n--- /dev/null\n+++ b/app/Http/Middleware/RoleMiddleware.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class RoleMiddleware
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    public function handle(Request $request, Closure $next, string $role): Response
+    {
+        if (! $request->user() || $request->user()->role !== $role) {
+            abort(403, 'Unauthorized.');
+        }
+
+        return $next($request);
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Attendance.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Attendance extends Model
+{
+    protected $fillable = [
+        'schedule_id',
+        'student_id',
+        'date',
+        'status',
+    ];
+
+    public function schedule()
+    {
+        return $this->belongsTo(Schedule::class);
+    }
+
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'student_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Classroom.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Classroom extends Model
+{
+    protected $fillable = [
+        'name',
+        'level',
+        'major',
+        'academic_year',
+        'teacher_id',
+    ];
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'classroom_user')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Schedule.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Schedule extends Model
+{
+    protected $fillable = [
+        'subject_id',
+        'classroom_id',
+        'teacher_id',
+        'day',
+        'start_time',
+        'end_time',
+    ];
+
+    public function subject()
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    public function classroom()
+    {
+        return $this->belongsTo(Classroom::class);
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Subject.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Subject extends Model
+{
+    protected $fillable = [
+        'name',
+        'code',
+        'category',
+    ];
+}
+\n\n--- /dev/null\n+++ b/changes.diff
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 749c7b7..2a3d955 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -21,6 +21,10 @@ class User extends Authenticatable
+         'name',
+         'email',
+         'password',
++        'role',
++        'identity_number',
++        'gender',
++        'avatar',
+     ];
+ 
+     /**
+@@ -45,4 +49,19 @@ protected function casts(): array
+             'password' => 'hashed',
+         ];
+     }
++
++    public function isAdmin(): bool
++    {
++        return $this->role === 'admin';
++    }
++
++    public function isTeacher(): bool
++    {
++        return $this->role === 'teacher';
++    }
++
++    public function isStudent(): bool
++    {
++        return $this->role === 'student';
++    }
+ }
+diff --git a/routes/web.php b/routes/web.php
+index 0c14f3f..cf8cedb 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,6 +1,8 @@
+ <?php
+ 
++use App\Http\Controllers\Admin\UserController;
+ use App\Http\Controllers\ProfileController;
++use App\Http\Middleware\RoleMiddleware;
+ use Illuminate\Foundation\Application;
+ use Illuminate\Support\Facades\Route;
+ use Inertia\Inertia;
+@@ -24,89 +26,79 @@
+     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+ });
+ 
+-// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
+-// For now let's just expose them
+-Route::prefix('admin')->group(function () {
+-    Route::get('/dashboard', function () {
+-        return Inertia::render('Admin/Dashboard');
+-    })->name('admin.dashboard');
+-
+-    Route::get('/user', function () {
+-        return Inertia::render('Admin/User/Index');
+-    })->name('admin.user');
++// Admin Routes
++Route::prefix('admin')
++    ->middleware(['auth', RoleMiddleware::class . ':admin'])
++    ->name('admin.')
++    ->group(function () {
++        Route::get('/dashboard', function () {
++            return Inertia::render('Admin/Dashboard');
++        })->name('dashboard');
+ 
+-    Route::get('/kelas', function () {
+-        return Inertia::render('Admin/Kelas/Index');
+-    })->name('admin.kelas');
++        Route::resource('user', UserController::class);
+ 
+-    Route::get('/kelas/{id}', function ($id) {
+-        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
+-    })->name('admin.kelas.show');
++        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
+ 
+-    Route::get('/jadwal', function () {
+-        return Inertia::render('Admin/Jadwal/Index');
+-    })->name('admin.jadwal');
++        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
+ 
+-    Route::get('/mapel', function () {
+-        return Inertia::render('Admin/Mapel/Index');
+-    })->name('admin.mapel');
++        Route::get('/mapel', function () {
++            return Inertia::render('Admin/Mapel/Index');
++        })->name('mapel');
+ 
+-    Route::get('/laporan', function () {
+-        return Inertia::render('Admin/Laporan/Index');
+-    })->name('admin.laporan');
++        Route::get('/laporan', function () {
++            return Inertia::render('Admin/Laporan/Index');
++        })->name('laporan');
+ 
+-    Route::get('/setting', function () {
+-        return Inertia::render('Admin/Setting/Index');
+-    })->name('admin.setting');
++        Route::get('/setting', function () {
++            return Inertia::render('Admin/Setting/Index');
++        })->name('setting');
+ 
+-    Route::get('/lisensi', function () {
+-        return Inertia::render('Admin/Lisensi/Index');
+-    })->name('admin.lisensi');
++        Route::get('/lisensi', function () {
++            return Inertia::render('Admin/Lisensi/Index');
++        })->name('lisensi');
+ 
+-    Route::get('/daring', function () {
+-        return Inertia::render('Admin/Daring/Index');
+-    })->name('admin.daring');
++        Route::get('/daring', function () {
++            return Inertia::render('Admin/Daring/Index');
++        })->name('daring');
+ 
+-    Route::get('/keuangan', function () {
+-        return Inertia::render('Admin/Keuangan/Index');
+-    })->name('admin.keuangan');
++        Route::get('/keuangan', function () {
++            return Inertia::render('Admin/Keuangan/Index');
++        })->name('keuangan');
+ 
+-    Route::get('/absensi', function () {
+-        return Inertia::render('Admin/Absensi/Index');
+-    })->name('admin.absensi');
++        Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
+ 
+-    Route::get('/perpustakaan', function () {
+-        return Inertia::render('Admin/Perpustakaan/Index');
+-    })->name('admin.perpustakaan');
++        Route::get('/perpustakaan', function () {
++            return Inertia::render('Admin/Perpustakaan/Index');
++        })->name('perpustakaan');
+ 
+-    Route::get('/ppdb', function () {
+-        return Inertia::render('Admin/PPDB/Index');
+-    })->name('admin.ppdb');
++        Route::get('/ppdb', function () {
++            return Inertia::render('Admin/PPDB/Index');
++        })->name('ppdb');
+ 
+-    Route::get('/lms', function () {
+-        return Inertia::render('Admin/LMS/Index');
+-    })->name('admin.lms');
++        Route::get('/lms', function () {
++            return Inertia::render('Admin/LMS/Index');
++        })->name('lms');
+ 
+-    Route::get('/chat', function () {
+-        return Inertia::render('Admin/Chat/Index');
+-    })->name('admin.chat');
++        Route::get('/chat', function () {
++            return Inertia::render('Admin/Chat/Index');
++        })->name('chat');
+ 
+-    Route::get('/office-frame', function () {
+-        return Inertia::render('Admin/SSO/Office');
+-    })->name('admin.office-frame');
++        Route::get('/office-frame', function () {
++            return Inertia::render('Admin/SSO/Office');
++        })->name('office-frame');
+ 
+-    Route::get('/sarpras', function () {
+-        return Inertia::render('Admin/Sarpras/Index');
+-    })->name('admin.sarpras');
++        Route::get('/sarpras', function () {
++            return Inertia::render('Admin/Sarpras/Index');
++        })->name('sarpras');
+ 
+-    Route::get('/ekskul', function () {
+-        return Inertia::render('Admin/Ekskul/Index');
+-    })->name('admin.ekskul');
++        Route::get('/ekskul', function () {
++            return Inertia::render('Admin/Ekskul/Index');
++        })->name('ekskul');
+ 
+-    Route::get('/pkl', function () {
+-        return Inertia::render('Admin/PKL/Index');
+-    })->name('admin.pkl');
+-});
++        Route::get('/pkl', function () {
++            return Inertia::render('Admin/PKL/Index');
++        })->name('pkl');
++    });
+ 
+ // Student (Murid) Routes
+ Route::prefix('siswa')->group(function () {
+\n\n--- /dev/null\n+++ b/AGENTS.md
+# AI Agent Instructions
+
+## Critical Environment Rules
+1. **PHP Execution**: This environment runs on Windows with Laravel Herd accessed via Git Bash.
+   - **PROBLEM**: The `php` command is missing in Bash.
+   - **SOLUTION**: ALWAYS use `php.bat` explicitly.
+   - **Examples**:
+     - `php.bat artisan list`
+     - `php.bat -v`
+     - `composer` (usually works, but if not, try `composer.bat`)
+
+## Project Context
+- **Framework**: Laravel 12
+- **Frontend**: React + Inertia + Tailwind
+- **Architecture**: BMAD (see `_bmad/` directory)
+\n\n--- /dev/null\n+++ b/app/Http/Middleware/RoleMiddleware.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class RoleMiddleware
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    public function handle(Request $request, Closure $next, string $role): Response
+    {
+        if (! $request->user() || $request->user()->role !== $role) {
+            abort(403, 'Unauthorized.');
+        }
+
+        return $next($request);
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Attendance.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Attendance extends Model
+{
+    protected $fillable = [
+        'schedule_id',
+        'student_id',
+        'date',
+        'status',
+    ];
+
+    public function schedule()
+    {
+        return $this->belongsTo(Schedule::class);
+    }
+
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'student_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Classroom.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Classroom extends Model
+{
+    protected $fillable = [
+        'name',
+        'level',
+        'major',
+        'academic_year',
+        'teacher_id',
+    ];
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'classroom_user')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Schedule.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Schedule extends Model
+{
+    protected $fillable = [
+        'subject_id',
+        'classroom_id',
+        'teacher_id',
+        'day',
+        'start_time',
+        'end_time',
+    ];
+
+    public function subject()
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    public function classroom()
+    {
+        return $this->belongsTo(Classroom::class);
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Subject.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Subject extends Model
+{
+    protected $fillable = [
+        'name',
+        'code',
+        'category',
+    ];
+}
+\n\n--- /dev/null\n+++ b/changes.diff
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222849_add_details_to_users_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
+            $table->string('identity_number')->unique()->nullable()->after('role');
+            $table->enum('gender', ['L', 'P'])->nullable()->after('identity_number');
+            $table->string('avatar')->nullable()->after('gender');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['role', 'identity_number', 'gender', 'avatar']);
+        });
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222950_create_classrooms_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classrooms', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->enum('level', ['10', '11', '12']);
+            $table->string('major');
+            $table->string('academic_year');
+            $table->foreignId('teacher_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classrooms');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222957_create_subjects_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('subjects', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->string('category');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('subjects');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223003_create_classroom_user_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classroom_user', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classroom_user');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223207_create_schedules_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('schedules', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('subject_id')->constrained()->onDelete('restrict');
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->enum('day', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
+            $table->time('start_time');
+            $table->time('end_time');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('schedules');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223215_create_attendances_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('attendances', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('schedule_id')->constrained()->onDelete('cascade');
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->date('date');
+            $table->enum('status', ['hadir', 'sakit', 'izin', 'alpha']);
+            $table->timestamps();
+            
+            $table->unique(['schedule_id', 'student_id', 'date']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('attendances');
+    }
+};
+\n\n--- /dev/null\n+++ b/project-context.md
+# Project Context & Agent Rules
+
+## Environment & Tooling Quirk (CRITICAL)
+- **PHP Command**: In this environment (Windows + Laravel Herd via Git Bash), the `php` command is NOT available directly. 
+- **Rule**: ALWAYS use `php.bat` instead of `php` for all artisan and composer commands.
+  - ✅ Correct: `php.bat artisan migrate`
+  - ❌ Incorrect: `php artisan migrate`
+
+## Project Stack
+- Framework: Laravel 12.x
+- PHP Version: 8.4.x (via Herd)
+- Frontend: Inertia.js (React) + Tailwind CSS
+
+## Important Notes
+- This project uses BMAD architecture.
+\n\n--- /dev/null\n+++ b/tests/Feature/AdminSchoolModuleTest.php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Classroom;
+use App\Models\Schedule;
+use App\Models\Subject;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class AdminSchoolModuleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    // AC 1: Data Integrity
+    public function test_cannot_delete_subject_with_existing_schedule()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $subject->delete();
+    }
+
+    public function test_student_appears_in_pivot_when_enrolled()
+    {
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $classroom->students()->attach($student->id);
+
+        $this->assertDatabaseHas('classroom_user', [
+            'classroom_id' => $classroom->id,
+            'user_id' => $student->id,
+            'is_active' => 1,
+        ]);
+    }
+
+    // AC 2: Strict Conflict
+    public function test_schedule_conflict_classroom()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher1 = User::factory()->create(['role' => 'teacher']);
+        $teacher2 = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher1->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher2->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['classroom_id']);
+    }
+
+    public function test_schedule_conflict_teacher()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom1 = Classroom::create(['name' => '10A', 'level' => '10', 'major' => 'Science', 'academic_year' => '2025/2026']);
+        $classroom2 = Classroom::create(['name' => '10B', 'level' => '10', 'major' => 'Social', 'academic_year' => '2025/2026']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom1->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom2->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['teacher_id']);
+    }
+
+    // AC 3: Authorization
+    public function test_student_cannot_access_admin_routes()
+    {
+        $student = User::factory()->create(['role' => 'student']);
+
+        $response = $this->actingAs($student)->get(route('admin.dashboard'));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_admin_can_access_admin_routes()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertStatus(200);
+    }
+}
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222849_add_details_to_users_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
+            $table->string('identity_number')->unique()->nullable()->after('role');
+            $table->enum('gender', ['L', 'P'])->nullable()->after('identity_number');
+            $table->string('avatar')->nullable()->after('gender');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['role', 'identity_number', 'gender', 'avatar']);
+        });
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222950_create_classrooms_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classrooms', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->enum('level', ['10', '11', '12']);
+            $table->string('major');
+            $table->string('academic_year');
+            $table->foreignId('teacher_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classrooms');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222957_create_subjects_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('subjects', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->string('category');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('subjects');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223003_create_classroom_user_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classroom_user', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classroom_user');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223207_create_schedules_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('schedules', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('subject_id')->constrained()->onDelete('restrict');
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->enum('day', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
+            $table->time('start_time');
+            $table->time('end_time');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('schedules');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223215_create_attendances_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('attendances', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('schedule_id')->constrained()->onDelete('cascade');
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->date('date');
+            $table->enum('status', ['hadir', 'sakit', 'izin', 'alpha']);
+            $table->timestamps();
+            
+            $table->unique(['schedule_id', 'student_id', 'date']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('attendances');
+    }
+};
+\n\n--- /dev/null\n+++ b/full_changes.diff
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 749c7b7..2a3d955 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -21,6 +21,10 @@ class User extends Authenticatable
+         'name',
+         'email',
+         'password',
++        'role',
++        'identity_number',
++        'gender',
++        'avatar',
+     ];
+ 
+     /**
+@@ -45,4 +49,19 @@ protected function casts(): array
+             'password' => 'hashed',
+         ];
+     }
++
++    public function isAdmin(): bool
++    {
++        return $this->role === 'admin';
++    }
++
++    public function isTeacher(): bool
++    {
++        return $this->role === 'teacher';
++    }
++
++    public function isStudent(): bool
++    {
++        return $this->role === 'student';
++    }
+ }
+diff --git a/routes/web.php b/routes/web.php
+index 0c14f3f..cf8cedb 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,6 +1,8 @@
+ <?php
+ 
++use App\Http\Controllers\Admin\UserController;
+ use App\Http\Controllers\ProfileController;
++use App\Http\Middleware\RoleMiddleware;
+ use Illuminate\Foundation\Application;
+ use Illuminate\Support\Facades\Route;
+ use Inertia\Inertia;
+@@ -24,89 +26,79 @@
+     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+ });
+ 
+-// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
+-// For now let's just expose them
+-Route::prefix('admin')->group(function () {
+-    Route::get('/dashboard', function () {
+-        return Inertia::render('Admin/Dashboard');
+-    })->name('admin.dashboard');
+-
+-    Route::get('/user', function () {
+-        return Inertia::render('Admin/User/Index');
+-    })->name('admin.user');
++// Admin Routes
++Route::prefix('admin')
++    ->middleware(['auth', RoleMiddleware::class . ':admin'])
++    ->name('admin.')
++    ->group(function () {
++        Route::get('/dashboard', function () {
++            return Inertia::render('Admin/Dashboard');
++        })->name('dashboard');
+ 
+-    Route::get('/kelas', function () {
+-        return Inertia::render('Admin/Kelas/Index');
+-    })->name('admin.kelas');
++        Route::resource('user', UserController::class);
+ 
+-    Route::get('/kelas/{id}', function ($id) {
+-        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
+-    })->name('admin.kelas.show');
++        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
+ 
+-    Route::get('/jadwal', function () {
+-        return Inertia::render('Admin/Jadwal/Index');
+-    })->name('admin.jadwal');
++        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
+ 
+-    Route::get('/mapel', function () {
+-        return Inertia::render('Admin/Mapel/Index');
+-    })->name('admin.mapel');
++        Route::get('/mapel', function () {
++            return Inertia::render('Admin/Mapel/Index');
++        })->name('mapel');
+ 
+-    Route::get('/laporan', function () {
+-        return Inertia::render('Admin/Laporan/Index');
+-    })->name('admin.laporan');
++        Route::get('/laporan', function () {
++            return Inertia::render('Admin/Laporan/Index');
++        })->name('laporan');
+ 
+-    Route::get('/setting', function () {
+-        return Inertia::render('Admin/Setting/Index');
+-    })->name('admin.setting');
++        Route::get('/setting', function () {
++            return Inertia::render('Admin/Setting/Index');
++        })->name('setting');
+ 
+-    Route::get('/lisensi', function () {
+-        return Inertia::render('Admin/Lisensi/Index');
+-    })->name('admin.lisensi');
++        Route::get('/lisensi', function () {
++            return Inertia::render('Admin/Lisensi/Index');
++        })->name('lisensi');
+ 
+-    Route::get('/daring', function () {
+-        return Inertia::render('Admin/Daring/Index');
+-    })->name('admin.daring');
++        Route::get('/daring', function () {
++            return Inertia::render('Admin/Daring/Index');
++        })->name('daring');
+ 
+-    Route::get('/keuangan', function () {
+-        return Inertia::render('Admin/Keuangan/Index');
+-    })->name('admin.keuangan');
++        Route::get('/keuangan', function () {
++            return Inertia::render('Admin/Keuangan/Index');
++        })->name('keuangan');
+ 
+-    Route::get('/absensi', function () {
+-        return Inertia::render('Admin/Absensi/Index');
+-    })->name('admin.absensi');
++        Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
+ 
+-    Route::get('/perpustakaan', function () {
+-        return Inertia::render('Admin/Perpustakaan/Index');
+-    })->name('admin.perpustakaan');
++        Route::get('/perpustakaan', function () {
++            return Inertia::render('Admin/Perpustakaan/Index');
++        })->name('perpustakaan');
+ 
+-    Route::get('/ppdb', function () {
+-        return Inertia::render('Admin/PPDB/Index');
+-    })->name('admin.ppdb');
++        Route::get('/ppdb', function () {
++            return Inertia::render('Admin/PPDB/Index');
++        })->name('ppdb');
+ 
+-    Route::get('/lms', function () {
+-        return Inertia::render('Admin/LMS/Index');
+-    })->name('admin.lms');
++        Route::get('/lms', function () {
++            return Inertia::render('Admin/LMS/Index');
++        })->name('lms');
+ 
+-    Route::get('/chat', function () {
+-        return Inertia::render('Admin/Chat/Index');
+-    })->name('admin.chat');
++        Route::get('/chat', function () {
++            return Inertia::render('Admin/Chat/Index');
++        })->name('chat');
+ 
+-    Route::get('/office-frame', function () {
+-        return Inertia::render('Admin/SSO/Office');
+-    })->name('admin.office-frame');
++        Route::get('/office-frame', function () {
++            return Inertia::render('Admin/SSO/Office');
++        })->name('office-frame');
+ 
+-    Route::get('/sarpras', function () {
+-        return Inertia::render('Admin/Sarpras/Index');
+-    })->name('admin.sarpras');
++        Route::get('/sarpras', function () {
++            return Inertia::render('Admin/Sarpras/Index');
++        })->name('sarpras');
+ 
+-    Route::get('/ekskul', function () {
+-        return Inertia::render('Admin/Ekskul/Index');
+-    })->name('admin.ekskul');
++        Route::get('/ekskul', function () {
++            return Inertia::render('Admin/Ekskul/Index');
++        })->name('ekskul');
+ 
+-    Route::get('/pkl', function () {
+-        return Inertia::render('Admin/PKL/Index');
+-    })->name('admin.pkl');
+-});
++        Route::get('/pkl', function () {
++            return Inertia::render('Admin/PKL/Index');
++        })->name('pkl');
++    });
+ 
+ // Student (Murid) Routes
+ Route::prefix('siswa')->group(function () {
+\n\n--- /dev/null\n+++ b/AGENTS.md
+# AI Agent Instructions
+
+## Critical Environment Rules
+1. **PHP Execution**: This environment runs on Windows with Laravel Herd accessed via Git Bash.
+   - **PROBLEM**: The `php` command is missing in Bash.
+   - **SOLUTION**: ALWAYS use `php.bat` explicitly.
+   - **Examples**:
+     - `php.bat artisan list`
+     - `php.bat -v`
+     - `composer` (usually works, but if not, try `composer.bat`)
+
+## Project Context
+- **Framework**: Laravel 12
+- **Frontend**: React + Inertia + Tailwind
+- **Architecture**: BMAD (see `_bmad/` directory)
+\n\n--- /dev/null\n+++ b/app/Http/Middleware/RoleMiddleware.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class RoleMiddleware
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    public function handle(Request $request, Closure $next, string $role): Response
+    {
+        if (! $request->user() || $request->user()->role !== $role) {
+            abort(403, 'Unauthorized.');
+        }
+
+        return $next($request);
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Attendance.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Attendance extends Model
+{
+    protected $fillable = [
+        'schedule_id',
+        'student_id',
+        'date',
+        'status',
+    ];
+
+    public function schedule()
+    {
+        return $this->belongsTo(Schedule::class);
+    }
+
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'student_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Classroom.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Classroom extends Model
+{
+    protected $fillable = [
+        'name',
+        'level',
+        'major',
+        'academic_year',
+        'teacher_id',
+    ];
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'classroom_user')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Schedule.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Schedule extends Model
+{
+    protected $fillable = [
+        'subject_id',
+        'classroom_id',
+        'teacher_id',
+        'day',
+        'start_time',
+        'end_time',
+    ];
+
+    public function subject()
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    public function classroom()
+    {
+        return $this->belongsTo(Classroom::class);
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Subject.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Subject extends Model
+{
+    protected $fillable = [
+        'name',
+        'code',
+        'category',
+    ];
+}
+\n\n--- /dev/null\n+++ b/changes.diff
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 749c7b7..2a3d955 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -21,6 +21,10 @@ class User extends Authenticatable
+         'name',
+         'email',
+         'password',
++        'role',
++        'identity_number',
++        'gender',
++        'avatar',
+     ];
+ 
+     /**
+@@ -45,4 +49,19 @@ protected function casts(): array
+             'password' => 'hashed',
+         ];
+     }
++
++    public function isAdmin(): bool
++    {
++        return $this->role === 'admin';
++    }
++
++    public function isTeacher(): bool
++    {
++        return $this->role === 'teacher';
++    }
++
++    public function isStudent(): bool
++    {
++        return $this->role === 'student';
++    }
+ }
+diff --git a/routes/web.php b/routes/web.php
+index 0c14f3f..cf8cedb 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,6 +1,8 @@
+ <?php
+ 
++use App\Http\Controllers\Admin\UserController;
+ use App\Http\Controllers\ProfileController;
++use App\Http\Middleware\RoleMiddleware;
+ use Illuminate\Foundation\Application;
+ use Illuminate\Support\Facades\Route;
+ use Inertia\Inertia;
+@@ -24,89 +26,79 @@
+     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+ });
+ 
+-// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
+-// For now let's just expose them
+-Route::prefix('admin')->group(function () {
+-    Route::get('/dashboard', function () {
+-        return Inertia::render('Admin/Dashboard');
+-    })->name('admin.dashboard');
+-
+-    Route::get('/user', function () {
+-        return Inertia::render('Admin/User/Index');
+-    })->name('admin.user');
++// Admin Routes
++Route::prefix('admin')
++    ->middleware(['auth', RoleMiddleware::class . ':admin'])
++    ->name('admin.')
++    ->group(function () {
++        Route::get('/dashboard', function () {
++            return Inertia::render('Admin/Dashboard');
++        })->name('dashboard');
+ 
+-    Route::get('/kelas', function () {
+-        return Inertia::render('Admin/Kelas/Index');
+-    })->name('admin.kelas');
++        Route::resource('user', UserController::class);
+ 
+-    Route::get('/kelas/{id}', function ($id) {
+-        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
+-    })->name('admin.kelas.show');
++        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
+ 
+-    Route::get('/jadwal', function () {
+-        return Inertia::render('Admin/Jadwal/Index');
+-    })->name('admin.jadwal');
++        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
+ 
+-    Route::get('/mapel', function () {
+-        return Inertia::render('Admin/Mapel/Index');
+-    })->name('admin.mapel');
++        Route::get('/mapel', function () {
++            return Inertia::render('Admin/Mapel/Index');
++        })->name('mapel');
+ 
+-    Route::get('/laporan', function () {
+-        return Inertia::render('Admin/Laporan/Index');
+-    })->name('admin.laporan');
++        Route::get('/laporan', function () {
++            return Inertia::render('Admin/Laporan/Index');
++        })->name('laporan');
+ 
+-    Route::get('/setting', function () {
+-        return Inertia::render('Admin/Setting/Index');
+-    })->name('admin.setting');
++        Route::get('/setting', function () {
++            return Inertia::render('Admin/Setting/Index');
++        })->name('setting');
+ 
+-    Route::get('/lisensi', function () {
+-        return Inertia::render('Admin/Lisensi/Index');
+-    })->name('admin.lisensi');
++        Route::get('/lisensi', function () {
++            return Inertia::render('Admin/Lisensi/Index');
++        })->name('lisensi');
+ 
+-    Route::get('/daring', function () {
+-        return Inertia::render('Admin/Daring/Index');
+-    })->name('admin.daring');
++        Route::get('/daring', function () {
++            return Inertia::render('Admin/Daring/Index');
++        })->name('daring');
+ 
+-    Route::get('/keuangan', function () {
+-        return Inertia::render('Admin/Keuangan/Index');
+-    })->name('admin.keuangan');
++        Route::get('/keuangan', function () {
++            return Inertia::render('Admin/Keuangan/Index');
++        })->name('keuangan');
+ 
+-    Route::get('/absensi', function () {
+-        return Inertia::render('Admin/Absensi/Index');
+-    })->name('admin.absensi');
++        Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
+ 
+-    Route::get('/perpustakaan', function () {
+-        return Inertia::render('Admin/Perpustakaan/Index');
+-    })->name('admin.perpustakaan');
++        Route::get('/perpustakaan', function () {
++            return Inertia::render('Admin/Perpustakaan/Index');
++        })->name('perpustakaan');
+ 
+-    Route::get('/ppdb', function () {
+-        return Inertia::render('Admin/PPDB/Index');
+-    })->name('admin.ppdb');
++        Route::get('/ppdb', function () {
++            return Inertia::render('Admin/PPDB/Index');
++        })->name('ppdb');
+ 
+-    Route::get('/lms', function () {
+-        return Inertia::render('Admin/LMS/Index');
+-    })->name('admin.lms');
++        Route::get('/lms', function () {
++            return Inertia::render('Admin/LMS/Index');
++        })->name('lms');
+ 
+-    Route::get('/chat', function () {
+-        return Inertia::render('Admin/Chat/Index');
+-    })->name('admin.chat');
++        Route::get('/chat', function () {
++            return Inertia::render('Admin/Chat/Index');
++        })->name('chat');
+ 
+-    Route::get('/office-frame', function () {
+-        return Inertia::render('Admin/SSO/Office');
+-    })->name('admin.office-frame');
++        Route::get('/office-frame', function () {
++            return Inertia::render('Admin/SSO/Office');
++        })->name('office-frame');
+ 
+-    Route::get('/sarpras', function () {
+-        return Inertia::render('Admin/Sarpras/Index');
+-    })->name('admin.sarpras');
++        Route::get('/sarpras', function () {
++            return Inertia::render('Admin/Sarpras/Index');
++        })->name('sarpras');
+ 
+-    Route::get('/ekskul', function () {
+-        return Inertia::render('Admin/Ekskul/Index');
+-    })->name('admin.ekskul');
++        Route::get('/ekskul', function () {
++            return Inertia::render('Admin/Ekskul/Index');
++        })->name('ekskul');
+ 
+-    Route::get('/pkl', function () {
+-        return Inertia::render('Admin/PKL/Index');
+-    })->name('admin.pkl');
+-});
++        Route::get('/pkl', function () {
++            return Inertia::render('Admin/PKL/Index');
++        })->name('pkl');
++    });
+ 
+ // Student (Murid) Routes
+ Route::prefix('siswa')->group(function () {
+\n\n--- /dev/null\n+++ b/AGENTS.md
+# AI Agent Instructions
+
+## Critical Environment Rules
+1. **PHP Execution**: This environment runs on Windows with Laravel Herd accessed via Git Bash.
+   - **PROBLEM**: The `php` command is missing in Bash.
+   - **SOLUTION**: ALWAYS use `php.bat` explicitly.
+   - **Examples**:
+     - `php.bat artisan list`
+     - `php.bat -v`
+     - `composer` (usually works, but if not, try `composer.bat`)
+
+## Project Context
+- **Framework**: Laravel 12
+- **Frontend**: React + Inertia + Tailwind
+- **Architecture**: BMAD (see `_bmad/` directory)
+\n\n--- /dev/null\n+++ b/app/Http/Middleware/RoleMiddleware.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class RoleMiddleware
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    public function handle(Request $request, Closure $next, string $role): Response
+    {
+        if (! $request->user() || $request->user()->role !== $role) {
+            abort(403, 'Unauthorized.');
+        }
+
+        return $next($request);
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Attendance.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Attendance extends Model
+{
+    protected $fillable = [
+        'schedule_id',
+        'student_id',
+        'date',
+        'status',
+    ];
+
+    public function schedule()
+    {
+        return $this->belongsTo(Schedule::class);
+    }
+
+    public function student()
+    {
+        return $this->belongsTo(User::class, 'student_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Classroom.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Classroom extends Model
+{
+    protected $fillable = [
+        'name',
+        'level',
+        'major',
+        'academic_year',
+        'teacher_id',
+    ];
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(User::class, 'classroom_user')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Schedule.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Schedule extends Model
+{
+    protected $fillable = [
+        'subject_id',
+        'classroom_id',
+        'teacher_id',
+        'day',
+        'start_time',
+        'end_time',
+    ];
+
+    public function subject()
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    public function classroom()
+    {
+        return $this->belongsTo(Classroom::class);
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+}
+\n\n--- /dev/null\n+++ b/app/Models/Subject.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Subject extends Model
+{
+    protected $fillable = [
+        'name',
+        'code',
+        'category',
+    ];
+}
+\n\n--- /dev/null\n+++ b/changes.diff
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222849_add_details_to_users_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
+            $table->string('identity_number')->unique()->nullable()->after('role');
+            $table->enum('gender', ['L', 'P'])->nullable()->after('identity_number');
+            $table->string('avatar')->nullable()->after('gender');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['role', 'identity_number', 'gender', 'avatar']);
+        });
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222950_create_classrooms_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classrooms', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->enum('level', ['10', '11', '12']);
+            $table->string('major');
+            $table->string('academic_year');
+            $table->foreignId('teacher_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classrooms');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222957_create_subjects_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('subjects', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->string('category');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('subjects');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223003_create_classroom_user_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classroom_user', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classroom_user');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223207_create_schedules_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('schedules', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('subject_id')->constrained()->onDelete('restrict');
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->enum('day', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
+            $table->time('start_time');
+            $table->time('end_time');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('schedules');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223215_create_attendances_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('attendances', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('schedule_id')->constrained()->onDelete('cascade');
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->date('date');
+            $table->enum('status', ['hadir', 'sakit', 'izin', 'alpha']);
+            $table->timestamps();
+            
+            $table->unique(['schedule_id', 'student_id', 'date']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('attendances');
+    }
+};
+\n\n--- /dev/null\n+++ b/project-context.md
+# Project Context & Agent Rules
+
+## Environment & Tooling Quirk (CRITICAL)
+- **PHP Command**: In this environment (Windows + Laravel Herd via Git Bash), the `php` command is NOT available directly. 
+- **Rule**: ALWAYS use `php.bat` instead of `php` for all artisan and composer commands.
+  - ✅ Correct: `php.bat artisan migrate`
+  - ❌ Incorrect: `php artisan migrate`
+
+## Project Stack
+- Framework: Laravel 12.x
+- PHP Version: 8.4.x (via Herd)
+- Frontend: Inertia.js (React) + Tailwind CSS
+
+## Important Notes
+- This project uses BMAD architecture.
+\n\n--- /dev/null\n+++ b/tests/Feature/AdminSchoolModuleTest.php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Classroom;
+use App\Models\Schedule;
+use App\Models\Subject;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class AdminSchoolModuleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    // AC 1: Data Integrity
+    public function test_cannot_delete_subject_with_existing_schedule()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $subject->delete();
+    }
+
+    public function test_student_appears_in_pivot_when_enrolled()
+    {
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $classroom->students()->attach($student->id);
+
+        $this->assertDatabaseHas('classroom_user', [
+            'classroom_id' => $classroom->id,
+            'user_id' => $student->id,
+            'is_active' => 1,
+        ]);
+    }
+
+    // AC 2: Strict Conflict
+    public function test_schedule_conflict_classroom()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher1 = User::factory()->create(['role' => 'teacher']);
+        $teacher2 = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher1->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher2->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['classroom_id']);
+    }
+
+    public function test_schedule_conflict_teacher()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom1 = Classroom::create(['name' => '10A', 'level' => '10', 'major' => 'Science', 'academic_year' => '2025/2026']);
+        $classroom2 = Classroom::create(['name' => '10B', 'level' => '10', 'major' => 'Social', 'academic_year' => '2025/2026']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom1->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom2->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['teacher_id']);
+    }
+
+    // AC 3: Authorization
+    public function test_student_cannot_access_admin_routes()
+    {
+        $student = User::factory()->create(['role' => 'student']);
+
+        $response = $this->actingAs($student)->get(route('admin.dashboard'));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_admin_can_access_admin_routes()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertStatus(200);
+    }
+}
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222849_add_details_to_users_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
+            $table->string('identity_number')->unique()->nullable()->after('role');
+            $table->enum('gender', ['L', 'P'])->nullable()->after('identity_number');
+            $table->string('avatar')->nullable()->after('gender');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['role', 'identity_number', 'gender', 'avatar']);
+        });
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222950_create_classrooms_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classrooms', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->enum('level', ['10', '11', '12']);
+            $table->string('major');
+            $table->string('academic_year');
+            $table->foreignId('teacher_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classrooms');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_222957_create_subjects_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('subjects', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->string('category');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('subjects');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223003_create_classroom_user_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('classroom_user', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('classroom_user');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223207_create_schedules_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('schedules', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('subject_id')->constrained()->onDelete('restrict');
+            $table->foreignId('classroom_id')->constrained()->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
+            $table->enum('day', ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']);
+            $table->time('start_time');
+            $table->time('end_time');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('schedules');
+    }
+};
+\n\n--- /dev/null\n+++ b/database/migrations/2026_01_26_223215_create_attendances_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('attendances', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('schedule_id')->constrained()->onDelete('cascade');
+            $table->foreignId('student_id')->constrained('users')->onDelete('cascade');
+            $table->date('date');
+            $table->enum('status', ['hadir', 'sakit', 'izin', 'alpha']);
+            $table->timestamps();
+            
+            $table->unique(['schedule_id', 'student_id', 'date']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('attendances');
+    }
+};
+\n\n--- /dev/null\n+++ b/full_changes.diff
+\n\n--- /dev/null\n+++ b/project-context.md
+# Project Context & Agent Rules
+
+## Environment & Tooling Quirk (CRITICAL)
+- **PHP Command**: In this environment (Windows + Laravel Herd via Git Bash), the `php` command is NOT available directly. 
+- **Rule**: ALWAYS use `php.bat` instead of `php` for all artisan and composer commands.
+  - ✅ Correct: `php.bat artisan migrate`
+  - ❌ Incorrect: `php artisan migrate`
+
+## Project Stack
+- Framework: Laravel 12.x
+- PHP Version: 8.4.x (via Herd)
+- Frontend: Inertia.js (React) + Tailwind CSS
+
+## Important Notes
+- This project uses BMAD architecture.
+\n\n--- /dev/null\n+++ b/tests/Feature/AdminSchoolModuleTest.php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Classroom;
+use App\Models\Schedule;
+use App\Models\Subject;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class AdminSchoolModuleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    // AC 1: Data Integrity
+    public function test_cannot_delete_subject_with_existing_schedule()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $subject->delete();
+    }
+
+    public function test_student_appears_in_pivot_when_enrolled()
+    {
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $classroom->students()->attach($student->id);
+
+        $this->assertDatabaseHas('classroom_user', [
+            'classroom_id' => $classroom->id,
+            'user_id' => $student->id,
+            'is_active' => 1,
+        ]);
+    }
+
+    // AC 2: Strict Conflict
+    public function test_schedule_conflict_classroom()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher1 = User::factory()->create(['role' => 'teacher']);
+        $teacher2 = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher1->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher2->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['classroom_id']);
+    }
+
+    public function test_schedule_conflict_teacher()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom1 = Classroom::create(['name' => '10A', 'level' => '10', 'major' => 'Science', 'academic_year' => '2025/2026']);
+        $classroom2 = Classroom::create(['name' => '10B', 'level' => '10', 'major' => 'Social', 'academic_year' => '2025/2026']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom1->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom2->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['teacher_id']);
+    }
+
+    // AC 3: Authorization
+    public function test_student_cannot_access_admin_routes()
+    {
+        $student = User::factory()->create(['role' => 'student']);
+
+        $response = $this->actingAs($student)->get(route('admin.dashboard'));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_admin_can_access_admin_routes()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertStatus(200);
+    }
+}
+\n\n--- /dev/null\n+++ b/git_tracked.diff
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 749c7b7..2a3d955 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -21,6 +21,10 @@ class User extends Authenticatable
+         'name',
+         'email',
+         'password',
++        'role',
++        'identity_number',
++        'gender',
++        'avatar',
+     ];
+ 
+     /**
+@@ -45,4 +49,19 @@ protected function casts(): array
+             'password' => 'hashed',
+         ];
+     }
++
++    public function isAdmin(): bool
++    {
++        return $this->role === 'admin';
++    }
++
++    public function isTeacher(): bool
++    {
++        return $this->role === 'teacher';
++    }
++
++    public function isStudent(): bool
++    {
++        return $this->role === 'student';
++    }
+ }
+diff --git a/routes/web.php b/routes/web.php
+index 0c14f3f..cf8cedb 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -1,6 +1,8 @@
+ <?php
+ 
++use App\Http\Controllers\Admin\UserController;
+ use App\Http\Controllers\ProfileController;
++use App\Http\Middleware\RoleMiddleware;
+ use Illuminate\Foundation\Application;
+ use Illuminate\Support\Facades\Route;
+ use Inertia\Inertia;
+@@ -24,89 +26,79 @@
+     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+ });
+ 
+-// Admin Routes (Dev Mode - No Auth for easier preview if needed, or we can use auth)
+-// For now let's just expose them
+-Route::prefix('admin')->group(function () {
+-    Route::get('/dashboard', function () {
+-        return Inertia::render('Admin/Dashboard');
+-    })->name('admin.dashboard');
+-
+-    Route::get('/user', function () {
+-        return Inertia::render('Admin/User/Index');
+-    })->name('admin.user');
++// Admin Routes
++Route::prefix('admin')
++    ->middleware(['auth', RoleMiddleware::class . ':admin'])
++    ->name('admin.')
++    ->group(function () {
++        Route::get('/dashboard', function () {
++            return Inertia::render('Admin/Dashboard');
++        })->name('dashboard');
+ 
+-    Route::get('/kelas', function () {
+-        return Inertia::render('Admin/Kelas/Index');
+-    })->name('admin.kelas');
++        Route::resource('user', UserController::class);
+ 
+-    Route::get('/kelas/{id}', function ($id) {
+-        return Inertia::render('Admin/Kelas/Show', ['id' => $id]);
+-    })->name('admin.kelas.show');
++        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
+ 
+-    Route::get('/jadwal', function () {
+-        return Inertia::render('Admin/Jadwal/Index');
+-    })->name('admin.jadwal');
++        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
+ 
+-    Route::get('/mapel', function () {
+-        return Inertia::render('Admin/Mapel/Index');
+-    })->name('admin.mapel');
++        Route::get('/mapel', function () {
++            return Inertia::render('Admin/Mapel/Index');
++        })->name('mapel');
+ 
+-    Route::get('/laporan', function () {
+-        return Inertia::render('Admin/Laporan/Index');
+-    })->name('admin.laporan');
++        Route::get('/laporan', function () {
++            return Inertia::render('Admin/Laporan/Index');
++        })->name('laporan');
+ 
+-    Route::get('/setting', function () {
+-        return Inertia::render('Admin/Setting/Index');
+-    })->name('admin.setting');
++        Route::get('/setting', function () {
++            return Inertia::render('Admin/Setting/Index');
++        })->name('setting');
+ 
+-    Route::get('/lisensi', function () {
+-        return Inertia::render('Admin/Lisensi/Index');
+-    })->name('admin.lisensi');
++        Route::get('/lisensi', function () {
++            return Inertia::render('Admin/Lisensi/Index');
++        })->name('lisensi');
+ 
+-    Route::get('/daring', function () {
+-        return Inertia::render('Admin/Daring/Index');
+-    })->name('admin.daring');
++        Route::get('/daring', function () {
++            return Inertia::render('Admin/Daring/Index');
++        })->name('daring');
+ 
+-    Route::get('/keuangan', function () {
+-        return Inertia::render('Admin/Keuangan/Index');
+-    })->name('admin.keuangan');
++        Route::get('/keuangan', function () {
++            return Inertia::render('Admin/Keuangan/Index');
++        })->name('keuangan');
+ 
+-    Route::get('/absensi', function () {
+-        return Inertia::render('Admin/Absensi/Index');
+-    })->name('admin.absensi');
++        Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
+ 
+-    Route::get('/perpustakaan', function () {
+-        return Inertia::render('Admin/Perpustakaan/Index');
+-    })->name('admin.perpustakaan');
++        Route::get('/perpustakaan', function () {
++            return Inertia::render('Admin/Perpustakaan/Index');
++        })->name('perpustakaan');
+ 
+-    Route::get('/ppdb', function () {
+-        return Inertia::render('Admin/PPDB/Index');
+-    })->name('admin.ppdb');
++        Route::get('/ppdb', function () {
++            return Inertia::render('Admin/PPDB/Index');
++        })->name('ppdb');
+ 
+-    Route::get('/lms', function () {
+-        return Inertia::render('Admin/LMS/Index');
+-    })->name('admin.lms');
++        Route::get('/lms', function () {
++            return Inertia::render('Admin/LMS/Index');
++        })->name('lms');
+ 
+-    Route::get('/chat', function () {
+-        return Inertia::render('Admin/Chat/Index');
+-    })->name('admin.chat');
++        Route::get('/chat', function () {
++            return Inertia::render('Admin/Chat/Index');
++        })->name('chat');
+ 
+-    Route::get('/office-frame', function () {
+-        return Inertia::render('Admin/SSO/Office');
+-    })->name('admin.office-frame');
++        Route::get('/office-frame', function () {
++            return Inertia::render('Admin/SSO/Office');
++        })->name('office-frame');
+ 
+-    Route::get('/sarpras', function () {
+-        return Inertia::render('Admin/Sarpras/Index');
+-    })->name('admin.sarpras');
++        Route::get('/sarpras', function () {
++            return Inertia::render('Admin/Sarpras/Index');
++        })->name('sarpras');
+ 
+-    Route::get('/ekskul', function () {
+-        return Inertia::render('Admin/Ekskul/Index');
+-    })->name('admin.ekskul');
++        Route::get('/ekskul', function () {
++            return Inertia::render('Admin/Ekskul/Index');
++        })->name('ekskul');
+ 
+-    Route::get('/pkl', function () {
+-        return Inertia::render('Admin/PKL/Index');
+-    })->name('admin.pkl');
+-});
++        Route::get('/pkl', function () {
++            return Inertia::render('Admin/PKL/Index');
++        })->name('pkl');
++    });
+ 
+ // Student (Murid) Routes
+ Route::prefix('siswa')->group(function () {
+\n\n--- /dev/null\n+++ b/project-context.md
+# Project Context & Agent Rules
+
+## Environment & Tooling Quirk (CRITICAL)
+- **PHP Command**: In this environment (Windows + Laravel Herd via Git Bash), the `php` command is NOT available directly. 
+- **Rule**: ALWAYS use `php.bat` instead of `php` for all artisan and composer commands.
+  - ✅ Correct: `php.bat artisan migrate`
+  - ❌ Incorrect: `php artisan migrate`
+
+## Project Stack
+- Framework: Laravel 12.x
+- PHP Version: 8.4.x (via Herd)
+- Frontend: Inertia.js (React) + Tailwind CSS
+
+## Important Notes
+- This project uses BMAD architecture.
+\n\n--- /dev/null\n+++ b/tests/Feature/AdminSchoolModuleTest.php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Classroom;
+use App\Models\Schedule;
+use App\Models\Subject;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class AdminSchoolModuleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    // AC 1: Data Integrity
+    public function test_cannot_delete_subject_with_existing_schedule()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $subject->delete();
+    }
+
+    public function test_student_appears_in_pivot_when_enrolled()
+    {
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $classroom->students()->attach($student->id);
+
+        $this->assertDatabaseHas('classroom_user', [
+            'classroom_id' => $classroom->id,
+            'user_id' => $student->id,
+            'is_active' => 1,
+        ]);
+    }
+
+    // AC 2: Strict Conflict
+    public function test_schedule_conflict_classroom()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom = Classroom::create([
+            'name' => '10A',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026'
+        ]);
+        $teacher1 = User::factory()->create(['role' => 'teacher']);
+        $teacher2 = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher1->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom->id,
+            'teacher_id' => $teacher2->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['classroom_id']);
+    }
+
+    public function test_schedule_conflict_teacher()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Math', 'code' => 'MAT101', 'category' => 'Core']);
+        $classroom1 = Classroom::create(['name' => '10A', 'level' => '10', 'major' => 'Science', 'academic_year' => '2025/2026']);
+        $classroom2 = Classroom::create(['name' => '10B', 'level' => '10', 'major' => 'Social', 'academic_year' => '2025/2026']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom1->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom2->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '08:00',
+            'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['teacher_id']);
+    }
+
+    // AC 3: Authorization
+    public function test_student_cannot_access_admin_routes()
+    {
+        $student = User::factory()->create(['role' => 'student']);
+
+        $response = $this->actingAs($student)->get(route('admin.dashboard'));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_admin_can_access_admin_routes()
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertStatus(200);
+    }
+}

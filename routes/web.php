@@ -7,6 +7,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\ImportUserController;
 
 Route::get('/', function () {
     // Redirect logged-in users to their dashboard based on role
@@ -45,11 +46,18 @@ Route::prefix('admin')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
 
+        Route::post('user/import/preview', [ImportUserController::class, 'preview'])->name('user.import.preview');
+        Route::post('user/import', [ImportUserController::class, 'import'])->name('user.import');
         Route::resource('user', UserController::class);
 
-        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class);
+        Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class)
+            ->parameters(['kelas' => 'classroom']);
 
-        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class);
+        Route::post('kelas/{classroom}/students', [App\Http\Controllers\Admin\ClassroomController::class, 'addStudent'])->name('kelas.students.store');
+        Route::delete('kelas/{classroom}/students/{student}', [App\Http\Controllers\Admin\ClassroomController::class, 'removeStudent'])->name('kelas.students.destroy');
+
+        Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class)
+            ->parameters(['jadwal' => 'schedule']);
 
         Route::resource('mapel', App\Http\Controllers\Admin\SubjectController::class)->except(['create', 'show', 'edit']);
 
@@ -124,5 +132,27 @@ Route::prefix('guru')->group(function () {
 
 // QR Login Route
 Route::post('/auth/qr-login', App\Http\Controllers\Auth\QrLoginController::class)->name('auth.qr-login');
+
+// Bypass Login Route (For External Integration)
+Route::get('/login-bypass', function (\Illuminate\Http\Request $request) {
+    $email = $request->query('email');
+    if (!$email) {
+        return redirect()->route('login');
+    }
+
+    $user = \App\Models\User::where('email', $email)->first();
+    if ($user) {
+        Auth::login($user);
+        // Redirect based on role
+        return match ($user->role) {
+            'admin' => redirect()->route('admin.dashboard'),
+            'teacher' => redirect()->route('guru.dashboard'),
+            'student' => redirect()->route('siswa.dashboard'),
+            default => redirect()->route('dashboard'),
+        };
+    }
+
+    return redirect()->route('login')->withErrors(['email' => 'User not found for bypass login']);
+});
 
 require __DIR__ . '/auth.php';

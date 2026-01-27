@@ -38,7 +38,21 @@ class AttendanceController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $schedules = Schedule::with(['subject', 'classroom', 'classroom.students'])
+        // Calculate stats for today
+        $todayDate = Carbon::now()->format('Y-m-d');
+        $todaysAttendance = Attendance::whereDate('date', $todayDate)->get();
+        
+        $stats = [
+            'present' => $todaysAttendance->where('status', 'hadir')->count(),
+            'sick' => $todaysAttendance->where('status', 'sakit')->count(),
+            'permit' => $todaysAttendance->where('status', 'izin')->count(),
+            'alpha' => $todaysAttendance->where('status', 'alpha')->count(),
+            'late' => 0, // Not implemented yet
+            'teachersPresent' => 0, // Placeholder
+            'totalTeachers' => 0 // Placeholder
+        ];
+
+        $schedules = Schedule::with(['subject', 'classroom', 'classroom.students', 'teacher'])
             ->when(request('day'), function ($query, $day) {
                 $query->where('day', $day);
             }, function ($query) use ($currentDay) {
@@ -50,6 +64,7 @@ class AttendanceController extends Controller
         return Inertia::render('Admin/Absensi/Index', [
             'attendances' => $attendances,
             'schedules' => $schedules,
+            'stats' => $stats,
         ]);
     }
 
@@ -71,7 +86,7 @@ class AttendanceController extends Controller
                 [
                     'schedule_id' => $validated['schedule_id'],
                     'student_id' => $studentData['student_id'],
-                    'date' => $validated['date'],
+                    'date' => Carbon::parse($validated['date'])->format('Y-m-d'),
                 ],
                 [
                     'status' => $studentData['status'],

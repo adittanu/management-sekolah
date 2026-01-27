@@ -9,6 +9,12 @@
      - `php.bat -v`
      - `composer` (usually works, but if not, try `composer.bat`)
 
+## Build & Visual Refresh Rules
+1. **Frontend Changes**: Whenever you modify files in `resources/js`, `resources/css`, or `tailwind.config.js`:
+   - **MANDATORY**: You MUST run `bun run build` to reflect visual changes.
+   - **Reason**: Inertia/Vite integration requires a rebuild for assets to be properly served in this environment.
+   - **Example**: After updating `Index.tsx`, run `bun run build`.
+
 ## Project Context
 - **Framework**: Laravel 12
 - **Frontend**: React + Inertia + Tailwind

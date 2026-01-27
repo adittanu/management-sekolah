@@ -118,7 +118,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Akademik",
                 items: [
                     { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
-                    { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
+                    // { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
                     { name: 'Presensi Siswa', href: '/admin/absensi', icon: ScanFace },
                     // { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
                     // { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
@@ -139,8 +139,8 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Aplikasi Terintegrasi (SSO)",
                 items: [
                     { name: 'Office (Embedded)', href: '/admin/office-frame', icon: ExternalLink, external: false },
-                    { name: 'Masuk ke Office', href: 'https://smkn12office.edukati.my.id/', icon: ExternalLink, external: true },
-                    { name: 'Masuk ke Sekolah', href: 'https://websku.com/', icon: School, external: true },
+                    { name: 'Masuk ke Office', href: 'https://smkn12bandung.edukati.com/', icon: ExternalLink, external: true },
+                    { name: 'Masuk ke Sekolah', href: 'https://smkn12bandung.sch.id/', icon: School, external: true },
                 ]
             }
         ];

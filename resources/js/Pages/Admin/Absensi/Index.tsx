@@ -59,22 +59,37 @@ interface Paginated<T> {
     meta: any;
 }
 
+
+interface Stats {
+    present: number;
+    sick: number;
+    permit: number;
+    alpha: number;
+    late: number;
+    teachersPresent: number;
+    totalTeachers: number;
+    totalStudents: number;
+}
+
 interface Props {
     attendances: Paginated<AttendanceModel>;
     schedules: ScheduleModel[];
+    stats: Stats;
 }
 
 interface Student extends StudentModel {
     status: AttendanceStatus;
 }
 
-export default function AbsensiIndex({ attendances, schedules }: Props) {
+export default function AbsensiIndex({ attendances, schedules, stats }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isAttendanceSessionActive, setIsAttendanceSessionActive] = useState(false);
+    const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
     
-    // Derived Data for Current Class (using first schedule)
-    const activeSchedule = schedules?.[0];
+    // Derived Data for Current Class
+    const activeSchedule = selectedScheduleId ? schedules.find(s => s.id === selectedScheduleId) : null;
+    
     const currentClass = activeSchedule ? {
         name: activeSchedule.classroom.name,
         subject: activeSchedule.subject.name,
@@ -82,18 +97,8 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
         teacher: activeSchedule.teacher_name || "Guru Mata Pelajaran",
         room: activeSchedule.room_name || "R. Kelas",
         totalStudents: activeSchedule.classroom.students?.length || 0
-    } : {
-        name: "Tidak ada jadwal",
-        subject: "-",
-        time: "-",
-        teacher: "-",
-        room: "-",
-        totalStudents: 0
-    };
+    } : null;
 
-    // Calculate Stats from Real Data
-    const today = new Date().toISOString().split('T')[0];
-    
     // Helper to normalize status
     const normalizeStatus = (s: string): AttendanceStatus => {
         const lower = s.toLowerCase();
@@ -103,25 +108,12 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
         if (lower === 'alpha') return 'Alpha';
         return 'Alpha'; // Default fallback
     };
-
+    
+    const today = new Date().toISOString().split('T')[0];
     const statsData = attendances?.data || [];
-    const presentTodayCount = statsData.filter(a => a.status === 'hadir' && a.date === today).length;
-    const lateCount = 0; // Not tracked in model yet
-    const alphaCount = statsData.filter(a => a.status === 'alpha' && a.date === today).length;
-    // Total students is tricky with pagination, but we use unique students found in attendances or fall back to schedule
-    const uniqueStudents = new Set(statsData.map(a => a.student_id));
-    const totalStudentsCount = uniqueStudents.size || (activeSchedule?.classroom?.students?.length || 0);
-
-    const stats = {
-        presentToday: presentTodayCount,
-        totalStudents: totalStudentsCount, // Approximate if paginated
-        late: lateCount,
-        alpha: alphaCount,
-        teachersPresent: 48, // Mock for now as requested
-        totalTeachers: 50    // Mock for now
-    };
-
+    
     // Initialize Students from Schedule for Entry Tab
+
     const [students, setStudents] = useState<Student[]>([]);
 
     useEffect(() => {
@@ -179,12 +171,18 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
         }
     };
 
-    const handleStartAttendance = () => {
+    const handleStartAttendance = (scheduleId: number) => {
+        setSelectedScheduleId(scheduleId);
         setIsAttendanceSessionActive(true);
         setActiveTab('entry');
-        toast("Sesi Absensi Dimulai", {
-            description: `Kelas ${currentClass.name} - ${currentClass.subject}`,
-        });
+        
+        // Find the schedule to show toast immediately (optional)
+        const sched = schedules.find(s => s.id === scheduleId);
+        if (sched) {
+            toast("Sesi Absensi Dimulai", {
+                description: `Kelas ${sched.classroom.name} - ${sched.subject.name}`,
+            });
+        }
     };
 
     const handleSaveAttendance = () => {
@@ -304,44 +302,65 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
                     <TabsList className="bg-slate-100 p-1 rounded-xl w-full md:w-auto grid grid-cols-2 md:inline-flex">
                         <TabsTrigger value="dashboard" className="rounded-lg px-4 py-2">Dashboard</TabsTrigger>
                         <TabsTrigger value="entry" className="rounded-lg px-4 py-2">Input Absensi</TabsTrigger>
+                        <TabsTrigger value="history" className="rounded-lg px-4 py-2">Riwayat</TabsTrigger>
                     </TabsList>
 
                     {/* DASHBOARD TAB */}
                     <TabsContent value="dashboard" className="space-y-6 animate-in fade-in-50">
                         
-                        {/* SMART DASHBOARD CARD */}
-                        <Card className="border-none shadow-md bg-gradient-to-br from-indigo-600 to-violet-700 text-white overflow-hidden relative">
-                            <div className="absolute top-0 right-0 p-32 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                            <CardContent className="p-8 relative z-10">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-indigo-100 mb-1">
-                                            <Clock className="w-4 h-4" />
-                                            <span className="text-sm font-medium">Sedang Berlangsung Sekarang</span>
-                                        </div>
-                                        <h3 className="text-3xl md:text-4xl font-bold">{currentClass.subject}</h3>
-                                        <div className="flex items-center gap-4 text-indigo-100 mt-2">
-                                            <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full text-sm">
-                                                <Users className="w-4 h-4" />
-                                                <span>{currentClass.name}</span>
+                        {/* Schedule List Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {schedules.map(schedule => (
+                                <Card key={schedule.id} className="border-none shadow-md bg-white overflow-hidden hover:shadow-lg transition-all duration-200 group">
+                                    <div className="h-2 bg-indigo-500 w-full"></div>
+                                    <CardContent className="p-6">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                                                {schedule.classroom.name}
                                             </div>
-                                            <div className="flex items-center gap-1.5 text-sm">
-                                                <MapPin className="w-4 h-4" />
-                                                <span>{currentClass.room}</span>
+                                            {schedule.start_time && schedule.end_time && (
+                                                <div className="flex items-center text-slate-500 text-sm font-medium">
+                                                    <Clock className="w-3.5 h-3.5 mr-1" />
+                                                    {schedule.start_time} - {schedule.end_time}
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <h3 className="text-xl font-bold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                                            {schedule.subject.name}
+                                        </h3>
+                                        
+                                        <div className="space-y-2 mt-4">
+                                            <div className="flex items-center text-slate-600 text-sm">
+                                                <User className="w-4 h-4 mr-2 text-slate-400" />
+                                                {schedule.teacher_name || "Guru Mata Pelajaran"}
+                                            </div>
+                                            <div className="flex items-center text-slate-600 text-sm">
+                                                <MapPin className="w-4 h-4 mr-2 text-slate-400" />
+                                                {schedule.room_name || "R. Kelas"}
                                             </div>
                                         </div>
+
+                                        <Button 
+                                            onClick={() => handleStartAttendance(schedule.id)}
+                                            className="w-full mt-6 bg-slate-50 text-slate-900 hover:bg-indigo-600 hover:text-white border border-slate-200 hover:border-indigo-600 transition-all shadow-sm"
+                                        >
+                                            Mulai Absen <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                            
+                            {schedules.length === 0 && (
+                                <div className="col-span-full p-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Calendar className="w-8 h-8 text-slate-400" />
                                     </div>
-                                    <Button 
-                                        onClick={handleStartAttendance}
-                                        size="lg" 
-                                        className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold text-lg px-8 h-14 shadow-lg transition-transform hover:scale-105 active:scale-95 w-full md:w-auto"
-                                    >
-                                        Mulai Absen
-                                        <ArrowRight className="w-5 h-5 ml-2" />
-                                    </Button>
+                                    <h3 className="text-lg font-medium text-slate-900">Tidak ada jadwal aktif</h3>
+                                    <p className="text-slate-500 mt-1">Belum ada jadwal pelajaran yang terdaftar hari ini.</p>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            )}
+                        </div>
 
                         {/* Stats Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -349,11 +368,16 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
                                 <CardContent className="p-6">
                                     <p className="text-slate-500 text-sm font-medium">Siswa Hadir</p>
                                     <div className="flex items-end gap-2 mt-2">
-                                        <h3 className="text-2xl font-bold text-slate-900">{stats.presentToday}</h3>
-                                        <span className="text-sm font-medium text-emerald-600">94%</span>
+                                        <h3 className="text-2xl font-bold text-slate-900">{stats.present}</h3>
+                                        <span className="text-sm font-medium text-emerald-600">
+                                            {stats.totalStudents > 0 ? Math.round((stats.present / stats.totalStudents) * 100) : 0}%
+                                        </span>
                                     </div>
                                     <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                                        <div className="bg-emerald-500 h-full" style={{ width: '94%' }}></div>
+                                        <div 
+                                            className="bg-emerald-500 h-full" 
+                                            style={{ width: `${stats.totalStudents > 0 ? (stats.present / stats.totalStudents) * 100 : 0}%` }}
+                                        ></div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -362,7 +386,7 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
                                     <p className="text-slate-500 text-sm font-medium">Terlambat</p>
                                     <div className="flex items-end gap-2 mt-2">
                                         <h3 className="text-2xl font-bold text-amber-600">{stats.late}</h3>
-                                        <span className="text-sm font-medium text-amber-600">+12</span>
+                                        <span className="text-sm font-medium text-amber-600">Siswa</span>
                                     </div>
                                     <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
                                         <div className="bg-amber-500 h-full" style={{ width: '15%' }}></div>
@@ -374,7 +398,7 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
                                     <p className="text-slate-500 text-sm font-medium">Alpha</p>
                                     <div className="flex items-end gap-2 mt-2">
                                         <h3 className="text-2xl font-bold text-rose-600">{stats.alpha}</h3>
-                                        <span className="text-sm font-medium text-rose-600">-2</span>
+                                        <span className="text-sm font-medium text-rose-600">Siswa</span>
                                     </div>
                                     <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
                                         <div className="bg-rose-500 h-full" style={{ width: '5%' }}></div>
@@ -389,7 +413,10 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
                                         <span className="text-sm font-medium text-slate-400">/ {stats.totalTeachers}</span>
                                     </div>
                                     <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
-                                        <div className="bg-blue-500 h-full" style={{ width: '96%' }}></div>
+                                        <div 
+                                            className="bg-blue-500 h-full" 
+                                            style={{ width: `${stats.totalTeachers > 0 ? (stats.teachersPresent / stats.totalTeachers) * 100 : 0}%` }}
+                                        ></div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -397,64 +424,182 @@ export default function AbsensiIndex({ attendances, schedules }: Props) {
 
                     </TabsContent>
 
+
                     {/* ATTENDANCE ENTRY TAB */}
                     <TabsContent value="entry" className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                    {currentClass.name}
-                                    <span className="text-slate-300">|</span>
-                                    <span className="font-normal text-slate-600">{currentClass.subject}</span>
-                                </h3>
-                                <p className="text-sm text-slate-500 mt-1">
-                                    Total: {students.length} Siswa • {students.filter(s => s.status === 'Hadir').length} Hadir
+                        
+                        {!currentClass ? (
+                            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl shadow-sm border border-slate-100 text-center">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                                    <Clock className="w-8 h-8 text-slate-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Pilih Jadwal Pelajaran</h3>
+                                <p className="text-slate-500 max-w-md mb-6">
+                                    Silakan pilih jadwal pelajaran yang ingin diabsen dari menu Dashboard terlebih dahulu.
                                 </p>
+                                <Button onClick={() => setActiveTab('dashboard')} variant="outline">
+                                    Kembali ke Dashboard
+                                </Button>
                             </div>
+                        ) : (
+                            <>
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                            {currentClass.name}
+                                            <span className="text-slate-300">|</span>
+                                            <span className="font-normal text-slate-600">{currentClass.subject}</span>
+                                        </h3>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            Total: {students.length} Siswa • {students.filter(s => s.status === 'Hadir').length} Hadir
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => setViewMode('list')}
+                                            className={`h-8 px-3 ${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
+                                        >
+                                            <List className="w-4 h-4 mr-2" /> List
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => setViewMode('grid')}
+                                            className={`h-8 px-3 ${viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
+                                        >
+                                            <Grid className="w-4 h-4 mr-2" /> Grid
+                                        </Button>
+                                    </div>
+                                </div>
+        
+                                {/* Attendance List/Grid */}
+                                <div className={`
+                                    ${viewMode === 'grid' 
+                                        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' 
+                                        : 'flex flex-col gap-2'
+                                    }
+                                `}>
+                                    {students.map((student) => (
+                                        viewMode === 'grid' 
+                                            ? <StudentCard key={student.id} student={student} />
+                                            : <StudentListItem key={student.id} student={student} />
+                                    ))}
+                                </div>
+        
+                                {/* Floating Action Button for Save */}
+                                <div className="fixed bottom-8 right-8 z-50">
+                                    <Button 
+                                        onClick={handleSaveAttendance}
+                                        size="lg" 
+                                        className="h-14 w-14 rounded-full shadow-xl bg-indigo-600 hover:bg-indigo-700 text-white p-0 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+                                    >
+                                        <Save className="w-6 h-6" />
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </TabsContent>
+
+                    {/* HISTORY TAB */}
+                    <TabsContent value="history" className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                        <Card className="border-none shadow-sm bg-white overflow-hidden">
+                            <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
+                                <CardTitle className="text-xl font-bold text-slate-900">Riwayat Absensi</CardTitle>
+                                <CardDescription>Daftar riwayat absensi siswa terbaru.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {attendances.data.length === 0 ? (
+                                    <div className="p-12 text-center">
+                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Calendar className="w-8 h-8 text-slate-300" />
+                                        </div>
+                                        <h3 className="text-lg font-medium text-slate-900">Belum ada riwayat</h3>
+                                        <p className="text-slate-500 mt-1">Belum ada data absensi yang terekam.</p>
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                                <TableHead className="pl-6">Siswa</TableHead>
+                                                <TableHead>Kelas & Mapel</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Waktu</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {attendances.data.map((item) => (
+                                                <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <TableCell className="pl-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar className="h-8 w-8">
+                                                                <AvatarImage src={item.student.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.student.name}`} />
+                                                                <AvatarFallback>{item.student.name.substring(0, 2)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <p className="font-medium text-slate-900">{item.student.name}</p>
+                                                                <p className="text-xs text-slate-500">{item.student.nis}</p>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-slate-900">{item.schedule.classroom.name}</span>
+                                                            <span className="text-xs text-slate-500">{item.schedule.subject.name}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline" className={getStatusColor(normalizeStatus(item.status))}>
+                                                            {normalizeStatus(item.status)}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm text-slate-900">{item.date}</span>
+                                                            <span className="text-xs text-slate-500">
+                                                                {item.schedule.start_time && item.schedule.end_time 
+                                                                    ? `${item.schedule.start_time} - ${item.schedule.end_time}`
+                                                                    : 'Jam Sekolah'
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
                             
-                            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => setViewMode('list')}
-                                    className={`h-8 px-3 ${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
-                                >
-                                    <List className="w-4 h-4 mr-2" /> List
-                                </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => setViewMode('grid')}
-                                    className={`h-8 px-3 ${viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
-                                >
-                                    <Grid className="w-4 h-4 mr-2" /> Grid
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Attendance List/Grid */}
-                        <div className={`
-                            ${viewMode === 'grid' 
-                                ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' 
-                                : 'flex flex-col gap-2'
-                            }
-                        `}>
-                            {students.map((student) => (
-                                viewMode === 'grid' 
-                                    ? <StudentCard key={student.id} student={student} />
-                                    : <StudentListItem key={student.id} student={student} />
-                            ))}
-                        </div>
-
-                        {/* Floating Action Button for Save */}
-                        <div className="fixed bottom-8 right-8 z-50">
-                            <Button 
-                                onClick={handleSaveAttendance}
-                                size="lg" 
-                                className="h-14 w-14 rounded-full shadow-xl bg-indigo-600 hover:bg-indigo-700 text-white p-0 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
-                            >
-                                <Save className="w-6 h-6" />
-                            </Button>
-                        </div>
+                            {/* Pagination */}
+                            {attendances.data.length > 0 && (
+                                <CardFooter className="flex items-center justify-between border-t bg-slate-50/50 px-6 py-4">
+                                    <div className="text-xs text-slate-500">
+                                        Menampilkan <strong>{attendances.data.length}</strong> data terbaru
+                                    </div>
+                                    <div className="flex gap-1">
+                                        {attendances.links.map((link, i) => (
+                                            <Button
+                                                key={i}
+                                                variant={link.active ? "default" : "outline"}
+                                                size="sm"
+                                                className={`h-8 w-8 p-0 ${!link.url ? 'opacity-50 cursor-not-allowed' : ''} ${link.active ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
+                                                disabled={!link.url}
+                                                onClick={() => link.url && router.get(link.url, {}, { preserveState: true, preserveScroll: true })}
+                                            >
+                                                <span dangerouslySetInnerHTML={{ 
+                                                    __html: link.label
+                                                        .replace('&laquo; Previous', '<')
+                                                        .replace('Next &raquo;', '>') 
+                                                }} />
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </CardFooter>
+                            )}
+                        </Card>
                     </TabsContent>
                 </Tabs>
             </div>
