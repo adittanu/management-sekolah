@@ -337,12 +337,6 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center text-sm text-slate-600">
-                                                <div className="w-8 flex justify-center">
-                                                    <Clock className="w-4 h-4 text-slate-400" />
-                                                </div>
-                                                <span className="text-slate-500 italic">Jadwal belum diatur</span>
-                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -433,6 +427,26 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                         </Table>
                     </div>
                 )}
+
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between">
+                     <div className="text-sm text-slate-500">
+                        Menampilkan {subjects.from || 0} sampai {subjects.to || 0} dari {subjects.total} data
+                    </div>
+                    <div className="flex gap-1">
+                        {subjects.links.map((link, index) => (
+                            <Button
+                                key={index}
+                                variant={link.active ? 'default' : 'outline'}
+                                size="sm"
+                                disabled={!link.url}
+                                onClick={() => link.url && router.get(link.url, { search: searchQuery }, { preserveState: true, preserveScroll: true })}
+                                className={!link.url ? 'opacity-50 cursor-not-allowed' : ''}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
+                    </div>
+                </div>
 
 
                 {/* Add Mapel Modal */}
