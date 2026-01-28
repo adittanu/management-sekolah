@@ -144,13 +144,15 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
     }
 
     // Add Bottom Items to Nav Groups (Settings Section)
-    navGroups.push({
-        groupLabel: "Pengaturan",
-        items: [
-            // // { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
-            { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
-        ]
-    });
+    if (userRole !== 'teacher' && userRole !== 'student') {
+        navGroups.push({
+            groupLabel: "Pengaturan",
+            items: [
+                // // { name: 'Lisensi & Produk', href: '/admin/lisensi', icon: ShieldCheck },
+                { name: 'Pengaturan', href: '/admin/setting', icon: Settings },
+            ]
+        });
+    }
 
     // Determine Profile Label
     const getProfile = () => {
