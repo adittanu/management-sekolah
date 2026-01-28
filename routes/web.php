@@ -136,9 +136,7 @@ Route::prefix('guru')
     ->middleware(['auth', RoleMiddleware::class . ':teacher'])
     ->name('guru.')
     ->group(function () {
-        Route::get('/dashboard', function () {
-            return Inertia::render('Admin/Dashboard', ['role' => 'teacher']);
-        })->name('dashboard');
+        Route::get('/dashboard', [App\Http\Controllers\Guru\DashboardController::class, 'index'])->name('dashboard');
 
         // Placeholder Routes
         Route::get('/jadwal', [App\Http\Controllers\Guru\ScheduleController::class, 'index'])->name('jadwal');
@@ -146,9 +144,7 @@ Route::prefix('guru')
         Route::get('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'index'])->name('absensi');
         Route::post('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('absensi.store');
 
-        Route::get('/profile', function () {
-             return Inertia::render('Admin/Dashboard', ['role' => 'teacher']); 
-        })->name('profile');
+        Route::get('/profile', [App\Http\Controllers\Guru\ProfileController::class, 'index'])->name('profile');
     });
 
 // QR Login Route

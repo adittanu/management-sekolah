@@ -29,6 +29,16 @@ interface AttendanceDataPoint {
     absent: number;
 }
 
+
+interface Schedule {
+    class: string;
+    subject: string;
+    time: string;
+    room: string;
+    count: string;
+    status: string;
+}
+
 interface Props {
     role?: string;
     totalStudents?: number;
@@ -43,6 +53,10 @@ interface Props {
         permit: number;
         absent: number;
     };
+    // Teacher specific props
+    schedules?: Schedule[];
+    userName?: string;
+    classCount?: number;
 }
 
 export default function Dashboard({ 
@@ -52,7 +66,10 @@ export default function Dashboard({
     totalClasses = 0,
     totalSubjects = 0,
     attendanceData = [], 
-    reports = [] 
+    reports = [],
+    schedules = [],
+    userName = 'Guru',
+    classCount = 0
 }: Props) {
     
     // Admin Dashboard Component
@@ -314,17 +331,21 @@ export default function Dashboard({
                              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold uppercase tracking-wider mb-4">
                                 <Icons.Coffee className="w-3 h-3" /> RUANG GURU
                              </div>
-                             <h2 className="text-2xl font-bold text-slate-900 mb-2">Selamat Pagi, Pak Santoso! 👨‍🏫</h2>
+                             <h2 className="text-2xl font-bold text-slate-900 mb-2">Selamat Pagi, {userName}! 👨‍🏫</h2>
                              <p className="text-slate-500 mb-6 max-w-lg">
-                                 Anda memiliki <span className="font-bold text-slate-900">3 Kelas</span> hari ini. Jangan lupa untuk mengisi jurnal mengajar setelah kelas selesai.
+                                 Anda memiliki <span className="font-bold text-slate-900">{classCount} Kelas</span> hari ini. Jangan lupa untuk mengisi jurnal mengajar setelah kelas selesai.
                              </p>
                              <div className="flex gap-3">
-                                 <Button className="bg-blue-600 hover:bg-blue-700">
-                                     <Icons.Plus className="w-4 h-4 mr-2" /> Input Nilai
-                                 </Button>
-                                 <Button variant="outline">
-                                     <Icons.Calendar className="w-4 h-4 mr-2" /> Lihat Kalender
-                                 </Button>
+                                 <Link href={route('guru.absensi')}>
+                                     <Button className="bg-blue-600 hover:bg-blue-700">
+                                         <Icons.ClipboardList className="w-4 h-4 mr-2" /> Absensi
+                                     </Button>
+                                 </Link>
+                                 <Link href={route('guru.jadwal')}>
+                                     <Button variant="outline">
+                                         <Icons.Calendar className="w-4 h-4 mr-2" /> Lihat Jadwal
+                                     </Button>
+                                 </Link>
                              </div>
                         </div>
                         <div className="hidden md:flex items-center justify-end w-1/3">
@@ -343,15 +364,15 @@ export default function Dashboard({
 
                 <Card className="bg-slate-900 text-white border-none shadow-sm flex flex-col justify-between">
                     <CardHeader>
-                         <CardTitle className="text-slate-200 text-sm">Review Tugas Masuk</CardTitle>
+                         <CardTitle className="text-slate-200 text-sm">Total Siswa</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-4xl font-bold mb-1">24</div>
-                        <p className="text-xs text-slate-400">Tugas baru perlu dinilai</p>
+                        <div className="text-4xl font-bold mb-1">{totalStudents}</div>
+                        <p className="text-xs text-slate-400">Total siswa aktif di sekolah</p>
                     </CardContent>
                     <div className="p-4 bg-white/5 mt-auto">
                         <Link href="#" className="flex items-center justify-between text-xs font-medium text-blue-300 hover:text-white transition-colors">
-                            <span>Periksa Sekarang</span>
+                            <span>Lihat Detail</span>
                             <Icons.ArrowRight className="w-3 h-3" />
                         </Link>
                     </div>
@@ -367,15 +388,12 @@ export default function Dashboard({
                          </h3>
                      </div>
                      <div className="space-y-3">
-                         {[
-                             { class: 'X-IPA-1', subject: 'Matematika Wajib', time: '07:30 - 09:00', room: 'R-201', count: '32 Siswa', status: 'Selesai' },
-                             { class: 'XI-IPS-2', subject: 'Matematika Lanjut', time: '09:30 - 11:00', room: 'R-203', count: '30 Siswa', status: 'Akan Datang' },
-                             { class: 'XII-IPA-1', subject: 'Matematika Peminatan', time: '13:00 - 14:30', room: 'Lab Komputer', count: '28 Siswa', status: 'Akan Datang' },
-                         ].map((schedule, i) => (
+                         {schedules.length > 0 ? (
+                            schedules.map((schedule, i) => (
                              <Card key={i} className="border-slate-200 hover:border-blue-400 transition-colors cursor-pointer group">
                                  <CardContent className="p-4 flex items-center gap-4">
                                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${i === 0 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
-                                         {schedule.class.split('-')[0]}
+                                         {schedule.class.split('-')[0] || schedule.class.substring(0, 2)}
                                      </div>
                                      <div className="flex-1">
                                          <div className="flex justify-between mb-1">
@@ -385,11 +403,24 @@ export default function Dashboard({
                                          <div className="flex items-center gap-3 text-xs text-slate-500">
                                               <span className="flex items-center gap-1"><Icons.MapPin className="w-3 h-3" /> {schedule.room}</span>
                                               <span className="flex items-center gap-1"><Icons.Users className="w-3 h-3" /> {schedule.count}</span>
+                                              <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                schedule.status === 'Sedang Berlangsung' ? 'bg-blue-100 text-blue-700' :
+                                                schedule.status === 'Selesai' ? 'bg-green-100 text-green-700' :
+                                                'bg-slate-100 text-slate-500'
+                                              }`}>{schedule.status}</span>
                                          </div>
                                      </div>
                                  </CardContent>
                              </Card>
-                         ))}
+                            ))
+                         ) : (
+                             <Card className="border-slate-200 border-dashed">
+                                 <CardContent className="p-8 text-center text-slate-500">
+                                     <Icons.CalendarX className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                     <p>Tidak ada jadwal mengajar hari ini.</p>
+                                 </CardContent>
+                             </Card>
+                         )}
                      </div>
                  </div>
 

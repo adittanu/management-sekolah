@@ -95,7 +95,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
     const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const timeSlots = [1, 2, 3, 4, 5, 6, 7, 8];
+    const timeSlots = Array.from({ length: 15 }, (_, i) => i + 1);
 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
@@ -122,7 +122,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
         const startMinutes = 7 * 60; // 07:00
         if (totalMinutes < startMinutes) return 1;
         const slot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
-        return slot > 8 ? 8 : slot; // Cap at 8 slots for now
+        return slot > 15 ? 15 : slot; // Cap at 15 slots
     };
 
     // Transform raw schedules to the structure expected by the UI
@@ -618,7 +618,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                                             <SelectValue placeholder="Pilih Jam" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {timeSlots.map(t => <SelectItem key={t} value={t.toString()}>{t} (07:{(t*45).toString().padStart(2, '0').slice(-2)})</SelectItem>)}
+                                            {timeSlots.map(t => <SelectItem key={t} value={t.toString()}>{t}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                     {errors.start_time && <p className="text-xs text-red-500">{errors.start_time}</p>}

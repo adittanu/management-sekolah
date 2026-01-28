@@ -60,7 +60,7 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
     // But since it's just ONE teacher, we don't need a dropdown to select teacher.
     
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const timeSlots = [1, 2, 3, 4, 5, 6, 7, 8];
+    const timeSlots = Array.from({ length: 15 }, (_, i) => i + 1);
 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
@@ -86,7 +86,7 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
         const startMinutes = 7 * 60; // 07:00
         if (totalMinutes < startMinutes) return 1;
         const slot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
-        return slot > 8 ? 8 : slot; // Cap at 8 slots
+        return slot > 15 ? 15 : slot; // Cap at 15 slots
     };
 
     const transformScheduleData = (scheduleList: Schedule[]) => {

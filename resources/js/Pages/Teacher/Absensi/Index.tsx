@@ -262,7 +262,7 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
             formData.append(`students[${index}][status]`, s.status.toLowerCase());
         });
 
-        router.post(route('absensi.store'), formData, {
+        router.post(route('guru.absensi.store'), formData, {
             onSuccess: () => {
                  toast.success("Data Tersimpan", {
                     description: `Absensi Siswa & Guru Berhasil Disimpan`,
