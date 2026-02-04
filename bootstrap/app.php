@@ -21,7 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        //
+        // Exclude MCP routes from CSRF protection
+        $middleware->validateCsrfTokens(except: [
+            'mcp/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
