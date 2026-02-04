@@ -44,6 +44,7 @@ interface Props extends PageProps {
     users: PaginatedUsers;
     filters?: {
         search?: string;
+        role?: string;
     };
 }
 
@@ -51,6 +52,13 @@ const ROLE_LABELS: Record<string, string> = {
     admin: 'ADMIN',
     teacher: 'GURU',
     student: 'SISWA'
+};
+
+const ROLE_VALUES: Record<string, string> = {
+    'Semua': '',
+    'SISWA': 'student',
+    'GURU': 'teacher',
+    'ADMIN': 'admin'
 };
 
 const getAvatarUrl = (user: User) => {
@@ -61,7 +69,14 @@ const getAvatarUrl = (user: User) => {
 export default function UserIndex({ users, filters }: Props) {
     const [qrUser, setQrUser] = useState<User | null>(null);
     const [isImportOpen, setIsImportOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('Semua');
+    const [activeTab, setActiveTab] = useState(() => {
+        // Initialize from URL filter if present
+        if (filters?.role) {
+            const entry = Object.entries(ROLE_VALUES).find(([_, value]) => value === filters.role);
+            return entry ? entry[0] : 'Semua';
+        }
+        return 'Semua';
+    });
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [isEditUserOpen, setIsEditUserOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
@@ -231,14 +246,21 @@ export default function UserIndex({ users, filters }: Props) {
         }
     ];
 
-    // Client-side filtering for the current page of data
-    // Note: server-side search handles the main filtering, this is just for the "tabs" on the current page
-    const filteredUsers = activeTab === 'Semua' 
-        ? users.data 
-        : users.data.filter(user => {
-            const roleLabel = ROLE_LABELS[user.role];
-            return roleLabel === activeTab;
-        });
+    // Handle tab click - navigate with role filter
+    const handleTabClick = (tab: string) => {
+        setActiveTab(tab);
+        const roleValue = ROLE_VALUES[tab];
+        
+        const params: Record<string, string> = {};
+        if (roleValue) {
+            params.role = roleValue;
+        }
+        if (searchQuery) {
+            params.search = searchQuery;
+        }
+        
+        router.get(route('admin.user.index'), params, { preserveState: true, replace: true });
+    };
 
     const handlePrint = () => {
         window.print();
@@ -308,7 +330,7 @@ export default function UserIndex({ users, filters }: Props) {
                         {['Semua', 'SISWA', 'GURU', 'ADMIN'].map((tab) => (
                             <Button 
                                 key={tab} 
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => handleTabClick(tab)}
                                 variant={activeTab === tab ? 'default' : 'ghost'} 
                                 className={`rounded-full px-6 transition-all ${activeTab === tab ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-slate-900 bg-white shadow-sm hover:bg-slate-50'}`}
                             >
@@ -341,9 +363,9 @@ export default function UserIndex({ users, filters }: Props) {
                     </div>
                 </div>
 
-                <DataTable 
-                    data={filteredUsers} 
-                    columns={columns} 
+                <DataTable
+                    data={users.data}
+                    columns={columns}
                     actionLabel="Tambah User"
                     onAction={() => setIsAddUserOpen(true)}
                 />

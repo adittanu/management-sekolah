@@ -21,12 +21,19 @@ class UserController extends Controller
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             })
+            ->when(request('role'), function ($query, $role) {
+                $query->where('role', $role);
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
         return Inertia::render('Admin/User/Index', [
             'users' => $users,
+            'filters' => [
+                'search' => request('search'),
+                'role' => request('role'),
+            ],
         ]);
     }
 
@@ -47,7 +54,7 @@ class UserController extends Controller
 
         $validated['password'] = Hash::make($validated['password']);
 
-        $user = new User();
+        $user = new User;
         $user->fill($validated);
         $user->role = $validated['role']; // Explicitly set role since it's guarded
         $user->save();
