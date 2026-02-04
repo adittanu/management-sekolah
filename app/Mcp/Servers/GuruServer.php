@@ -4,6 +4,7 @@ namespace App\Mcp\Servers;
 
 use App\Mcp\Tools\AbsenSiswaTool;
 use App\Mcp\Tools\CatatAbsensiTool;
+use App\Mcp\Tools\GetGuruTool;
 use App\Mcp\Tools\GetKelasTool;
 use App\Mcp\Tools\GetSiswaKelasTool;
 use App\Mcp\Tools\LihatAbsensiTool;
@@ -31,6 +32,7 @@ class GuruServer extends Server
         Server untuk guru mengelola jadwal mengajar dan absensi siswa.
 
         Tools yang tersedia:
+        - get-guru: Melihat daftar semua guru
         - get-kelas: Melihat daftar semua kelas
         - get-siswa-kelas: Melihat daftar siswa dalam kelas tertentu
         - catat-absensi: TOOL UTAMA untuk mencatat absensi dengan format fleksibel
@@ -72,6 +74,7 @@ class GuruServer extends Server
      * @var array<int, class-string<\Laravel\Mcp\Server\Tool>>
      */
     protected array $tools = [
+        GetGuruTool::class,
         GetKelasTool::class,
         GetSiswaKelasTool::class,
         CatatAbsensiTool::class,
