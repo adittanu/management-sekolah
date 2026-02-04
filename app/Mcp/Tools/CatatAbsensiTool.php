@@ -3,10 +3,11 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Attendance;
+use App\Models\Journal;
 use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\JsonSchema\JsonSchema;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\DB;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -65,7 +66,7 @@ class CatatAbsensiTool extends Tool
         $absensi = $this->parseAbsensi($validated, $students);
 
         // Proses absensi
-        $results = $this->processAbsensi($schedule, $absensi, $date);
+        $results = $this->processAbsensi($schedule, $absensi, $date, $teacher, $validated['catatan'] ?? null);
 
         // Build response
         $output = $this->buildResponse($schedule, $results, $date, $validated['catatan'] ?? null);
@@ -186,7 +187,7 @@ class CatatAbsensiTool extends Tool
     /**
      * Process absensi ke database
      */
-    private function processAbsensi(Schedule $schedule, array $absensi, string $date): array
+    private function processAbsensi(Schedule $schedule, array $absensi, string $date, User $teacher, ?string $catatan): array
     {
         $results = [
             'hadir' => ['success' => [], 'not_found' => []],
@@ -196,7 +197,33 @@ class CatatAbsensiTool extends Tool
             'tidak_diketahui' => [],
         ];
 
-        DB::transaction(function () use ($schedule, $absensi, $date, &$results) {
+        // Collect all mentioned student IDs
+        $mentionedStudentIds = [];
+        foreach (['hadir', 'sakit', 'izin', 'alpha'] as $status) {
+            foreach ($absensi[$status] as $item) {
+                if ($item['student']) {
+                    $mentionedStudentIds[] = $item['student']->id;
+                }
+            }
+        }
+
+        DB::transaction(function () use ($schedule, $absensi, $date, $teacher, $catatan, &$results, $mentionedStudentIds) {
+            // 1. Set all unmentioned students to 'hadir' (default)
+            $allStudents = $this->getStudentsInClass($schedule->classroom_id);
+            foreach ($allStudents as $student) {
+                if (!in_array($student->id, $mentionedStudentIds)) {
+                    Attendance::updateOrCreate(
+                        [
+                            'schedule_id' => $schedule->id,
+                            'student_id' => $student->id,
+                            'date' => $date,
+                        ],
+                        ['status' => 'hadir']
+                    );
+                }
+            }
+
+            // 2. Process mentioned students
             foreach (['hadir', 'sakit', 'izin', 'alpha'] as $status) {
                 foreach ($absensi[$status] as $item) {
                     if ($item['student']) {
@@ -214,6 +241,29 @@ class CatatAbsensiTool extends Tool
                     }
                 }
             }
+
+            // 3. Save teacher attendance
+            Attendance::updateOrCreate(
+                [
+                    'schedule_id' => $schedule->id,
+                    'student_id' => $teacher->id,
+                    'date' => $date,
+                ],
+                ['status' => 'hadir']
+            );
+
+            // 4. Create Journal for history
+            Journal::updateOrCreate(
+                [
+                    'schedule_id' => $schedule->id,
+                    'date' => $date,
+                ],
+                [
+                    'title' => "Absensi {$schedule->subject->name} - {$schedule->classroom->name}",
+                    'description' => $catatan ?? 'Absensi dicatat melalui AI Assistant',
+                    'teacher_id' => $teacher->id,
+                ]
+            );
 
             // Siswa yang statusnya tidak diketahui
             foreach ($absensi['tidak_diketahui'] as $item) {
