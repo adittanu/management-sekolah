@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\Schedule;
 use App\Models\Subject;
+use App\Models\TimeSlot;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -34,12 +35,14 @@ class ScheduleController extends Controller
         $subjects = Subject::with('teachers')->get();
         $classrooms = Classroom::all();
         $teachers = User::where('role', 'teacher')->get();
+        $timeSlots = TimeSlot::where('is_active', true)->orderBy('slot_number')->get();
 
         return Inertia::render('Admin/Jadwal/Index', [
             'schedules' => $schedules,
             'subjects' => $subjects,
             'classrooms' => $classrooms,
             'teachers' => $teachers,
+            'timeSlots' => $timeSlots,
         ]);
     }
 

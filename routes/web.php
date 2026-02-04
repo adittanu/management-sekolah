@@ -67,6 +67,8 @@ Route::prefix('admin')
 
         Route::resource('mapel', App\Http\Controllers\Admin\SubjectController::class)->except(['create', 'show', 'edit']);
 
+        Route::resource('time-slot', App\Http\Controllers\Admin\TimeSlotController::class)->except(['create', 'show', 'edit']);
+
         Route::get('/laporan', function () {
             return Inertia::render('Admin/Laporan/Index');
         })->name('laporan');

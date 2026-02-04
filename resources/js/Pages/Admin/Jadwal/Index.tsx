@@ -47,14 +47,23 @@ interface Schedule {
     teacher?: Teacher;
 }
 
+interface TimeSlot {
+    id: number;
+    slot_number: number;
+    start_time: string;
+    end_time: string;
+    is_active: boolean;
+}
+
 interface Props {
-    schedules: Schedule[]; // Changed from { data: Schedule[] } to Schedule[] because we switched to get()
+    schedules: Schedule[];
     subjects: Subject[];
     classrooms: Classroom[];
     teachers: Teacher[];
+    timeSlots: TimeSlot[];
 }
 
-export default function JadwalIndex({ schedules, subjects, classrooms, teachers }: Props) {
+export default function JadwalIndex({ schedules, subjects, classrooms, teachers, timeSlots }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
     const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class'); // New State
@@ -95,7 +104,8 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
     const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const timeSlots = Array.from({ length: 15 }, (_, i) => i + 1);
+    // Use timeSlots from props instead of hardcoded array
+    const activeTimeSlots = timeSlots.filter(ts => ts.is_active).sort((a, b) => a.slot_number - b.slot_number);
 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
@@ -483,25 +493,25 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers 
                             </div>
 
                             <div className={`${visibleDays.length > 1 ? 'min-w-[1000px]' : 'w-full'}`}>
-                                 {timeSlots.map((jam, index) => (
-                                    <div 
-                                        key={jam} 
-                                        className={`grid divide-x divide-slate-100 ${index !== timeSlots.length - 1 ? 'border-b border-slate-100' : ''}`}
+                                 {activeTimeSlots.map((timeSlot, index) => (
+                                    <div
+                                        key={timeSlot.id}
+                                        className={`grid divide-x divide-slate-100 ${index !== activeTimeSlots.length - 1 ? 'border-b border-slate-100' : ''}`}
                                         style={{ gridTemplateColumns: `100px repeat(${visibleDays.length}, minmax(0, 1fr))` }}
                                     >
                                         {/* Time Slot Column */}
                                         <div className="bg-slate-50 p-4 sticky left-0 z-10 border-r border-slate-200 flex flex-col items-center justify-center gap-1 min-h-[140px]">
                                             <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-700 shadow-sm text-sm">
-                                                {jam}
+                                                {timeSlot.slot_number}
                                             </div>
                                             <div className="text-[10px] font-mono text-slate-400 mt-1 py-1 px-2 rounded bg-slate-100">
-                                                {getTimesFromSlot(jam).start}
+                                                {timeSlot.start_time}
                                             </div>
                                         </div>
 
                                         {/* Day Columns */}
                                         {visibleDays.map((day, dayIndex) => {
-                                            const scheduleItem = getScheduleItem(day, jam);
+                                            const scheduleItem = getScheduleItem(day, timeSlot.slot_number);
                                             
                                             // Filter
                                             const isVisible = !searchQuery || (scheduleItem && (

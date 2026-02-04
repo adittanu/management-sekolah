@@ -350,7 +350,7 @@ export default function TimeSlotIndex({ timeSlots }: Props) {
                                 <Switch
                                     id="is_active"
                                     checked={data.is_active}
-                                    onCheckedChange={(checked) => setData('is_active', checked)}
+                                    onCheckedChange={(checked: boolean) => setData('is_active', checked)}
                                 />
                             </div>
 
