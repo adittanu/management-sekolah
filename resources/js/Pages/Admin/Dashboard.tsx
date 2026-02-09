@@ -39,6 +39,16 @@ interface Schedule {
     status: string;
 }
 
+interface Announcement {
+    id: number;
+    title: string;
+    content: string;
+    created_at: string;
+    posted_by?: {
+        name: string;
+    };
+}
+
 interface Props {
     role?: string;
     totalStudents?: number;
@@ -57,6 +67,7 @@ interface Props {
     schedules?: Schedule[];
     userName?: string;
     classCount?: number;
+    announcements?: Announcement[];
 }
 
 export default function Dashboard({ 
@@ -69,7 +80,8 @@ export default function Dashboard({
     reports = [],
     schedules = [],
     userName = 'Guru',
-    classCount = 0
+    classCount = 0,
+    announcements = [],
 }: Props) {
     
     // Admin Dashboard Component
@@ -431,23 +443,35 @@ export default function Dashboard({
                              <Icons.Bell className="w-5 h-5 text-slate-400" /> Pengumuman Sekolah
                          </h3>
                      </div>
-                     <Card className="border-none bg-yellow-50/50">
-                         <CardContent className="p-4 space-y-4">
-                             <div className="flex gap-3">
-                                 <div className="mt-1">
-                                     <AlertCircle className="w-5 h-5 text-yellow-600" />
-                                 </div>
-                                 <div>
-                                     <h5 className="font-bold text-sm text-slate-900">Rapat Dewan Guru</h5>
-                                     <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                                         Diberitahukan kepada seluruh dewan guru bahwa akan diadakan rapat evaluasi KBM bulan Oktober pada hari Jumat, 26 Oktober 2025 pukul 13.00 WIB di Ruang Guru.
-                                     </p>
-                                     <div className="mt-2 text-[10px] text-slate-400 font-medium uppercase tracking-wide">Diposting oleh Admin • 2 jam lalu</div>
-                                 </div>
-                             </div>
-                         </CardContent>
-                     </Card>
-                 </div>
+                     {announcements.length > 0 ? (
+                        <div className="space-y-3">
+                            {announcements.map((announcement) => (
+                                <Card key={announcement.id} className="border-none bg-yellow-50/50">
+                                    <CardContent className="p-4 space-y-4">
+                                        <div className="flex gap-3">
+                                            <div className="mt-1">
+                                                <AlertCircle className="w-5 h-5 text-yellow-600" />
+                                            </div>
+                                            <div>
+                                                <h5 className="font-bold text-sm text-slate-900">{announcement.title}</h5>
+                                                <p className="text-xs text-slate-600 mt-1 leading-relaxed">{announcement.content}</p>
+                                                <div className="mt-2 text-[10px] text-slate-400 font-medium uppercase tracking-wide">
+                                                    {`Diposting oleh ${announcement.posted_by?.name ?? 'Admin'} • ${new Date(announcement.created_at).toLocaleString('id-ID')}`}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                     ) : (
+                        <Card className="border-none bg-yellow-50/50">
+                            <CardContent className="p-4 space-y-4">
+                                <p className="text-xs text-slate-600">Belum ada pengumuman sekolah.</p>
+                            </CardContent>
+                        </Card>
+                     )}
+                  </div>
             </div>
         </div>
     );

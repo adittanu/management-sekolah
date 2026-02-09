@@ -11,6 +11,7 @@ class Attendance extends Model
         'student_id',
         'date',
         'status',
+        'leave_letter_file',
     ];
 
     protected $casts = [

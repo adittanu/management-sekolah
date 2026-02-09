@@ -19,12 +19,22 @@ class ScheduleController extends Controller
     public function index()
     {
         $teacherId = Auth::id();
+        $teacher = User::query()->with('homeroomClass')->findOrFail($teacherId);
 
         $schedules = Schedule::query()
             ->with(['subject', 'classroom', 'teacher'])
             ->where('teacher_id', $teacherId)
             ->latest()
             ->get();
+
+        $homeroomSchedules = collect();
+        if ($teacher->homeroomClass) {
+            $homeroomSchedules = Schedule::query()
+                ->with(['subject', 'classroom', 'teacher'])
+                ->where('classroom_id', $teacher->homeroomClass->id)
+                ->latest()
+                ->get();
+        }
 
         $subjects = Subject::with('teachers')->get();
         $classrooms = Classroom::all();
@@ -38,6 +48,8 @@ class ScheduleController extends Controller
             'classrooms' => $classrooms,
             'teachers' => $teachers,
             'timeSlots' => $timeSlots,
+            'homeroomClass' => $teacher->homeroomClass,
+            'homeroomSchedules' => $homeroomSchedules,
             'role' => 'teacher',
         ]);
     }

@@ -1,18 +1,19 @@
 <?php
 
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\ImportUserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\ImportUserController;
 
 Route::get('/', function () {
     // Redirect logged-in users to their dashboard based on role
     if (Auth::check()) {
         $user = Auth::user();
+
         return match ($user->role) {
             'admin' => redirect()->route('admin.dashboard'),
             'teacher' => redirect()->route('guru.dashboard'),
@@ -31,6 +32,7 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     $user = Auth::user();
+
     return match ($user->role) {
         'admin' => redirect()->route('admin.dashboard'),
         'teacher' => redirect()->route('guru.dashboard'),
@@ -47,7 +49,7 @@ Route::middleware('auth')->group(function () {
 
 // Admin Routes
 Route::prefix('admin')
-    ->middleware(['auth', RoleMiddleware::class . ':admin'])
+    ->middleware(['auth', RoleMiddleware::class.':admin'])
     ->name('admin.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
@@ -66,6 +68,8 @@ Route::prefix('admin')
             ->parameters(['jadwal' => 'schedule']);
 
         Route::resource('mapel', App\Http\Controllers\Admin\SubjectController::class)->except(['create', 'show', 'edit']);
+
+        Route::resource('pengumuman', App\Http\Controllers\Admin\AnnouncementController::class)->except(['create', 'show', 'edit']);
 
         Route::resource('time-slot', App\Http\Controllers\Admin\TimeSlotController::class)->except(['create', 'show', 'edit']);
 
@@ -125,7 +129,7 @@ Route::prefix('admin')
 
 // Student (Murid) Routes
 Route::prefix('siswa')
-    ->middleware(['auth', RoleMiddleware::class . ':student'])
+    ->middleware(['auth', RoleMiddleware::class.':student'])
     ->name('siswa.')
     ->group(function () {
         Route::get('/dashboard', function () {
@@ -135,14 +139,14 @@ Route::prefix('siswa')
 
 // Teacher (Guru) Routes
 Route::prefix('guru')
-    ->middleware(['auth', RoleMiddleware::class . ':teacher'])
+    ->middleware(['auth', RoleMiddleware::class.':teacher'])
     ->name('guru.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Guru\DashboardController::class, 'index'])->name('dashboard');
 
         // Placeholder Routes
         Route::get('/jadwal', [App\Http\Controllers\Guru\ScheduleController::class, 'index'])->name('jadwal');
-        
+
         Route::get('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'index'])->name('absensi');
         Route::post('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('absensi.store');
 
@@ -155,13 +159,14 @@ Route::post('/auth/qr-login', App\Http\Controllers\Auth\QrLoginController::class
 // Bypass Login Route (For External Integration)
 Route::get('/login-bypass', function (\Illuminate\Http\Request $request) {
     $email = $request->query('email');
-    if (!$email) {
+    if (! $email) {
         return redirect()->route('login');
     }
 
     $user = \App\Models\User::where('email', $email)->first();
     if ($user) {
         Auth::login($user);
+
         // Redirect based on role
         return match ($user->role) {
             'admin' => redirect()->route('admin.dashboard'),
@@ -174,4 +179,4 @@ Route::get('/login-bypass', function (\Illuminate\Http\Request $request) {
     return redirect()->route('login')->withErrors(['email' => 'User not found for bypass login']);
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

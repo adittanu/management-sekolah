@@ -530,6 +530,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     const maxDurationFromSelectedSlot = Number.isNaN(selectedStartSlot)
         ? 1
         : Math.max(1, getMaxSlotNumber() - selectedStartSlot + 1);
+    const selectedTimeSlot = timeSlots.find((slot) => slot.slot_number.toString() === data.jam);
 
     return (
         <AdminLayout title="Atur Jadwal KBM">
@@ -801,9 +802,18 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                             <SelectValue placeholder="Pilih Jam" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {timeSlots.map(ts => <SelectItem key={ts.id} value={ts.slot_number.toString()}>{ts.slot_number}</SelectItem>)}
+                                            {timeSlots.map((ts) => (
+                                                <SelectItem key={ts.id} value={ts.slot_number.toString()}>
+                                                    {`Jam ke-${ts.slot_number} (${ts.start_time} - ${ts.end_time})`}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+                                    {selectedTimeSlot && (
+                                        <p className="text-[11px] text-slate-500">
+                                            {`Rentang: ${selectedTimeSlot.start_time} - ${selectedTimeSlot.end_time}`}
+                                        </p>
+                                    )}
                                     {errors.start_time && <p className="text-xs text-red-500">{errors.start_time}</p>}
                                 </div>
                                 <div className="space-y-2">

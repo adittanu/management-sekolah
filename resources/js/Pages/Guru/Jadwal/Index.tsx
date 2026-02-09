@@ -17,6 +17,8 @@ interface Classroom {
     id: number;
     name: string;
     level?: string;
+    major?: string;
+    academic_year?: string;
 }
 
 interface Teacher {
@@ -64,6 +66,8 @@ interface TimeSlot {
 
 interface Props {
     schedules: Schedule[];
+    homeroomSchedules: Schedule[];
+    homeroomClass: Classroom | null;
     subjects: Subject[];
     classrooms: Classroom[];
     teachers: Teacher[];
@@ -71,13 +75,16 @@ interface Props {
     role: string;
 }
 
-export default function JadwalGuruIndex({ schedules, subjects, classrooms, teachers, timeSlots, role }: Props) {
+export default function JadwalGuruIndex({ schedules, homeroomSchedules, homeroomClass, subjects, classrooms, teachers, timeSlots, role }: Props) {
     const SLOT_ROW_HEIGHT_PX = 140;
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
+    const [scheduleScope, setScheduleScope] = useState<'my' | 'homeroom'>('my');
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const activeTimeSlots = timeSlots.filter((slot) => slot.is_active).sort((a, b) => a.slot_number - b.slot_number);
+    const hasHomeroom = homeroomClass !== null;
+    const activeSchedules = scheduleScope === 'homeroom' ? homeroomSchedules : schedules;
 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
@@ -171,8 +178,8 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
     };
 
     const scheduleData = useMemo(() => {
-        return transformScheduleData(schedules);
-    }, [schedules]);
+        return transformScheduleData(activeSchedules);
+    }, [activeSchedules]);
 
     const getScheduleItem = (day: string, jam: number): ScheduleGridItem | undefined => {
         const daySchedule = scheduleData[day] || [];
@@ -194,7 +201,33 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
                             </div>
                             <h2 className="text-2xl font-bold text-slate-900">Jadwal Mengajar</h2>
                         </div>
-                        <p className="text-slate-500">Jadwal mengajar anda di setiap kelas.</p>
+                        <p className="text-slate-500">
+                            {scheduleScope === 'homeroom' && hasHomeroom
+                                ? `Jadwal untuk rombel wali kelas ${homeroomClass.name}.`
+                                : 'Jadwal mengajar anda di setiap kelas.'}
+                        </p>
+                    </div>
+
+                    <div className="bg-slate-100 p-1 rounded-lg flex items-center">
+                        <Button
+                            type="button"
+                            variant={scheduleScope === 'my' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => setScheduleScope('my')}
+                            className={scheduleScope === 'my' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}
+                        >
+                            Jadwal Saya
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={scheduleScope === 'homeroom' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => hasHomeroom && setScheduleScope('homeroom')}
+                            disabled={!hasHomeroom}
+                            className={scheduleScope === 'homeroom' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}
+                        >
+                            Jadwal Rombel Wali
+                        </Button>
                     </div>
                 </div>
 
@@ -274,7 +307,8 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
                                         // Filter
                                         const isVisible = !searchQuery || (scheduleItem && (
                                             scheduleItem.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            scheduleItem.class.toLowerCase().includes(searchQuery.toLowerCase())
+                                            scheduleItem.class.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                            scheduleItem.teacher.toLowerCase().includes(searchQuery.toLowerCase())
                                         ));
 
                                         if (!isVisible && searchQuery) return <div key={dayIndex} className="bg-slate-50/10 min-h-[140px]"></div>;

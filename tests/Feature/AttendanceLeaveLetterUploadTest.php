@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attendance;
 use App\Models\Classroom;
-use App\Models\Journal;
 use App\Models\Schedule;
 use App\Models\Subject;
 use App\Models\User;
@@ -16,7 +16,7 @@ class AttendanceLeaveLetterUploadTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_store_optional_leave_letter_file_in_attendance_submission(): void
+    public function test_admin_can_store_student_leave_letter_file_in_attendance_submission(): void
     {
         Storage::fake('public');
 
@@ -36,21 +36,24 @@ class AttendanceLeaveLetterUploadTest extends TestCase
                 [
                     'student_id' => $student->id,
                     'status' => 'izin',
+                    'leave_letter_file' => UploadedFile::fake()->create('surat-izin.pdf', 100, 'application/pdf'),
                 ],
             ],
-            'leave_letter_file' => UploadedFile::fake()->create('surat-izin.pdf', 100, 'application/pdf'),
         ]);
 
         $response->assertRedirect();
 
-        $journal = Journal::query()->where('schedule_id', $schedule->id)->first();
+        $attendance = Attendance::query()
+            ->where('schedule_id', $schedule->id)
+            ->where('student_id', $student->id)
+            ->first();
 
-        $this->assertNotNull($journal);
-        $this->assertNotNull($journal->leave_letter_file);
-        $this->assertTrue(Storage::disk('public')->exists($journal->leave_letter_file));
+        $this->assertNotNull($attendance);
+        $this->assertNotNull($attendance->leave_letter_file);
+        $this->assertTrue(Storage::disk('public')->exists($attendance->leave_letter_file));
     }
 
-    public function test_teacher_can_store_optional_leave_letter_file_in_attendance_submission(): void
+    public function test_teacher_can_store_student_leave_letter_file_in_attendance_submission(): void
     {
         Storage::fake('public');
 
@@ -69,18 +72,21 @@ class AttendanceLeaveLetterUploadTest extends TestCase
                 [
                     'student_id' => $student->id,
                     'status' => 'sakit',
+                    'leave_letter_file' => UploadedFile::fake()->create('surat-sakit.pdf', 120, 'application/pdf'),
                 ],
             ],
-            'leave_letter_file' => UploadedFile::fake()->create('surat-sakit.pdf', 120, 'application/pdf'),
         ]);
 
         $response->assertRedirect();
 
-        $journal = Journal::query()->where('schedule_id', $schedule->id)->first();
+        $attendance = Attendance::query()
+            ->where('schedule_id', $schedule->id)
+            ->where('student_id', $student->id)
+            ->first();
 
-        $this->assertNotNull($journal);
-        $this->assertNotNull($journal->leave_letter_file);
-        $this->assertTrue(Storage::disk('public')->exists($journal->leave_letter_file));
+        $this->assertNotNull($attendance);
+        $this->assertNotNull($attendance->leave_letter_file);
+        $this->assertTrue(Storage::disk('public')->exists($attendance->leave_letter_file));
     }
 
     private function createScheduleForTeacher(User $teacher): Schedule

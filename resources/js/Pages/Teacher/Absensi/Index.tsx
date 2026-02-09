@@ -116,6 +116,7 @@ interface Props {
 
 interface Student extends StudentModel {
     status: AttendanceStatus;
+    leaveLetterFile: File | null;
 }
 
 interface ExtendedSchedule extends ScheduleModel {
@@ -171,10 +172,15 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
     // Initialize Students from Schedule for Entry Tab
 
     const [students, setStudents] = useState<Student[]>([]);
-    const hasLeaveRelatedStatus =
-        teacherStatus === 'Sakit' ||
-        teacherStatus === 'Izin' ||
-        students.some((student) => student.status === 'Sakit' || student.status === 'Izin');
+    const isTeacherLeaveStatus = teacherStatus === 'Sakit' || teacherStatus === 'Izin';
+    const [historyTeacherStatusFilter, setHistoryTeacherStatusFilter] = useState<'Semua' | AttendanceStatus>('Semua');
+    const filteredHistory = history.data.filter((item) => {
+        if (historyTeacherStatusFilter === 'Semua') {
+            return true;
+        }
+
+        return normalizeStatus(item.teacher_status ?? 'hadir') === historyTeacherStatusFilter;
+    });
 
     useEffect(() => {
         if (activeSchedule?.classroom?.students) {
@@ -186,7 +192,8 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
             const mappedStudents: Student[] = activeSchedule.classroom.students.map(s => {
                 return {
                     ...s,
-                    status: 'Hadir' 
+                    status: 'Hadir',
+                    leaveLetterFile: null,
                 };
             });
             
@@ -202,10 +209,10 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
     }, [activeSchedule, history]);
 
     useEffect(() => {
-        if (!hasLeaveRelatedStatus) {
+        if (!isTeacherLeaveStatus) {
             setLeaveLetterFile(null);
         }
-    }, [hasLeaveRelatedStatus]);
+    }, [isTeacherLeaveStatus]);
 
     // History for Undo
     const historyRef = useRef<Student[]>([]);
@@ -219,10 +226,23 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                     'Izin': 'Alpha',
                     'Alpha': 'Hadir'
                 };
-                return { ...student, status: nextStatus[student.status] };
+                const updatedStatus = nextStatus[student.status];
+                return {
+                    ...student,
+                    status: updatedStatus,
+                    leaveLetterFile: updatedStatus === 'Sakit' || updatedStatus === 'Izin' ? student.leaveLetterFile : null,
+                };
             }
             return student;
         }));
+    };
+
+    const handleStudentLeaveLetterFile = (studentId: number, file: File | null) => {
+        setStudents((prev) => prev.map((student) =>
+            student.id === studentId
+                ? { ...student, leaveLetterFile: file }
+                : student
+        ));
     };
 
     const getStatusColor = (status: AttendanceStatus) => {
@@ -269,13 +289,16 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
         if (proofFile) {
             formData.append('proof_file', proofFile);
         }
-        if (hasLeaveRelatedStatus && leaveLetterFile) {
+        if (isTeacherLeaveStatus && leaveLetterFile) {
             formData.append('leave_letter_file', leaveLetterFile);
         }
 
         students.forEach((s, index) => {
             formData.append(`students[${index}][student_id]`, s.id.toString());
             formData.append(`students[${index}][status]`, s.status.toLowerCase());
+            if ((s.status === 'Sakit' || s.status === 'Izin') && s.leaveLetterFile) {
+                formData.append(`students[${index}][leave_letter_file]`, s.leaveLetterFile);
+            }
         });
 
         router.post(route('guru.absensi.store'), formData, {
@@ -329,6 +352,21 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                     {student.status}
                 </Badge>
             </div>
+            {(student.status === 'Sakit' || student.status === 'Izin') && (
+                <div className="mt-3 pt-3 border-t border-slate-200/70" onClick={(e) => e.stopPropagation()}>
+                    <div className="border border-dashed border-slate-300 rounded-lg px-3 py-2 bg-white/80 hover:bg-white transition-colors relative">
+                        <Input
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleStudentLeaveLetterFile(student.id, e.target.files ? e.target.files[0] : null)}
+                            accept="image/*,application/pdf"
+                        />
+                        <p className="text-xs font-medium text-slate-600 truncate">
+                            {student.leaveLetterFile ? student.leaveLetterFile.name : 'Upload surat siswa'}
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
@@ -352,9 +390,24 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                     <p className="text-xs text-slate-500">{student.nis}</p>
                 </div>
             </div>
-            <Badge variant="outline" className={`w-20 justify-center ${getStatusColor(student.status)}`}>
-                {student.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+                {(student.status === 'Sakit' || student.status === 'Izin') && (
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleStudentLeaveLetterFile(student.id, e.target.files ? e.target.files[0] : null)}
+                            accept="image/*,application/pdf"
+                        />
+                        <div className="text-[11px] px-2 py-1 rounded-md border border-dashed border-slate-300 text-slate-600 bg-white max-w-40 truncate">
+                            {student.leaveLetterFile ? student.leaveLetterFile.name : 'Upload surat'}
+                        </div>
+                    </div>
+                )}
+                <Badge variant="outline" className={`w-20 justify-center ${getStatusColor(student.status)}`}>
+                    {student.status}
+                </Badge>
+            </div>
         </div>
     );
 
@@ -724,7 +777,7 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                                             </div>
                                         </div>
 
-                                        {hasLeaveRelatedStatus && (
+                                        {isTeacherLeaveStatus && (
                                             <div className="space-y-2">
                                                 <Label>Surat Izin / Sakit (Opsional)</Label>
                                                 <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors cursor-pointer relative">
@@ -815,6 +868,21 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                             <CardHeader className="px-6 py-4 border-b bg-slate-50/50">
                                 <CardTitle className="text-xl font-bold text-slate-900">Jurnal & Riwayat Absensi</CardTitle>
                                 <CardDescription>Daftar riwayat kegiatan belajar mengajar dan absensi per sesi.</CardDescription>
+                                <div className="flex flex-wrap items-center gap-2 pt-2">
+                                    <span className="text-xs font-medium text-slate-500">Status guru:</span>
+                                    {(['Semua', 'Hadir', 'Sakit', 'Izin', 'Alpha'] as const).map((status) => (
+                                        <Button
+                                            key={status}
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setHistoryTeacherStatusFilter(status)}
+                                            className={`h-7 px-3 rounded-full border transition-colors ${historyTeacherStatusFilter === status ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 hover:text-white' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                        >
+                                            {status}
+                                        </Button>
+                                    ))}
+                                </div>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {history.data.length === 0 ? (
@@ -825,9 +893,17 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                                         <h3 className="text-lg font-medium text-slate-900">Belum ada riwayat</h3>
                                         <p className="text-slate-500 mt-1">Belum ada data jurnal & absensi yang terekam.</p>
                                     </div>
+                                ) : filteredHistory.length === 0 ? (
+                                    <div className="p-12 text-center">
+                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Calendar className="w-8 h-8 text-slate-300" />
+                                        </div>
+                                        <h3 className="text-lg font-medium text-slate-900">Tidak ada data sesuai filter</h3>
+                                        <p className="text-slate-500 mt-1">Coba pilih status guru yang lain.</p>
+                                    </div>
                                 ) : (
                                     <div className="divide-y divide-slate-100">
-                                        {history.data.map((item) => (
+                                        {filteredHistory.map((item) => (
                                             <div key={item.id} className="p-6 hover:bg-slate-50 transition-colors">
                                                 <div className="flex flex-col md:flex-row gap-6">
                                                     {/* Left: Schedule Info & Teacher */}
@@ -947,7 +1023,7 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                             {history.data.length > 0 && (
                                 <CardFooter className="flex items-center justify-between border-t bg-slate-50/50 px-6 py-4">
                                     <div className="text-xs text-slate-500">
-                                        Menampilkan <strong>{history.data.length}</strong> data terbaru
+                                        Menampilkan <strong>{filteredHistory.length}</strong> data terbaru
                                     </div>
                                     <div className="flex gap-1">
                                         {history.links.map((link, i) => (

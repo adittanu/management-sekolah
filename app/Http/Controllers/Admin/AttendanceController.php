@@ -173,6 +173,7 @@ class AttendanceController extends Controller
             'students' => 'required|array',
             'students.*.student_id' => 'required|exists:users,id',
             'students.*.status' => 'required|in:hadir,sakit,izin,alpha',
+            'students.*.leave_letter_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             // Teacher Attendance & Journal Inputs
             'teacher_status' => 'required|in:hadir,sakit,izin,alpha',
             'journal_topic' => 'nullable|string|max:255',
@@ -186,15 +187,29 @@ class AttendanceController extends Controller
             $schedule = Schedule::find($validated['schedule_id']);
 
             // 1. Save Student Attendance
-            foreach ($validated['students'] as $studentData) {
+            foreach ($validated['students'] as $index => $studentData) {
+                $attendanceAttributes = [
+                    'schedule_id' => $validated['schedule_id'],
+                    'student_id' => $studentData['student_id'],
+                    'date' => $date,
+                ];
+
+                $existingAttendance = Attendance::query()->where($attendanceAttributes)->first();
+                $leaveLetterPath = $existingAttendance?->leave_letter_file;
+
+                if ($request->hasFile("students.$index.leave_letter_file")) {
+                    $leaveLetterPath = $request->file("students.$index.leave_letter_file")->store('attendances/leave-letters', 'public');
+                }
+
+                if (! in_array($studentData['status'], ['sakit', 'izin'], true)) {
+                    $leaveLetterPath = null;
+                }
+
                 Attendance::updateOrCreate(
-                    [
-                        'schedule_id' => $validated['schedule_id'],
-                        'student_id' => $studentData['student_id'],
-                        'date' => $date,
-                    ],
+                    $attendanceAttributes,
                     [
                         'status' => $studentData['status'],
+                        'leave_letter_file' => $leaveLetterPath,
                     ]
                 );
             }

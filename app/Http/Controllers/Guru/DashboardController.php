@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Guru;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Schedule;
 use App\Models\User;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -16,7 +16,7 @@ class DashboardController extends Controller
     {
         $teacherId = Auth::id();
         $today = Carbon::now()->locale('id')->dayName;
-        
+
         // Count total students (role = 'student')
         $studentCount = User::where('role', 'student')->count();
 
@@ -31,7 +31,7 @@ class DashboardController extends Controller
                 $now = Carbon::now();
                 $start = Carbon::parse($schedule->start_time);
                 $end = Carbon::parse($schedule->end_time);
-                
+
                 $status = 'Akan Datang';
                 if ($now->between($start, $end)) {
                     $status = 'Sedang Berlangsung';
@@ -42,12 +42,32 @@ class DashboardController extends Controller
                 return [
                     'class' => $schedule->classroom->name,
                     'subject' => $schedule->subject->name,
-                    'time' => Carbon::parse($schedule->start_time)->format('H:i') . ' - ' . Carbon::parse($schedule->end_time)->format('H:i'),
+                    'time' => Carbon::parse($schedule->start_time)->format('H:i').' - '.Carbon::parse($schedule->end_time)->format('H:i'),
                     'room' => $schedule->room ?? 'R-201', // Default or actual room if added to schema
-                    'count' => $schedule->classroom->students()->count() . ' Siswa',
+                    'count' => $schedule->classroom->students()->count().' Siswa',
                     'status' => $status,
                 ];
             });
+
+        $announcements = Announcement::query()
+            ->with('postedBy:id,name')
+            ->where('is_active', true)
+            ->latest('published_at')
+            ->latest()
+            ->take(3)
+            ->get()
+            ->map(function (Announcement $announcement) {
+                return [
+                    'id' => $announcement->id,
+                    'title' => $announcement->title,
+                    'content' => $announcement->content,
+                    'created_at' => $announcement->published_at?->toIso8601String() ?? $announcement->created_at?->toIso8601String(),
+                    'posted_by' => [
+                        'name' => $announcement->postedBy?->name ?? 'Admin',
+                    ],
+                ];
+            })
+            ->values();
 
         return Inertia::render('Admin/Dashboard', [
             'role' => 'teacher',
@@ -55,6 +75,7 @@ class DashboardController extends Controller
             'userName' => Auth::user()->name,
             'classCount' => $schedules->count(),
             'totalStudents' => $studentCount,
+            'announcements' => $announcements,
         ]);
     }
 }
