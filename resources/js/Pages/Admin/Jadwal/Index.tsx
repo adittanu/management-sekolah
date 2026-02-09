@@ -110,29 +110,38 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
     
-    // Helper to calculate time from slot
-    const getTimesFromSlot = (slot: number) => {
-        const startMinutes = 7 * 60 + (slot - 1) * 45;
+    // Helper to get time from TimeSlot object
+    const getTimesFromSlot = (slotNumber: number) => {
+        const slot = timeSlots.find(ts => ts.slot_number === slotNumber);
+        if (slot) {
+            return { start: slot.start_time, end: slot.end_time };
+        }
+        // Fallback to calculation if slot not found
+        const startMinutes = 7 * 60 + (slotNumber - 1) * 45;
         const endMinutes = startMinutes + 45;
-        
         const format = (mins: number) => {
             const h = Math.floor(mins / 60);
             const m = mins % 60;
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
-        
         return { start: format(startMinutes), end: format(endMinutes) };
     }
 
     // Transform schedules data into grid format
     // Map time strings to jam slots.
     const getJamFromTime = (time: string): number => {
+        // Find matching time slot based on start_time
+        const slot = timeSlots.find(ts => ts.start_time === time.substring(0, 5));
+        if (slot) {
+            return slot.slot_number;
+        }
+        // Fallback to calculation
         const [hour, minute] = time.split(':').map(Number);
         const totalMinutes = hour * 60 + minute;
         const startMinutes = 7 * 60; // 07:00
         if (totalMinutes < startMinutes) return 1;
-        const slot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
-        return slot > 15 ? 15 : slot; // Cap at 15 slots
+        const calculatedSlot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
+        return calculatedSlot > 15 ? 15 : calculatedSlot;
     };
 
     // Transform raw schedules to the structure expected by the UI
@@ -511,7 +520,8 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
                                         {/* Day Columns */}
                                         {visibleDays.map((day, dayIndex) => {
-                                            const scheduleItem = getScheduleItem(day, timeSlot.slot_number);
+                                            const jam = timeSlot.slot_number;
+                                            const scheduleItem = getScheduleItem(day, jam);
                                             
                                             // Filter
                                             const isVisible = !searchQuery || (scheduleItem && (
@@ -527,8 +537,8 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                                 <div key={dayIndex} className="relative min-h-[140px] group">
                                                     <DroppableCell id={cellId}>
                                                         {scheduleItem ? (
-                                                            <div className="p-2 h-full"> 
-                                                                <DraggableScheduleCard 
+                                                            <div className="p-2 h-full">
+                                                                <DraggableScheduleCard
                                                                     id={`card-${day}-${jam}-${scheduleItem.id}`}
                                                                     data={{ ...scheduleItem, day }}
                                                                 >
@@ -538,11 +548,11 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                                                             scheduleItem.subject === 'Fisika' ? 'bg-purple-500' :
                                                                             scheduleItem.subject === 'Kimia' ? 'bg-pink-500' : 'bg-orange-500'
                                                                         }`}></div>
-                                                                        
+
                                                                         <div className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
-                                                                            <Button 
-                                                                                variant="ghost" 
-                                                                                size="icon" 
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
                                                                                 className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
@@ -575,7 +585,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                                             </div>
                                                         ) : (
                                                             <div className="p-2 h-full">
-                                                                <div 
+                                                                <div
                                                                     onClick={() => handleAddSchedule(day, jam.toString())}
                                                                     className="w-full h-full rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-blue-50 hover:border-blue-200"
                                                                 >
@@ -621,14 +631,16 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                 <div className="space-y-2">
                                     <Label>Jam Ke-</Label>
                                     <Select value={data.jam} onValueChange={(val) => {
-                                        const times = getTimesFromSlot(parseInt(val));
-                                        setData(prev => ({ ...prev, jam: val, start_time: times.start, end_time: times.end }));
+                                        const selectedSlot = timeSlots.find(ts => ts.slot_number.toString() === val);
+                                        if (selectedSlot) {
+                                            setData(prev => ({ ...prev, jam: val, start_time: selectedSlot.start_time, end_time: selectedSlot.end_time }));
+                                        }
                                     }}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="Pilih Jam" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {timeSlots.map(t => <SelectItem key={t} value={t.toString()}>{t}</SelectItem>)}
+                                            {timeSlots.map(ts => <SelectItem key={ts.id} value={ts.slot_number.toString()}>{ts.slot_number}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                     {errors.start_time && <p className="text-xs text-red-500">{errors.start_time}</p>}
