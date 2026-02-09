@@ -4,7 +4,6 @@ namespace App\Mcp\Tools;
 
 use App\Models\Schedule;
 use App\Models\User;
-use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\DB;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -274,7 +273,7 @@ class ProsesAbsensiTextTool extends Tool
      *
      * @return array<string, \Illuminate\Contracts\JsonSchema\JsonSchema>
      */
-    public function schema(JsonSchema $schema): array
+    public function schema($schema): array
     {
         return [
             'email_guru' => $schema->string()
