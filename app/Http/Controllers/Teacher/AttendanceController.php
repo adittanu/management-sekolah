@@ -4,14 +4,13 @@ namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
-use App\Models\Schedule;
 use App\Models\Journal;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\Schedule;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class AttendanceController extends Controller
 {
@@ -31,7 +30,7 @@ class AttendanceController extends Controller
             'Sabtu' => 'Sabtu',
             'Minggu' => 'Minggu',
         ];
-        
+
         $currentDay = $mapDay[$today] ?? 'Senin';
         $todayDate = Carbon::now()->format('Y-m-d');
 
@@ -42,7 +41,7 @@ class AttendanceController extends Controller
                 $query->where('day', $day);
             }, function ($query) use ($currentDay) {
                 // Default to current day if no filter
-                 $query->where('day', $currentDay);
+                $query->where('day', $currentDay);
             })
             ->get();
 
@@ -67,7 +66,7 @@ class AttendanceController extends Controller
         $todaysAttendance = Attendance::whereDate('date', $todayDate)
             ->whereIn('schedule_id', $scheduleIds)
             ->get();
-        
+
         $teacherAttendance = $todaysAttendance->where('student_id', $teacherId);
         $studentAttendance = $todaysAttendance->where('student_id', '!=', $teacherId);
 
@@ -77,10 +76,10 @@ class AttendanceController extends Controller
             'sick' => $studentAttendance->where('status', 'sakit')->count(),
             'permit' => $studentAttendance->where('status', 'izin')->count(),
             'alpha' => $studentAttendance->where('status', 'alpha')->count(),
-            'late' => 0, 
+            'late' => 0,
             'teachersPresent' => $teacherAttendance->where('status', 'hadir')->count(),
             'totalTeachers' => 1, // Only current teacher
-            'totalStudents' => $totalStudents > 0 ? $totalStudents : 0 
+            'totalStudents' => $totalStudents > 0 ? $totalStudents : 0,
         ];
 
         $history = Journal::query()
@@ -99,7 +98,7 @@ class AttendanceController extends Controller
                 ->where('date', $journal->date)
                 ->with('student')
                 ->get();
-            
+
             $journal->stats = [
                 'hadir' => $attendances->where('student_id', '!=', $teacherId)->where('status', 'hadir')->count(),
                 'sakit' => $attendances->where('student_id', '!=', $teacherId)->where('status', 'sakit')->count(),
@@ -111,16 +110,16 @@ class AttendanceController extends Controller
             // Attach detailed attendance records for the modal
             $journal->attendance_details = $attendances
                 ->where('student_id', '!=', $teacherId)
-                ->map(function($att) {
-                return [
-                    'id' => $att->student_id,
-                    'name' => $att->student->name ?? 'Unknown',
-                    'nis' => $att->student->nis ?? '-',
-                    'avatar_url' => $att->student->avatar_url, 
-                    'status' => $att->status,
-                ];
-            })->values();
-            
+                ->map(function ($att) {
+                    return [
+                        'id' => $att->student_id,
+                        'name' => $att->student->name ?? 'Unknown',
+                        'nis' => $att->student->nis ?? '-',
+                        'avatar_url' => $att->student->avatar_url,
+                        'status' => $att->status,
+                    ];
+                })->values();
+
             // Determine teacher status from attendance records
             $teacherAttRecord = $attendances->firstWhere('student_id', $teacherId);
             $journal->teacher_status = $teacherAttRecord ? $teacherAttRecord->status : 'hadir';
@@ -133,7 +132,7 @@ class AttendanceController extends Controller
             'history' => $history,
             'schedules' => $schedules,
             'stats' => $stats,
-            'role' => 'teacher' // Explicitly pass role if needed by View
+            'role' => 'teacher', // Explicitly pass role if needed by View
         ]);
     }
 
@@ -143,7 +142,7 @@ class AttendanceController extends Controller
     public function store(Request $request)
     {
         $teacherId = Auth::id();
-        
+
         $validated = $request->validate([
             'schedule_id' => 'required|exists:schedules,id',
             'date' => 'required|date|before_or_equal:today',
@@ -155,16 +154,17 @@ class AttendanceController extends Controller
             'journal_topic' => 'nullable|string|max:255',
             'journal_content' => 'nullable|string',
             'proof_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'leave_letter_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
         ]);
-        
+
         // Verify schedule belongs to teacher
         $schedule = Schedule::where('id', $validated['schedule_id'])
             ->where('teacher_id', $teacherId)
             ->firstOrFail();
 
-        DB::transaction(function () use ($validated, $request, $schedule, $teacherId) {
+        DB::transaction(function () use ($validated, $request, $teacherId) {
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
-            
+
             // 1. Save Student Attendance
             foreach ($validated['students'] as $studentData) {
                 Attendance::updateOrCreate(
@@ -197,13 +197,22 @@ class AttendanceController extends Controller
                 $proofPath = $request->file('proof_file')->store('journals', 'public');
             }
 
+            $leaveLetterPath = null;
+            if ($request->hasFile('leave_letter_file')) {
+                $leaveLetterPath = $request->file('leave_letter_file')->store('journals/leave-letters', 'public');
+            }
+
             // Get existing journal to preserve proof_file if not uploading new one
             $existingJournal = Journal::where('schedule_id', $validated['schedule_id'])
                 ->where('date', $date)
                 ->first();
 
-            if ($existingJournal && !$proofPath) {
+            if ($existingJournal && ! $proofPath) {
                 $proofPath = $existingJournal->proof_file;
+            }
+
+            if ($existingJournal && ! $leaveLetterPath) {
+                $leaveLetterPath = $existingJournal->leave_letter_file;
             }
 
             Journal::updateOrCreate(
@@ -215,6 +224,7 @@ class AttendanceController extends Controller
                     'title' => $validated['journal_topic'] ?? '-',
                     'description' => $validated['journal_content'] ?? '-',
                     'proof_file' => $proofPath,
+                    'leave_letter_file' => $leaveLetterPath,
                     'teacher_id' => $teacherId,
                 ]
             );

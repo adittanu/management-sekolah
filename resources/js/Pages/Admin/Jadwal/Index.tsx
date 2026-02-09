@@ -1,7 +1,7 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Search, Clock, MapPin, CalendarDays, Plus, Trash2 } from 'lucide-react';
+import { Search, Clock, MapPin, CalendarDays, Plus, Trash2, Pencil } from 'lucide-react';
 import { Card } from '@/Components/ui/card';
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
@@ -47,6 +47,21 @@ interface Schedule {
     teacher?: Teacher;
 }
 
+interface ScheduleGridItem {
+    id: number;
+    jam: number;
+    startSlot: number;
+    endSlot: number;
+    durationSlots: number;
+    day: string;
+    subject: string;
+    class: string;
+    teacher: string;
+    room: string;
+    time: string;
+    original: Schedule;
+}
+
 interface TimeSlot {
     id: number;
     slot_number: number;
@@ -64,14 +79,16 @@ interface Props {
 }
 
 export default function JadwalIndex({ schedules, subjects, classrooms, teachers, timeSlots }: Props) {
+    const SLOT_ROW_HEIGHT_PX = 140;
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
     const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class'); // New State
 
     // Use Inertia Form
-    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
+    const { data, setData, processing, errors, reset, clearErrors } = useForm({
         day: '',
         jam: '',
+        duration: '1',
         subject_id: '',
         classroom_id: '',
         teacher_id: '',
@@ -102,6 +119,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         }
     }, [viewMode, classrooms, teachers]);
     const [isAddScheduleOpen, setIsAddScheduleOpen] = useState(false);
+    const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
 
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     // Use timeSlots from props instead of hardcoded array
@@ -125,13 +143,38 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
         return { start: format(startMinutes), end: format(endMinutes) };
-    }
+    };
+
+    const getSlotByStartTime = (time: string): TimeSlot | undefined => {
+        const normalized = time.substring(0, 5);
+        return activeTimeSlots.find((slot) => slot.start_time === normalized);
+    };
+
+    const getSlotByEndTime = (time: string): TimeSlot | undefined => {
+        const normalized = time.substring(0, 5);
+        return activeTimeSlots.find((slot) => slot.end_time === normalized);
+    };
+
+    const getMaxSlotNumber = (): number => {
+        return activeTimeSlots[activeTimeSlots.length - 1]?.slot_number ?? 15;
+    };
+
+    const getSlotRangeTimes = (startSlot: number, durationSlots: number): { start: string; end: string } => {
+        const normalizedDuration = Number.isNaN(durationSlots) ? 1 : Math.max(1, durationSlots);
+        const endSlotNumber = startSlot + normalizedDuration - 1;
+        const startSlotData = activeTimeSlots.find((slot) => slot.slot_number === startSlot);
+        const endSlotData = activeTimeSlots.find((slot) => slot.slot_number === endSlotNumber);
+
+        const start = startSlotData?.start_time ?? getTimesFromSlot(startSlot).start;
+        const end = endSlotData?.end_time ?? getTimesFromSlot(startSlot).end;
+
+        return { start, end };
+    };
 
     // Transform schedules data into grid format
     // Map time strings to jam slots.
     const getJamFromTime = (time: string): number => {
-        // Find matching time slot based on start_time
-        const slot = timeSlots.find(ts => ts.start_time === time.substring(0, 5));
+        const slot = getSlotByStartTime(time);
         if (slot) {
             return slot.slot_number;
         }
@@ -144,13 +187,22 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         return calculatedSlot > 15 ? 15 : calculatedSlot;
     };
 
+    const getEndJamFromTime = (time: string, fallbackStartSlot: number): number => {
+        const slot = getSlotByEndTime(time);
+        if (slot) {
+            return slot.slot_number;
+        }
+
+        return fallbackStartSlot;
+    };
+
     // Transform raw schedules to the structure expected by the UI
-    const transformScheduleData = (scheduleList: Schedule[]) => {
-        const data: Record<string, any[]> = {};
+    const transformScheduleData = (scheduleList: Schedule[]): Record<string, ScheduleGridItem[]> => {
+        const transformedData: Record<string, ScheduleGridItem[]> = {};
         
         // Initialize days
         days.forEach(day => {
-            data[day] = [];
+            transformedData[day] = [];
         });
 
         // Use schedules.data if paginated, otherwise assume array
@@ -159,14 +211,20 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         list.forEach(schedule => {
             if (!schedule.subject || !schedule.classroom || !schedule.teacher) return;
             
-            const jam = getJamFromTime(schedule.start_time);
+            const startSlot = getJamFromTime(schedule.start_time);
+            const endSlot = Math.max(startSlot, getEndJamFromTime(schedule.end_time, startSlot));
+            const durationSlots = Math.max(1, endSlot - startSlot + 1);
             
             // Push to day bucket
-            if (!data[schedule.day]) data[schedule.day] = [];
+            if (!transformedData[schedule.day]) transformedData[schedule.day] = [];
             
-            data[schedule.day].push({
+            transformedData[schedule.day].push({
                 id: schedule.id,
-                jam: jam,
+                jam: startSlot,
+                startSlot,
+                endSlot,
+                durationSlots,
+                day: schedule.day,
                 subject: schedule.subject.name,
                 class: schedule.classroom.name,
                 teacher: schedule.teacher.name,
@@ -176,7 +234,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
             });
         });
 
-        return data;
+        return transformedData;
     };
 
     const transformedScheduleData = useMemo(() => {
@@ -184,7 +242,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     }, [schedules]);
 
     // Local state for drag-and-drop UI updates (optimistic UI)
-    const [scheduleData, setScheduleData] = useState<any>(transformedScheduleData);
+    const [scheduleData, setScheduleData] = useState<Record<string, ScheduleGridItem[]>>(transformedScheduleData);
 
     // Sync state when props change
     useEffect(() => {
@@ -195,6 +253,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     // New logic handled by viewMode effect above
 
     const handleAddSchedule = (day: string = '', jam: string = '') => {
+        setEditingScheduleId(null);
         clearErrors();
         
         let start = '';
@@ -221,6 +280,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         setData({
             day: day,
             jam: jam,
+            duration: '1',
             subject_id: '',
             classroom_id: initialClassId,
             teacher_id: initialTeacherId,
@@ -231,13 +291,51 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         setIsAddScheduleOpen(true);
     };
 
+    const handleEditSchedule = (scheduleItem: ScheduleGridItem): void => {
+        clearErrors();
+        setEditingScheduleId(scheduleItem.id);
+
+        setData({
+            day: scheduleItem.day,
+            jam: scheduleItem.startSlot.toString(),
+            duration: scheduleItem.durationSlots.toString(),
+            subject_id: scheduleItem.original.subject_id.toString(),
+            classroom_id: scheduleItem.original.classroom_id.toString(),
+            teacher_id: scheduleItem.original.teacher_id.toString(),
+            room: scheduleItem.room || '',
+            start_time: scheduleItem.original.start_time.substring(0, 5),
+            end_time: scheduleItem.original.end_time.substring(0, 5),
+        });
+
+        setIsAddScheduleOpen(true);
+    };
+
+    const closeScheduleDialog = (): void => {
+        setIsAddScheduleOpen(false);
+        setEditingScheduleId(null);
+        reset();
+        clearErrors();
+    };
+
     const handleSaveSchedule = () => {
-        // Calculate times if jam is selected but times are empty (fallback)
-        let toSubmit: any = { ...data };
-        if (data.jam && (!data.start_time || !data.end_time)) {
-             const times = getTimesFromSlot(parseInt(data.jam));
-             toSubmit.start_time = times.start;
-             toSubmit.end_time = times.end;
+        const normalizedJam = Number.parseInt(data.jam, 10);
+        const normalizedDuration = Number.parseInt(data.duration, 10);
+
+        let toSubmit = { ...data };
+
+        if (data.jam) {
+            const maxSlotNumber = getMaxSlotNumber();
+            const safeDuration = Number.isNaN(normalizedDuration) ? 1 : Math.max(1, normalizedDuration);
+            const endSlotNumber = normalizedJam + safeDuration - 1;
+
+            if (endSlotNumber > maxSlotNumber) {
+                toast.error('Durasi melewati jam pelajaran yang tersedia.');
+                return;
+            }
+
+            const computedTimes = getSlotRangeTimes(normalizedJam, safeDuration);
+            toSubmit.start_time = computedTimes.start;
+            toSubmit.end_time = computedTimes.end;
         }
 
         // Ensure required fields are present
@@ -246,17 +344,26 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
             return;
         }
 
-        post(route('admin.jadwal.store'), {
-            // @ts-ignore
-            data: toSubmit,
+        if (editingScheduleId) {
+            router.put(route('admin.jadwal.update', editingScheduleId), toSubmit, {
+                onSuccess: () => {
+                    closeScheduleDialog();
+                    toast.success('Jadwal berhasil diperbarui');
+                },
+                onError: () => {
+                    toast.error('Gagal memperbarui jadwal. Periksa input anda.');
+                }
+            });
+            return;
+        }
+
+        router.post(route('admin.jadwal.store'), toSubmit, {
             onSuccess: () => {
-                setIsAddScheduleOpen(false);
-                reset();
+                closeScheduleDialog();
                 toast.success('Jadwal berhasil ditambahkan');
             },
-            onError: (err) => {
+            onError: () => {
                 toast.error('Gagal menambahkan jadwal. Periksa input anda.');
-                console.error(err);
             }
         });
     };
@@ -309,15 +416,15 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         // Deep copy needed to properly revert state later if needed
         const previousData = JSON.parse(JSON.stringify(scheduleData));
         
-        setScheduleData((prev: any) => {
+        setScheduleData((prev) => {
             // Deep copy for mutation
-            const newData = JSON.parse(JSON.stringify(prev));
+            const newData = JSON.parse(JSON.stringify(prev)) as Record<string, ScheduleGridItem[]>;
             // ... (Simple move logic for UI responsiveness) ...
             // We can reuse the existing logic or simplify it just for visual feedback
             // But real update happens via API
              // 1. Remove from Source
             const sourceList = newData[sourceDay] || [];
-            const itemIndex = sourceList.findIndex((s: any) => s.id === scheduleId);
+            const itemIndex = sourceList.findIndex((scheduleItem) => scheduleItem.id === scheduleId);
             if (itemIndex === -1) return prev; 
 
             const [movedItem] = sourceList.splice(itemIndex, 1);
@@ -328,17 +435,31 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
             if (!newData[targetDay]) newData[targetDay] = [];
             
             // Check if target is occupied
-            const targetList = newData[targetDay];
-            
-            let isOccupied = false;
-            
-            if (viewMode === 'class') {
-                // Class Mode: Check if slot occupied by SAME CLASS
-                isOccupied = targetList.some((s:any) => s.jam === targetJam && s.class === selectedFilterValue);
-            } else {
-                 // Teacher Mode: Check if slot occupied by SAME TEACHER
-                 isOccupied = targetList.some((s:any) => s.jam === targetJam && s.teacher === selectedFilterValue);
+            const targetList = newData[targetDay] || [];
+
+            const durationSlots = Math.max(1, movedItem.durationSlots ?? 1);
+            const targetEndSlot = targetJam + durationSlots - 1;
+            if (targetEndSlot > getMaxSlotNumber()) {
+                toast.error('Durasi mapel melebihi slot waktu yang tersedia.');
+                return JSON.parse(JSON.stringify(previousData));
             }
+
+            const isSameDimension = (item: ScheduleGridItem): boolean => {
+                if (viewMode === 'class') {
+                    return item.class === selectedFilterValue;
+                }
+
+                return item.teacher === selectedFilterValue;
+            };
+
+            const isRangeOverlap = (startA: number, endA: number, startB: number, endB: number): boolean => {
+                return startA <= endB && startB <= endA;
+            };
+
+            const isOccupied = targetList
+                .filter((item) => item.id !== scheduleId)
+                .filter(isSameDimension)
+                .some((item) => isRangeOverlap(item.startSlot, item.endSlot, targetJam, targetEndSlot));
             
             if (isOccupied) {
                 // If occupied, revert (or handle swap later)
@@ -348,22 +469,26 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
             }
 
             movedItem.jam = targetJam;
+            movedItem.startSlot = targetJam;
+            movedItem.endSlot = targetEndSlot;
+            movedItem.durationSlots = durationSlots;
             movedItem.day = targetDay; // Update day
             // Update time display string for UI
-            const newTimes = getTimesFromSlot(targetJam);
-            movedItem.time = `${newTimes.start} - ${newTimes.end}`;
+            const movedTimes = getSlotRangeTimes(targetJam, durationSlots);
+            movedItem.time = `${movedTimes.start} - ${movedTimes.end}`;
 
             newData[targetDay].push(movedItem);
             return newData;
         });
 
         // Backend Update
-        const newTimes = getTimesFromSlot(targetJam);
+        const activeDuration = Math.max(1, activeData.durationSlots ?? 1);
+        const movedTimes = getSlotRangeTimes(targetJam, activeDuration);
         
         router.put(route('admin.jadwal.update', scheduleId), {
             day: targetDay,
-            start_time: newTimes.start,
-            end_time: newTimes.end,
+            start_time: movedTimes.start,
+            end_time: movedTimes.end,
             subject_id: activeData.original.subject_id,
             classroom_id: activeData.original.classroom_id,
             teacher_id: activeData.original.teacher_id,
@@ -384,14 +509,27 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     };
 
     // Helper to find item
-    const getScheduleItem = (day: string, jam: number) => {
+    const getScheduleItem = (day: string, jam: number): ScheduleGridItem | undefined => {
         const daySchedule = scheduleData[day] || [];
         if (viewMode === 'class') {
-            return daySchedule.find((s: any) => s.jam === jam && s.class === selectedFilterValue);
+            return daySchedule.find((scheduleItem) => {
+                return jam >= scheduleItem.startSlot && jam <= scheduleItem.endSlot && scheduleItem.class === selectedFilterValue;
+            });
         } else {
-             return daySchedule.find((s: any) => s.jam === jam && s.teacher === selectedFilterValue);
+             return daySchedule.find((scheduleItem) => {
+                return jam >= scheduleItem.startSlot && jam <= scheduleItem.endSlot && scheduleItem.teacher === selectedFilterValue;
+             });
         }
     };
+
+    const getCardHeight = (durationSlots: number): number => {
+        return durationSlots * SLOT_ROW_HEIGHT_PX - 16;
+    };
+
+    const selectedStartSlot = Number.parseInt(data.jam, 10);
+    const maxDurationFromSelectedSlot = Number.isNaN(selectedStartSlot)
+        ? 1
+        : Math.max(1, getMaxSlotNumber() - selectedStartSlot + 1);
 
     return (
         <AdminLayout title="Atur Jadwal KBM">
@@ -522,6 +660,8 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                         {visibleDays.map((day, dayIndex) => {
                                             const jam = timeSlot.slot_number;
                                             const scheduleItem = getScheduleItem(day, jam);
+                                            const isStartCell = Boolean(scheduleItem && scheduleItem.startSlot === jam);
+                                            const isCoveredCell = Boolean(scheduleItem && scheduleItem.startSlot < jam);
                                             
                                             // Filter
                                             const isVisible = !searchQuery || (scheduleItem && (
@@ -536,12 +676,13 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                             return (
                                                 <div key={dayIndex} className="relative min-h-[140px] group">
                                                     <DroppableCell id={cellId}>
-                                                        {scheduleItem ? (
-                                                            <div className="p-2 h-full">
+                                                        {scheduleItem && isStartCell ? (
+                                                            <div className="p-2 h-full relative overflow-visible">
                                                                 <DraggableScheduleCard
                                                                     id={`card-${day}-${jam}-${scheduleItem.id}`}
                                                                     data={{ ...scheduleItem, day }}
                                                                 >
+                                                                    <div className="absolute inset-x-2 top-2 z-10" style={{ height: `${getCardHeight(scheduleItem.durationSlots)}px` }}>
                                                                     <Card className="h-full w-full bg-white hover:border-blue-300 border-slate-200 p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-move relative overflow-hidden group/card">
                                                                         <div className={`absolute top-0 left-0 w-1 h-full ${
                                                                             scheduleItem.subject === 'Matematika' ? 'bg-blue-500' :
@@ -550,6 +691,17 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                                                         }`}></div>
 
                                                                         <div className="absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-6 w-6 text-blue-400 hover:text-blue-600 hover:bg-blue-50"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleEditSchedule(scheduleItem);
+                                                                                }}
+                                                                            >
+                                                                                <Pencil className="w-3 h-3" />
+                                                                            </Button>
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
@@ -581,7 +733,12 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                                                             {scheduleItem.room || '-'}
                                                                         </div>
                                                                     </Card>
+                                                                    </div>
                                                                 </DraggableScheduleCard>
+                                                            </div>
+                                                        ) : scheduleItem && isCoveredCell ? (
+                                                            <div className="p-2 h-full">
+                                                                <div className="w-full h-full rounded-xl border border-transparent bg-slate-50/30" />
                                                             </div>
                                                         ) : (
                                                             <div className="p-2 h-full">
@@ -605,17 +762,21 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                     </div>
                 </div>
 
-                <Dialog open={isAddScheduleOpen} onOpenChange={setIsAddScheduleOpen}>
+                <Dialog open={isAddScheduleOpen} onOpenChange={(open) => {
+                    if (!open) {
+                        closeScheduleDialog();
+                    }
+                }}>
                     <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white border-slate-100 shadow-2xl">
                         <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-slate-50/50">
-                            <DialogTitle className="text-xl font-bold text-slate-900">Tambah Jadwal Pelajaran</DialogTitle>
+                            <DialogTitle className="text-xl font-bold text-slate-900">{editingScheduleId ? 'Ubah Jadwal Pelajaran' : 'Tambah Jadwal Pelajaran'}</DialogTitle>
                             <DialogDescription>
                                 Masukkan detail jadwal KBM baru ke dalam slot waktu.
                             </DialogDescription>
                         </DialogHeader>
                         
                         <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <div className="space-y-2">
                                     <Label>Hari</Label>
                                     <Select value={data.day} onValueChange={(val) => setData('day', val)}>
@@ -633,7 +794,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                     <Select value={data.jam} onValueChange={(val) => {
                                         const selectedSlot = timeSlots.find(ts => ts.slot_number.toString() === val);
                                         if (selectedSlot) {
-                                            setData(prev => ({ ...prev, jam: val, start_time: selectedSlot.start_time, end_time: selectedSlot.end_time }));
+                                            setData(prev => ({ ...prev, jam: val, duration: '1', start_time: selectedSlot.start_time, end_time: selectedSlot.end_time }));
                                         }
                                     }}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
@@ -644,6 +805,24 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                         </SelectContent>
                                     </Select>
                                     {errors.start_time && <p className="text-xs text-red-500">{errors.start_time}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Durasi (JP)</Label>
+                                    <Select value={data.duration} onValueChange={(val) => setData('duration', val)}>
+                                        <SelectTrigger className="bg-slate-50 border-slate-200" disabled={!data.jam}>
+                                            <SelectValue placeholder="Pilih Durasi" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: maxDurationFromSelectedSlot }, (_, index) => {
+                                                const duration = index + 1;
+                                                return (
+                                                    <SelectItem key={duration} value={duration.toString()}>
+                                                        {duration} JP
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
 
@@ -735,13 +914,13 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                         </div>
 
                         <DialogFooter className="p-6 pt-2 bg-slate-50/50">
-                            <Button variant="outline" onClick={() => setIsAddScheduleOpen(false)}>Batal</Button>
+                            <Button variant="outline" onClick={closeScheduleDialog}>Batal</Button>
                             <Button 
                                 className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]"
                                 onClick={handleSaveSchedule}
                                 disabled={processing}
                             >
-                                {processing ? 'Menyimpan...' : 'Simpan Jadwal'}
+                                {processing ? 'Menyimpan...' : editingScheduleId ? 'Simpan Perubahan' : 'Simpan Jadwal'}
                             </Button>
                         </DialogFooter>
                     </DialogContent>

@@ -13,6 +13,7 @@ class Journal extends Model
         'title',
         'description',
         'proof_file',
+        'leave_letter_file',
     ];
 
     public function schedule()

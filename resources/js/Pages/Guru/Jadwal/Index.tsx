@@ -2,7 +2,7 @@ import TeacherLayout from '@/Layouts/TeacherLayout';
 import { Button } from '@/Components/ui/button';
 import { Search, Clock, MapPin, CalendarDays } from 'lucide-react';
 import { Card } from '@/Components/ui/card';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Badge } from '@/Components/ui/badge';
 import { Input } from '@/Components/ui/input';
 
@@ -39,77 +39,125 @@ interface Schedule {
     teacher?: Teacher;
 }
 
+interface ScheduleGridItem {
+    id: number;
+    jam: number;
+    startSlot: number;
+    endSlot: number;
+    durationSlots: number;
+    day: string;
+    subject: string;
+    class: string;
+    teacher: string;
+    room: string;
+    time: string;
+    original: Schedule;
+}
+
+interface TimeSlot {
+    id: number;
+    slot_number: number;
+    start_time: string;
+    end_time: string;
+    is_active: boolean;
+}
+
 interface Props {
     schedules: Schedule[];
     subjects: Subject[];
     classrooms: Classroom[];
     teachers: Teacher[];
+    timeSlots: TimeSlot[];
     role: string;
 }
 
-export default function JadwalGuruIndex({ schedules, subjects, classrooms, teachers, role }: Props) {
+export default function JadwalGuruIndex({ schedules, subjects, classrooms, teachers, timeSlots, role }: Props) {
+    const SLOT_ROW_HEIGHT_PX = 140;
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
-    
-    // We only have one teacher here, so we default to 'teacher' view mode conceptually,
-    // but filtered to just this logged-in teacher.
-    
-    // However, the existing view logic uses `viewMode` to switch between class-centric or teacher-centric columns.
-    // For a specific teacher, they probably want to see *their* schedule.
-    // So the "Teacher" view where the columns/rows represent time slots and days is appropriate.
-    // But since it's just ONE teacher, we don't need a dropdown to select teacher.
-    
+
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const timeSlots = Array.from({ length: 15 }, (_, i) => i + 1);
+    const activeTimeSlots = timeSlots.filter((slot) => slot.is_active).sort((a, b) => a.slot_number - b.slot_number);
 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
     
-    // Helper to calculate time from slot
-    const getTimesFromSlot = (slot: number) => {
-        const startMinutes = 7 * 60 + (slot - 1) * 45;
+    const getTimesFromSlot = (slotNumber: number): { start: string; end: string } => {
+        const slot = activeTimeSlots.find((timeSlot) => timeSlot.slot_number === slotNumber);
+        if (slot) {
+            return { start: slot.start_time, end: slot.end_time };
+        }
+
+        const startMinutes = 7 * 60 + (slotNumber - 1) * 45;
         const endMinutes = startMinutes + 45;
-        
+
         const format = (mins: number) => {
             const h = Math.floor(mins / 60);
             const m = mins % 60;
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
-        
-        return { start: format(startMinutes), end: format(endMinutes) };
-    }
 
-    // Transform schedules data into grid format
-    const getJamFromTime = (time: string): number => {
-        const [hour, minute] = time.split(':').map(Number);
-        const totalMinutes = hour * 60 + minute;
-        const startMinutes = 7 * 60; // 07:00
-        if (totalMinutes < startMinutes) return 1;
-        const slot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
-        return slot > 15 ? 15 : slot; // Cap at 15 slots
+        return { start: format(startMinutes), end: format(endMinutes) };
     };
 
-    const transformScheduleData = (scheduleList: Schedule[]) => {
-        const data: Record<string, any[]> = {};
-        
-        // Initialize days
+    const getSlotByStartTime = (time: string): TimeSlot | undefined => {
+        const normalized = time.substring(0, 5);
+        return activeTimeSlots.find((slot) => slot.start_time === normalized);
+    };
+
+    const getSlotByEndTime = (time: string): TimeSlot | undefined => {
+        const normalized = time.substring(0, 5);
+        return activeTimeSlots.find((slot) => slot.end_time === normalized);
+    };
+
+    const getJamFromTime = (time: string): number => {
+        const slot = getSlotByStartTime(time);
+        if (slot) {
+            return slot.slot_number;
+        }
+
+        const [hour, minute] = time.split(':').map(Number);
+        const totalMinutes = hour * 60 + minute;
+        const startMinutes = 7 * 60;
+        if (totalMinutes < startMinutes) return 1;
+        const calculatedSlot = Math.floor((totalMinutes - startMinutes) / 45) + 1;
+        return calculatedSlot > 15 ? 15 : calculatedSlot;
+    };
+
+    const getEndJamFromTime = (time: string, fallbackStartSlot: number): number => {
+        const slot = getSlotByEndTime(time);
+        if (slot) {
+            return slot.slot_number;
+        }
+
+        return fallbackStartSlot;
+    };
+
+    const transformScheduleData = (scheduleList: Schedule[]): Record<string, ScheduleGridItem[]> => {
+        const transformedData: Record<string, ScheduleGridItem[]> = {};
+
         days.forEach(day => {
-            data[day] = [];
+            transformedData[day] = [];
         });
 
         const list = scheduleList || [];
 
         list.forEach(schedule => {
             if (!schedule.subject || !schedule.classroom || !schedule.teacher) return;
-            
-            const jam = getJamFromTime(schedule.start_time);
-            
-            // Push to day bucket
-            if (!data[schedule.day]) data[schedule.day] = [];
-            
-            data[schedule.day].push({
+
+            const startSlot = getJamFromTime(schedule.start_time);
+            const endSlot = Math.max(startSlot, getEndJamFromTime(schedule.end_time, startSlot));
+            const durationSlots = Math.max(1, endSlot - startSlot + 1);
+
+            if (!transformedData[schedule.day]) transformedData[schedule.day] = [];
+
+            transformedData[schedule.day].push({
                 id: schedule.id,
-                jam: jam,
+                jam: startSlot,
+                startSlot,
+                endSlot,
+                durationSlots,
+                day: schedule.day,
                 subject: schedule.subject.name,
                 class: schedule.classroom.name,
                 teacher: schedule.teacher.name,
@@ -119,19 +167,20 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
             });
         });
 
-        return data;
+        return transformedData;
     };
 
     const scheduleData = useMemo(() => {
         return transformScheduleData(schedules);
     }, [schedules]);
 
-    // Helper to find item
-    const getScheduleItem = (day: string, jam: number) => {
+    const getScheduleItem = (day: string, jam: number): ScheduleGridItem | undefined => {
         const daySchedule = scheduleData[day] || [];
-        // Since we filtered by teacher in backend, any item in this day/jam slot belongs to this teacher.
-        // But we must match the jam.
-        return daySchedule.find((s: any) => s.jam === jam);
+        return daySchedule.find((scheduleItem) => jam >= scheduleItem.startSlot && jam <= scheduleItem.endSlot);
+    };
+
+    const getCardHeight = (durationSlots: number): number => {
+        return durationSlots * SLOT_ROW_HEIGHT_PX - 16;
     };
 
     return (
@@ -199,25 +248,28 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
                         </div>
 
                         <div className={`${visibleDays.length > 1 ? 'min-w-[1000px]' : 'w-full'}`}>
-                                {timeSlots.map((jam, index) => (
+                                {activeTimeSlots.map((timeSlot, index) => (
                                 <div 
-                                    key={jam} 
-                                    className={`grid divide-x divide-slate-100 ${index !== timeSlots.length - 1 ? 'border-b border-slate-100' : ''}`}
+                                    key={timeSlot.id} 
+                                    className={`grid divide-x divide-slate-100 ${index !== activeTimeSlots.length - 1 ? 'border-b border-slate-100' : ''}`}
                                     style={{ gridTemplateColumns: `100px repeat(${visibleDays.length}, minmax(0, 1fr))` }}
                                 >
                                     {/* Time Slot Column */}
                                     <div className="bg-slate-50 p-4 sticky left-0 z-10 border-r border-slate-200 flex flex-col items-center justify-center gap-1 min-h-[140px]">
                                         <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-700 shadow-sm text-sm">
-                                            {jam}
+                                            {timeSlot.slot_number}
                                         </div>
                                         <div className="text-[10px] font-mono text-slate-400 mt-1 py-1 px-2 rounded bg-slate-100">
-                                            {getTimesFromSlot(jam).start}
+                                            {timeSlot.start_time}
                                         </div>
                                     </div>
 
                                     {/* Day Columns */}
                                     {visibleDays.map((day, dayIndex) => {
+                                        const jam = timeSlot.slot_number;
                                         const scheduleItem = getScheduleItem(day, jam);
+                                        const isStartCell = Boolean(scheduleItem && scheduleItem.startSlot === jam);
+                                        const isCoveredCell = Boolean(scheduleItem && scheduleItem.startSlot < jam);
                                         
                                         // Filter
                                         const isVisible = !searchQuery || (scheduleItem && (
@@ -228,8 +280,10 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
                                         if (!isVisible && searchQuery) return <div key={dayIndex} className="bg-slate-50/10 min-h-[140px]"></div>;
 
                                         return (
-                                            <div key={dayIndex} className="relative min-h-[140px] group p-2">
-                                                {scheduleItem ? (
+                                            <div key={dayIndex} className="relative min-h-[140px] group">
+                                                {scheduleItem && isStartCell ? (
+                                                    <div className="p-2 h-full relative overflow-visible">
+                                                        <div className="absolute inset-x-2 top-2 z-10" style={{ height: `${getCardHeight(scheduleItem.durationSlots)}px` }}>
                                                     <Card className="h-full w-full bg-white border-slate-200 p-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden">
                                                         <div className={`absolute top-0 left-0 w-1 h-full ${
                                                             scheduleItem.subject === 'Matematika' ? 'bg-blue-500' :
@@ -254,9 +308,17 @@ export default function JadwalGuruIndex({ schedules, subjects, classrooms, teach
                                                             {scheduleItem.room || '-'}
                                                         </div>
                                                     </Card>
+                                                        </div>
+                                                    </div>
+                                                ) : scheduleItem && isCoveredCell ? (
+                                                    <div className="p-2 h-full">
+                                                        <div className="h-full w-full rounded-xl border border-transparent bg-slate-50/30" />
+                                                    </div>
                                                 ) : (
-                                                    <div className="h-full w-full rounded-xl border border-dashed border-slate-100 flex items-center justify-center">
+                                                    <div className="p-2 h-full">
+                                                        <div className="h-full w-full rounded-xl border border-dashed border-slate-100 flex items-center justify-center">
                                                         {/* Empty Slot */}
+                                                    </div>
                                                     </div>
                                                 )}
                                             </div>

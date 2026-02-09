@@ -4,15 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
-use App\Models\Schedule;
-use App\Models\Journal; // Assumed Model
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\Journal;
+use App\Models\Schedule; // Assumed Model
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-
-use App\Models\User;
+use Inertia\Inertia;
 
 class AttendanceController extends Controller
 {
@@ -31,7 +30,7 @@ class AttendanceController extends Controller
             'Sabtu' => 'Sabtu',
             'Minggu' => 'Minggu',
         ];
-        
+
         $currentDay = $mapDay[$today] ?? 'Senin';
         $todayDate = Carbon::now()->format('Y-m-d');
 
@@ -41,7 +40,7 @@ class AttendanceController extends Controller
                 $query->where('day', $day);
             }, function ($query) use ($currentDay) {
                 // Default to current day if no filter
-                 $query->where('day', $currentDay);
+                $query->where('day', $currentDay);
             })
             ->get();
 
@@ -56,16 +55,16 @@ class AttendanceController extends Controller
         $activeClassroomIds = $schedules->pluck('classroom_id')->unique();
         $totalStudents = 0;
         // This is a rough estimate. For better accuracy, count distinct students in those classrooms.
-        // Or count students who have schedules today. 
+        // Or count students who have schedules today.
         // Let's count students who are in the classrooms that have schedules today.
         // We can do this by loading classroom student counts.
-        foreach($schedules as $sched) {
-             if($sched->classroom && $sched->classroom->students) {
-                 // Note: this might double count if a student is in multiple schedules (unlikely for classroom based, but possible)
-                 // A better way is to get all student IDs from these classrooms
-             }
+        foreach ($schedules as $sched) {
+            if ($sched->classroom && $sched->classroom->students) {
+                // Note: this might double count if a student is in multiple schedules (unlikely for classroom based, but possible)
+                // A better way is to get all student IDs from these classrooms
+            }
         }
-        
+
         // Simpler approach for Total Students: Count all students in the system (or just relevant ones)
         // For Dashboard context "Siswa Hadir", usually means % of students expected to be present today.
         // Let's count unique students in the schedules for today.
@@ -79,17 +78,17 @@ class AttendanceController extends Controller
 
         // 2. Get Today's Attendance
         $todaysAttendance = Attendance::whereDate('date', $todayDate)->get();
-        
+
         // Filter attendance to only include students (exclude teachers)
         // We assume teachers are users with role 'teacher' or we check against schedule->teacher_id
         // But since we saved teacher attendance in same table, we need to distinguish.
         // A simple way is to check if student_id belongs to a teacher role.
         // Or simpler: We know teachers are saved with their User ID.
-        
+
         // Get all Teacher IDs from schedules
         $teacherIds = $schedules->pluck('teacher_id')->unique()->filter();
         $totalTeachers = $teacherIds->count();
-        
+
         $teacherAttendance = $todaysAttendance->whereIn('student_id', $teacherIds);
         $studentAttendance = $todaysAttendance->whereNotIn('student_id', $teacherIds);
 
@@ -99,10 +98,10 @@ class AttendanceController extends Controller
             'sick' => $studentAttendance->where('status', 'sakit')->count(),
             'permit' => $studentAttendance->where('status', 'izin')->count(),
             'alpha' => $studentAttendance->where('status', 'alpha')->count(),
-            'late' => 0, 
+            'late' => 0,
             'teachersPresent' => $teacherAttendance->where('status', 'hadir')->count(),
             'totalTeachers' => $totalTeachers,
-            'totalStudents' => $totalStudents > 0 ? $totalStudents : User::where('role', 'student')->count() // Fallback
+            'totalStudents' => $totalStudents > 0 ? $totalStudents : User::where('role', 'student')->count(), // Fallback
         ];
 
         $history = Journal::query()
@@ -120,7 +119,7 @@ class AttendanceController extends Controller
                 ->where('date', $journal->date)
                 ->with('student')
                 ->get();
-            
+
             $journal->stats = [
                 'hadir' => $attendances->where('status', 'hadir')->count(),
                 'sakit' => $attendances->where('status', 'sakit')->count(),
@@ -130,18 +129,18 @@ class AttendanceController extends Controller
             ];
 
             // Attach detailed attendance records for the modal
-            $journal->attendance_details = $attendances->map(function($att) {
+            $journal->attendance_details = $attendances->map(function ($att) {
                 return [
                     'id' => $att->student_id,
                     'name' => $att->student->name ?? 'Unknown',
                     'nis' => $att->student->nis ?? '-',
-                    'avatar_url' => $att->student->avatar_url, 
+                    'avatar_url' => $att->student->avatar_url,
                     'status' => $att->status,
                 ];
             })->values();
-            
+
             // Determine teacher status from attendance records
-            $teacherAttendance = $attendances->first(function($att) use ($journal) {
+            $teacherAttendance = $attendances->first(function ($att) use ($journal) {
                 return $att->student_id == $journal->teacher_id; // Assuming teacher_id is stored in student_id for teachers
             });
             $journal->teacher_status = $teacherAttendance ? $teacherAttendance->status : 'hadir';
@@ -150,12 +149,12 @@ class AttendanceController extends Controller
         });
 
         return Inertia::render('Admin/Absensi/Index', [
-            'attendances' => $history, // We use the same prop name but different structure, or rename it. 
+            'attendances' => $history, // We use the same prop name but different structure, or rename it.
             // Let's rename it to 'history' in frontend to be clean, but for now I'll replace 'attendances' content with journals.
-            // Wait, Index.tsx expects 'attendances' to be Paginated<AttendanceModel>. 
+            // Wait, Index.tsx expects 'attendances' to be Paginated<AttendanceModel>.
             // I should change the prop name or update the interface.
             // Better to pass it as 'history' and leave 'attendances' for backward compat or just null?
-            // The frontend uses 'attendances' mainly for the History tab. 
+            // The frontend uses 'attendances' mainly for the History tab.
             // So I will update the Frontend to accept 'history' prop instead of 'attendances'.
             'history' => $history,
             'schedules' => $schedules,
@@ -179,6 +178,7 @@ class AttendanceController extends Controller
             'journal_topic' => 'nullable|string|max:255',
             'journal_content' => 'nullable|string',
             'proof_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'leave_letter_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
         ]);
 
         DB::transaction(function () use ($validated, $request) {
@@ -215,10 +215,15 @@ class AttendanceController extends Controller
                 );
             }
 
-        // 3. Save Journal (Always create to track session)
+            // 3. Save Journal (Always create to track session)
             $proofPath = null;
             if ($request->hasFile('proof_file')) {
                 $proofPath = $request->file('proof_file')->store('journals', 'public');
+            }
+
+            $leaveLetterPath = null;
+            if ($request->hasFile('leave_letter_file')) {
+                $leaveLetterPath = $request->file('leave_letter_file')->store('journals/leave-letters', 'public');
             }
 
             // Get existing journal to preserve proof_file if not uploading new one
@@ -226,8 +231,12 @@ class AttendanceController extends Controller
                 ->where('date', $date)
                 ->first();
 
-            if ($existingJournal && !$proofPath) {
+            if ($existingJournal && ! $proofPath) {
                 $proofPath = $existingJournal->proof_file;
+            }
+
+            if ($existingJournal && ! $leaveLetterPath) {
+                $leaveLetterPath = $existingJournal->leave_letter_file;
             }
 
             Journal::updateOrCreate(
@@ -239,6 +248,7 @@ class AttendanceController extends Controller
                     'title' => $validated['journal_topic'] ?? '-',
                     'description' => $validated['journal_content'] ?? '-',
                     'proof_file' => $proofPath,
+                    'leave_letter_file' => $leaveLetterPath,
                     'teacher_id' => $schedule->teacher_id,
                 ]
             );

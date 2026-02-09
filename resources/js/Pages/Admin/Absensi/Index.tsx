@@ -90,6 +90,7 @@ interface JournalModel {
     title: string;
     description: string;
     proof_file?: string;
+    leave_letter_file?: string;
     date: string;
     schedule: ScheduleModel;
     teacher: {
@@ -139,6 +140,7 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
     const [journalTopic, setJournalTopic] = useState('');
     const [journalContent, setJournalContent] = useState('');
     const [proofFile, setProofFile] = useState<File | null>(null);
+    const [leaveLetterFile, setLeaveLetterFile] = useState<File | null>(null);
     
     // Derived Data for Current Class
     const activeSchedule = selectedScheduleId ? schedules.find(s => s.id === selectedScheduleId) : null;
@@ -170,6 +172,10 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
     // Initialize Students from Schedule for Entry Tab
 
     const [students, setStudents] = useState<Student[]>([]);
+    const hasLeaveRelatedStatus =
+        teacherStatus === 'Sakit' ||
+        teacherStatus === 'Izin' ||
+        students.some((student) => student.status === 'Sakit' || student.status === 'Izin');
 
     useEffect(() => {
         if (activeSchedule?.classroom?.students) {
@@ -202,8 +208,15 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
             setJournalTopic(todaySession?.title || '');
             setJournalContent(todaySession?.description || '');
             setProofFile(null);
+            setLeaveLetterFile(null);
         }
     }, [activeSchedule, history]);
+
+    useEffect(() => {
+        if (!hasLeaveRelatedStatus) {
+            setLeaveLetterFile(null);
+        }
+    }, [hasLeaveRelatedStatus]);
 
     // History for Undo
     const historyRef = useRef<Student[]>([]);
@@ -266,6 +279,9 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
         formData.append('journal_content', journalContent);
         if (proofFile) {
             formData.append('proof_file', proofFile);
+        }
+        if (hasLeaveRelatedStatus && leaveLetterFile) {
+            formData.append('leave_letter_file', leaveLetterFile);
         }
 
         students.forEach((s, index) => {
@@ -721,6 +737,29 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {hasLeaveRelatedStatus && (
+                                            <div className="space-y-2">
+                                                <Label>Surat Izin / Sakit (Opsional)</Label>
+                                                <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors cursor-pointer relative">
+                                                    <Input
+                                                        type="file"
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLeaveLetterFile(e.target.files ? e.target.files[0] : null)}
+                                                        accept="image/*,application/pdf"
+                                                    />
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="bg-amber-50 text-amber-600 p-2 rounded-full">
+                                                            <Upload className="w-4 h-4" />
+                                                        </div>
+                                                        <p className="text-sm font-medium text-slate-700 truncate">
+                                                            {leaveLetterFile ? leaveLetterFile.name : 'Klik untuk upload surat izin/sakit'}
+                                                        </p>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 shrink-0">JPG/PNG/PDF, Max 2MB</p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
 
@@ -861,6 +900,16 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                                                                 <FileText className="w-3 h-3" /> Lihat Bukti Mengajar
                                                             </a>
                                                         )}
+                                                        {item.leave_letter_file && (
+                                                            <a
+                                                                href={`/storage/${item.leave_letter_file}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="inline-flex items-center gap-2 text-xs text-amber-600 hover:text-amber-700 font-medium hover:underline mt-2"
+                                                            >
+                                                                <FileText className="w-3 h-3" /> Lihat Surat Izin/Sakit
+                                                            </a>
+                                                        )}
                                                     </div>
 
                                                     {/* Right: Attendance Stats */}
@@ -941,4 +990,3 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
         </AdminLayout>
     );
 }
-

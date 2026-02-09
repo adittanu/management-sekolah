@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\Schedule;
 use App\Models\Subject;
+use App\Models\TimeSlot;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class ScheduleController extends Controller
 {
@@ -28,6 +28,7 @@ class ScheduleController extends Controller
 
         $subjects = Subject::with('teachers')->get();
         $classrooms = Classroom::all();
+        $timeSlots = TimeSlot::where('is_active', true)->orderBy('slot_number')->get();
         // Only return the current teacher
         $teachers = User::where('id', $teacherId)->get();
 
@@ -36,7 +37,8 @@ class ScheduleController extends Controller
             'subjects' => $subjects,
             'classrooms' => $classrooms,
             'teachers' => $teachers,
-            'role' => 'teacher'
+            'timeSlots' => $timeSlots,
+            'role' => 'teacher',
         ]);
     }
 }

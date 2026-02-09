@@ -7,7 +7,6 @@ use App\Models\Schedule;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class AdminSchoolModuleTest extends TestCase
@@ -23,7 +22,7 @@ class AdminSchoolModuleTest extends TestCase
             'name' => '10A',
             'level' => '10',
             'major' => 'Science',
-            'academic_year' => '2025/2026'
+            'academic_year' => '2025/2026',
         ]);
         $teacher = User::factory()->create(['role' => 'teacher']);
 
@@ -46,7 +45,7 @@ class AdminSchoolModuleTest extends TestCase
             'name' => '10A',
             'level' => '10',
             'major' => 'Science',
-            'academic_year' => '2025/2026'
+            'academic_year' => '2025/2026',
         ]);
         $student = User::factory()->create(['role' => 'student']);
 
@@ -68,7 +67,7 @@ class AdminSchoolModuleTest extends TestCase
             'name' => '10A',
             'level' => '10',
             'major' => 'Science',
-            'academic_year' => '2025/2026'
+            'academic_year' => '2025/2026',
         ]);
         $teacher1 = User::factory()->create(['role' => 'teacher']);
         $teacher2 = User::factory()->create(['role' => 'teacher']);
@@ -118,6 +117,35 @@ class AdminSchoolModuleTest extends TestCase
             'day' => 'Senin',
             'start_time' => '08:00',
             'end_time' => '09:00',
+        ]);
+
+        $response->assertSessionHasErrors(['teacher_id']);
+    }
+
+    public function test_schedule_conflict_teacher_with_multi_slot_duration(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $subject = Subject::create(['name' => 'Kimia', 'code' => 'KIM101', 'category' => 'Core']);
+        $classroom1 = Classroom::create(['name' => '10A', 'level' => '10', 'major' => 'Science', 'academic_year' => '2025/2026']);
+        $classroom2 = Classroom::create(['name' => '10B', 'level' => '10', 'major' => 'Social', 'academic_year' => '2025/2026']);
+        $teacher = User::factory()->create(['role' => 'teacher']);
+
+        Schedule::create([
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom1->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '07:00',
+            'end_time' => '08:30',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.jadwal.store'), [
+            'subject_id' => $subject->id,
+            'classroom_id' => $classroom2->id,
+            'teacher_id' => $teacher->id,
+            'day' => 'Senin',
+            'start_time' => '07:45',
+            'end_time' => '08:30',
         ]);
 
         $response->assertSessionHasErrors(['teacher_id']);
