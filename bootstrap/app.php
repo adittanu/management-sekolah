@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Exclude MCP routes from CSRF protection
         $middleware->validateCsrfTokens(except: [
             'mcp/*',
+            'integrations/external-identities/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
