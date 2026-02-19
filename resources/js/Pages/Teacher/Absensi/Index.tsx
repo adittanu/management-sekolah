@@ -228,7 +228,8 @@ export default function TeacherAbsensiIndex({ history, schedules, stats }: Props
                     'Hadir': 'Sakit',
                     'Sakit': 'Izin',
                     'Izin': 'Alpha',
-                    'Alpha': 'Hadir'
+                    'Alpha': 'Hadir',
+                    'Tidak Mengabsen': 'Hadir'
                 };
                 const updatedStatus = nextStatus[student.status];
                 return {
