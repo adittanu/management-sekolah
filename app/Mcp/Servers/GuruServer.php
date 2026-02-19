@@ -10,6 +10,7 @@ use App\Mcp\Tools\GetSiswaKelasTool;
 use App\Mcp\Tools\LihatAbsensiTool;
 use App\Mcp\Tools\LihatJadwalHariIniTool;
 use App\Mcp\Tools\LihatJadwalTool;
+use App\Mcp\Tools\LihatJadwalUmumTool;
 use App\Mcp\Tools\ProsesAbsensiTextTool;
 use Laravel\Mcp\Server;
 
@@ -79,6 +80,7 @@ class GuruServer extends Server
         GetSiswaKelasTool::class,
         CatatAbsensiTool::class,
         LihatJadwalTool::class,
+        LihatJadwalUmumTool::class,
         LihatJadwalHariIniTool::class,
         LihatAbsensiTool::class,
         ProsesAbsensiTextTool::class,
