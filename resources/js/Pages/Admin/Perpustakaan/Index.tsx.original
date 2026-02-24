@@ -1,0 +1,806 @@
+import AdminLayout from '@/Layouts/AdminLayout';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useForm, usePage, usePoll, router } from '@inertiajs/react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
+import { Badge } from '@/Components/ui/badge';
+import { PageProps } from '@/types';
+import axios from 'axios';
+import { BookOpen, ChevronLeft, ChevronRight, Clock3, Eye, FileText, Loader2, Sparkles, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+
+type Book = {
+    id: number;
+    title: string;
+    author: string;
+    category: string | null;
+    total_pages: number;
+    is_active: boolean;
+};
+
+type Borrower = {
+    id: number;
+    name: string;
+    role: string;
+};
+
+type Loan = {
+    id: number;
+    user_id: number;
+    library_book_id: number;
+    due_at: string;
+    status: string;
+    user: {
+        id: number;
+        name: string;
+    };
+    book: {
+        id: number;
+        title: string;
+        total_pages: number;
+    };
+};
+
+type ReadingProgress = {
+    library_book_id: number;
+    current_page: number;
+    last_seen_at: string | null;
+};
+
+type PresenceParticipant = {
+    user_id: number;
+    name: string;
+    current_page: number;
+    last_seen_at: string | null;
+};
+
+type LibraryPageProps = PageProps<{
+    books: Book[];
+    loans: Loan[];
+    borrowers: Borrower[];
+    myActiveLoans: Loan[];
+    readingProgress: Record<number, ReadingProgress>;
+}>;
+
+type Props = {
+    books: Book[];
+    loans: Loan[];
+    borrowers: Borrower[];
+    myActiveLoans: Loan[];
+    readingProgress: Record<number, ReadingProgress>;
+};
+
+export default function PerpustakaanIndex({
+    books,
+    loans,
+    borrowers,
+    myActiveLoans,
+    readingProgress,
+}: Props) {
+    const { flash } = usePage<LibraryPageProps>().props;
+    const [selectedLoanId, setSelectedLoanId] = useState<number | null>(myActiveLoans[0]?.id ?? null);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [sessionId, setSessionId] = useState<string>(() => `sess-${Date.now()}`);
+    const [presenceParticipants, setPresenceParticipants] = useState<PresenceParticipant[]>([]);
+    const [sideNavigationEnabled, setSideNavigationEnabled] = useState<boolean>(true);
+    const [pdfPageCount, setPdfPageCount] = useState<number>(1);
+    const [pdfScale, setPdfScale] = useState<number>(1.2);
+    const [isLoadingPdf, setIsLoadingPdf] = useState<boolean>(false);
+    const [pdfError, setPdfError] = useState<string | null>(null);
+    const [pdfDocument, setPdfDocument] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const readerWrapperRef = useRef<HTMLDivElement | null>(null);
+
+    const selectedLoan = useMemo(
+        () => myActiveLoans.find((loan) => loan.id === selectedLoanId) ?? null,
+        [myActiveLoans, selectedLoanId],
+    );
+
+    useEffect(() => {
+        if (!selectedLoan) {
+            return;
+        }
+
+        const progress = readingProgress[selectedLoan.book.id];
+        setPdfPageCount(selectedLoan.book.total_pages);
+        setCurrentPage(progress?.current_page ?? 1);
+        setSessionId(`sess-${Date.now()}`);
+    }, [selectedLoan, readingProgress]);
+
+    useEffect(() => {
+        if (flash.success) {
+            toast.success(flash.success);
+        }
+
+        if (flash.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
+
+    const bookForm = useForm<{
+        title: string;
+        author: string;
+        category: string;
+        description: string;
+        total_pages: number;
+        pdf_file: File | null;
+        is_active: boolean;
+    }>({
+        title: '',
+        author: '',
+        category: '',
+        description: '',
+        total_pages: 1,
+        pdf_file: null as File | null,
+        is_active: true,
+    });
+
+    const loanForm = useForm<{
+        library_book_id: number;
+        user_id: number;
+        duration_days: number;
+    }>({
+        library_book_id: books[0]?.id ?? 0,
+        user_id: borrowers[0]?.id ?? 0,
+        duration_days: 7,
+    });
+
+    const submitBook = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+
+        bookForm.post(route('admin.perpustakaan.books.store'), {
+            forceFormData: true,
+            onSuccess: () => {
+                bookForm.reset();
+            },
+        });
+    };
+
+    const submitLoan = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+
+        loanForm.post(route('admin.perpustakaan.loans.store'));
+    };
+
+    const syncReader = useCallback(async (eventType: 'join' | 'page-change' | 'heartbeat' | 'leave'): Promise<void> => {
+        if (!selectedLoan) {
+            return;
+        }
+
+        try {
+            await axios.post(route('admin.perpustakaan.reader.sync', selectedLoan.book.id), {
+                current_page: currentPage,
+                session_id: sessionId,
+                event: eventType,
+            });
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 403) {
+                toast.error('Pinjaman aktif tidak ditemukan. Silakan pinjam ulang.');
+            }
+        }
+    }, [currentPage, selectedLoan, sessionId]);
+
+    const loadPresence = useCallback(async (): Promise<void> => {
+        if (!selectedLoan) {
+            setPresenceParticipants([]);
+
+            return;
+        }
+
+        try {
+            const response = await axios.get(route('admin.perpustakaan.reader.presence', {
+                book: selectedLoan.book.id,
+                page: currentPage,
+            }));
+
+            setPresenceParticipants(response.data.participants ?? []);
+        } catch {
+            setPresenceParticipants([]);
+        }
+    }, [currentPage, selectedLoan]);
+
+    useEffect(() => {
+        if (!selectedLoan) {
+            return;
+        }
+
+        void syncReader('join');
+        void loadPresence();
+
+        return () => {
+            void syncReader('leave');
+        };
+    }, [loadPresence, selectedLoan, syncReader]);
+
+    useEffect(() => {
+        if (!selectedLoan) {
+            return;
+        }
+
+        void syncReader('page-change');
+        void loadPresence();
+    }, [loadPresence, selectedLoan, syncReader]);
+
+    useEffect(() => {
+        if (!selectedLoan) {
+            return;
+        }
+
+        const heartbeatTimer = window.setInterval(() => {
+            void syncReader('heartbeat');
+        }, 15000);
+
+        const presenceTimer = window.setInterval(() => {
+            void loadPresence();
+        }, 10000);
+
+        return () => {
+            window.clearInterval(heartbeatTimer);
+            window.clearInterval(presenceTimer);
+        };
+    }, [loadPresence, selectedLoan, syncReader]);
+
+    usePoll(30000, {}, { keepAlive: true });
+
+    const totalActiveBooks = useMemo(() => books.filter((book) => book.is_active).length, [books]);
+    const totalActiveLoans = useMemo(() => loans.filter((loan) => loan.status === 'active').length, [loans]);
+
+    const goToPrevPage = useCallback((): void => {
+        setCurrentPage((page) => Math.max(page - 1, 1));
+    }, []);
+
+    const goToNextPage = useCallback((): void => {
+        setCurrentPage((page) => Math.min(page + 1, pdfPageCount));
+    }, [pdfPageCount]);
+
+    const readerSource = useMemo(() => {
+        if (!selectedLoan) {
+            return '';
+        }
+
+        return route('admin.perpustakaan.reader.file', selectedLoan.book.id);
+    }, [selectedLoan]);
+
+    const readerFile = useMemo(() => {
+        if (!readerSource) {
+            return null;
+        }
+
+        return {
+            url: readerSource,
+            withCredentials: true,
+        };
+    }, [readerSource]);
+
+    // Load PDF document when selected loan changes
+    useEffect(() => {
+        if (!selectedLoan || !readerSource) {
+            return;
+        }
+
+        setIsLoadingPdf(true);
+        setPdfError(null);
+
+        const loadingTask = pdfjsLib.getDocument({
+            url: readerSource,
+            withCredentials: true,
+        });
+
+        loadingTask.promise
+            .then((pdf) => {
+                setPdfDocument(pdf);
+                setPdfPageCount(pdf.numPages);
+                setIsLoadingPdf(false);
+            })
+            .catch((error: Error) => {
+                console.error('PDF load error:', error);
+                setPdfError(error.message || 'Gagal memuat PDF');
+                setIsLoadingPdf(false);
+            });
+
+        return () => {
+            // Cleanup PDF document
+            setPdfDocument(null);
+        };
+    }, [selectedLoan, readerSource]);
+
+    // Render current page to canvas
+    useEffect(() => {
+        if (!pdfDocument || !canvasRef.current) {
+            return;
+        }
+
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            return;
+        }
+
+        pdfDocument.getPage(currentPage).then((page) => {
+            const viewport = page.getViewport({ scale: pdfScale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderContext = {
+                canvasContext: context,
+                viewport: viewport,
+                canvas: canvas,
+            };
+
+            page.render(renderContext);
+        });
+    }, [pdfDocument, currentPage, pdfScale]);
+
+    useEffect(() => {
+        if (!readerWrapperRef.current) {
+            return;
+        }
+
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            const containerWidth = Math.floor(entry.contentRect.width) - 32;
+            const basePageWidth = 612;
+            const newScale = Math.max(0.8, Math.min(1.5, containerWidth / basePageWidth));
+
+            setPdfScale(newScale);
+        });
+
+        observer.observe(readerWrapperRef.current);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!selectedLoan || !sideNavigationEnabled) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent): void => {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                goToPrevPage();
+            }
+
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                goToNextPage();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [goToNextPage, goToPrevPage, selectedLoan, sideNavigationEnabled]);
+
+    return (
+        <AdminLayout title="Perpustakaan Digital">
+            <div className="space-y-6 pb-12">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 p-6 text-white shadow-lg">
+                    <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                        <div className="space-y-2">
+                            <p className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold tracking-wide text-white/90">
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Digital Library Workspace
+                            </p>
+                            <h2 className="text-3xl font-bold tracking-tight">Perpustakaan Digital</h2>
+                            <p className="max-w-2xl text-sm text-white/85 md:text-base">
+                                Kelola buku PDF, pinjaman digital, dan pantau kehadiran pembaca per halaman secara realtime.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-right md:grid-cols-1">
+                            <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
+                                <p className="text-xs uppercase tracking-wide text-white/80">Buku Aktif</p>
+                                <p className="text-2xl font-bold">{totalActiveBooks}</p>
+                            </div>
+                            <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
+                                <p className="text-xs uppercase tracking-wide text-white/80">Reader Presence</p>
+                                <p className="text-2xl font-bold">{presenceParticipants.length}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="border border-slate-200 bg-white shadow-sm">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-sm text-slate-500">Total Buku Aktif</p>
+                                <p className="text-3xl font-bold text-slate-900">{totalActiveBooks}</p>
+                            </div>
+                            <BookOpen className="h-9 w-9 text-blue-500" />
+                        </CardContent>
+                    </Card>
+                    <Card className="border border-slate-200 bg-white shadow-sm">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-sm text-slate-500">Pinjaman Aktif</p>
+                                <p className="text-3xl font-bold text-slate-900">{totalActiveLoans}</p>
+                            </div>
+                            <Clock3 className="h-9 w-9 text-emerald-500" />
+                        </CardContent>
+                    </Card>
+                    <Card className="border border-slate-200 bg-white shadow-sm">
+                        <CardContent className="flex items-center justify-between p-5">
+                            <div>
+                                <p className="text-sm text-slate-500">Pembaca Di Halaman Ini</p>
+                                <p className="text-3xl font-bold text-slate-900">{presenceParticipants.length}</p>
+                            </div>
+                            <Users className="h-9 w-9 text-purple-500" />
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <Tabs defaultValue="katalog" className="space-y-5">
+                    <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-slate-100 p-1 md:w-fit">
+                        <TabsTrigger value="katalog" className="rounded-lg px-5 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm">Katalog</TabsTrigger>
+                        <TabsTrigger value="pinjam" className="rounded-lg px-5 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm">Pinjam</TabsTrigger>
+                        <TabsTrigger value="reader" className="rounded-lg px-5 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm">Reader</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="katalog" className="space-y-5">
+                        <Card className="border border-slate-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Tambah Buku PDF</CardTitle>
+                                <CardDescription>Simpan buku digital agar bisa dipinjam dan dibaca di situs.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <form className="grid gap-4 md:grid-cols-2" onSubmit={submitBook}>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="title">Judul</Label>
+                                        <Input id="title" value={bookForm.data.title} onChange={(event) => bookForm.setData('title', event.target.value)} />
+                                        {bookForm.errors.title && <p className="text-xs text-red-500">{bookForm.errors.title}</p>}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="author">Penulis</Label>
+                                        <Input id="author" value={bookForm.data.author} onChange={(event) => bookForm.setData('author', event.target.value)} />
+                                        {bookForm.errors.author && <p className="text-xs text-red-500">{bookForm.errors.author}</p>}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="category">Kategori</Label>
+                                        <Input id="category" value={bookForm.data.category} onChange={(event) => bookForm.setData('category', event.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="total_pages">Total Halaman</Label>
+                                        <Input
+                                            id="total_pages"
+                                            type="number"
+                                            min={1}
+                                            value={bookForm.data.total_pages}
+                                            onChange={(event) => bookForm.setData('total_pages', Number(event.target.value))}
+                                        />
+                                        {bookForm.errors.total_pages && <p className="text-xs text-red-500">{bookForm.errors.total_pages}</p>}
+                                    </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label htmlFor="description">Deskripsi</Label>
+                                        <Input id="description" value={bookForm.data.description} onChange={(event) => bookForm.setData('description', event.target.value)} />
+                                    </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label htmlFor="pdf_file">File PDF</Label>
+                                        <Input
+                                            id="pdf_file"
+                                            type="file"
+                                            accept="application/pdf"
+                                            onChange={(event) => bookForm.setData('pdf_file', event.target.files?.[0] ?? null)}
+                                        />
+                                        {bookForm.errors.pdf_file && <p className="text-xs text-red-500">{bookForm.errors.pdf_file}</p>}
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <Button type="submit" disabled={bookForm.processing}>Simpan Buku</Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border border-slate-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Katalog Buku</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Judul</TableHead>
+                                            <TableHead>Penulis</TableHead>
+                                            <TableHead>Kategori</TableHead>
+                                            <TableHead>Halaman</TableHead>
+                                            <TableHead>Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {books.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center text-slate-500">Belum ada buku.</TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            books.map((book) => (
+                                                <TableRow key={book.id}>
+                                                    <TableCell className="font-medium">{book.title}</TableCell>
+                                                    <TableCell>{book.author}</TableCell>
+                                                    <TableCell>{book.category ?? '-'}</TableCell>
+                                                    <TableCell>{book.total_pages}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={book.is_active ? 'default' : 'secondary'}>{book.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="pinjam" className="space-y-5">
+                        <Card className="border border-slate-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Buat Pinjaman</CardTitle>
+                                <CardDescription>Unlimited read, limited duration. Tidak ada perpanjangan.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <form className="grid gap-4 md:grid-cols-3" onSubmit={submitLoan}>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="book">Buku</Label>
+                                        <select
+                                            id="book"
+                                            className="h-10 w-full rounded-md border border-slate-200 bg-white px-3"
+                                            value={loanForm.data.library_book_id}
+                                            onChange={(event) => loanForm.setData('library_book_id', Number(event.target.value))}
+                                        >
+                                            {books.map((book) => (
+                                                <option key={book.id} value={book.id}>
+                                                    {book.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="borrower">Peminjam</Label>
+                                        <select
+                                            id="borrower"
+                                            className="h-10 w-full rounded-md border border-slate-200 bg-white px-3"
+                                            value={loanForm.data.user_id}
+                                            onChange={(event) => loanForm.setData('user_id', Number(event.target.value))}
+                                        >
+                                            {borrowers.map((borrower) => (
+                                                <option key={borrower.id} value={borrower.id}>
+                                                    {borrower.name} ({borrower.role})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="duration">Durasi (hari)</Label>
+                                        <Input
+                                            id="duration"
+                                            type="number"
+                                            min={1}
+                                            max={30}
+                                            value={loanForm.data.duration_days}
+                                            onChange={(event) => loanForm.setData('duration_days', Number(event.target.value))}
+                                        />
+                                    </div>
+                                    <div className="md:col-span-3">
+                                        <Button type="submit" disabled={loanForm.processing}>Simpan Pinjaman</Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border border-slate-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Riwayat Pinjaman</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Peminjam</TableHead>
+                                            <TableHead>Buku</TableHead>
+                                            <TableHead>Jatuh Tempo</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Aksi</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loans.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center text-slate-500">Belum ada data pinjaman.</TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            loans.map((loan) => (
+                                                <TableRow key={loan.id}>
+                                                    <TableCell>{loan.user.name}</TableCell>
+                                                    <TableCell>{loan.book.title}</TableCell>
+                                                    <TableCell>{new Date(loan.due_at).toLocaleString('id-ID')}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={loan.status === 'active' ? 'default' : 'secondary'}>{loan.status}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {loan.status === 'active' ? (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => router.post(route('admin.perpustakaan.loans.return', loan.id))}
+                                                            >
+                                                                Kembalikan
+                                                            </Button>
+                                                        ) : '-'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="reader" className="space-y-5">
+                        <Card className="border border-slate-200 bg-white shadow-sm">
+                            <CardHeader>
+                                <CardTitle>Reader PDF</CardTitle>
+                                <CardDescription>Reader hanya bisa dibuka jika pinjaman aktif. Gunakan tombol kiri/kanan untuk navigasi cepat.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {myActiveLoans.length === 0 ? (
+                                    <p className="text-sm text-slate-500">Anda belum memiliki pinjaman aktif untuk membaca PDF.</p>
+                                ) : (
+                                    <>
+                                        <div className="grid gap-4 md:grid-cols-4">
+                                            <div className="space-y-2 md:col-span-2">
+                                                <Label htmlFor="reader-loan">Pinjaman Aktif</Label>
+                                                <select
+                                                    id="reader-loan"
+                                                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3"
+                                                    value={selectedLoanId ?? ''}
+                                                    onChange={(event) => setSelectedLoanId(Number(event.target.value))}
+                                                >
+                                                    {myActiveLoans.map((loan) => (
+                                                        <option key={loan.id} value={loan.id}>
+                                                            {loan.book.title} - jatuh tempo {new Date(loan.due_at).toLocaleDateString('id-ID')}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="page">Halaman Saat Ini</Label>
+                                                <Input
+                                                    id="page"
+                                                    type="number"
+                                                    min={1}
+                                                    max={pdfPageCount}
+                                                    value={currentPage}
+                                                    onChange={(event) => setCurrentPage(Math.min(Math.max(Number(event.target.value), 1), pdfPageCount))}
+                                                />
+                                            </div>
+                                            <div className="flex items-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={goToPrevPage}
+                                                >
+                                                    <ChevronLeft className="mr-1 h-4 w-4" /> Prev
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={goToNextPage}
+                                                >
+                                                    Next <ChevronRight className="ml-1 h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+                                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                <Eye className="h-4 w-4 text-blue-600" />
+                                                <span>
+                                                    Halaman <span className="font-semibold text-slate-900">{currentPage}</span> dari{' '}
+                                                    <span className="font-semibold text-slate-900">{pdfPageCount}</span>
+                                                </span>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant={sideNavigationEnabled ? 'default' : 'outline'}
+                                                className={sideNavigationEnabled ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                                                onClick={() => setSideNavigationEnabled((value) => !value)}
+                                            >
+                                                {sideNavigationEnabled ? 'Mode Kiri-Kanan Aktif' : 'Aktifkan Mode Kiri-Kanan'}
+                                            </Button>
+                                        </div>
+
+                                        {selectedLoan && (
+                                            <div className="grid gap-4 lg:grid-cols-4">
+                                                <div ref={readerWrapperRef} className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-950/5 lg:col-span-3">
+                                                    <div className="h-[720px] overflow-auto bg-slate-100 p-4">
+                                                        {isLoadingPdf && (
+                                                            <div className="flex h-full min-h-[640px] items-center justify-center text-slate-500">
+                                                                <div className="text-center">
+                                                                    <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin" />
+                                                                    <p>Memuat dokumen PDF...</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {pdfError && !isLoadingPdf && (
+                                                            <div className="flex h-full min-h-[640px] items-center justify-center text-center text-red-600">
+                                                                <div>
+                                                                    <FileText className="mx-auto mb-2 h-6 w-6" />
+                                                                    <p>Gagal memuat PDF. Coba refresh halaman.</p>
+                                                                    <p className="mt-2 text-xs text-slate-500">{pdfError}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <canvas
+                                                            ref={canvasRef}
+                                                            className={`mx-auto rounded-md border border-slate-200 bg-white shadow ${isLoadingPdf || pdfError ? 'hidden' : ''}`}
+                                                        />
+                                                    </div>
+
+                                                    {sideNavigationEnabled && (
+                                                        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-slate-900/55 to-transparent px-4 py-2 text-xs font-medium text-white/90">
+                                                            Mode fokus per halaman aktif - navigasi gunakan tombol kiri/kanan.
+                                                        </div>
+                                                    )}
+
+                                                    {sideNavigationEnabled && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Halaman sebelumnya"
+                                                                className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-md transition hover:bg-white"
+                                                                onClick={goToPrevPage}
+                                                            >
+                                                                <ChevronLeft className="h-5 w-5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Halaman berikutnya"
+                                                                className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-md transition hover:bg-white"
+                                                                onClick={goToNextPage}
+                                                            >
+                                                                <ChevronRight className="h-5 w-5" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <Card className="border border-slate-200 bg-white shadow-sm">
+                                                    <CardHeader className="border-b border-slate-100 bg-slate-50/70">
+                                                        <CardTitle className="text-base">Siapa di halaman ini</CardTitle>
+                                                        <CardDescription>Halaman {currentPage}</CardDescription>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-2">
+                                                        {presenceParticipants.length === 0 ? (
+                                                            <p className="text-sm text-slate-500">Belum ada pembaca lain di halaman ini.</p>
+                                                        ) : (
+                                                            presenceParticipants.map((participant) => (
+                                                                <div key={participant.user_id} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                                                    <p className="font-medium text-slate-900">{participant.name}</p>
+                                                                    <p className="text-xs text-slate-500">Halaman {participant.current_page}</p>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+            </div>
+        </AdminLayout>
+    );
+}

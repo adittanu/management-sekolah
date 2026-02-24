@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_laravel-boost_laravel-boost__application-info",
+      "mcp__plugin_laravel-boost_laravel-boost__database-schema",
+      "mcp__plugin_laravel-boost_laravel-boost__list-artisan-commands",
+      "mcp__plugin_laravel-boost_laravel-boost__tinker",
+      "Bash(php artisan app:auto-attendance:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
