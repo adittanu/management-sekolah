@@ -28,7 +28,9 @@ import {
 import { Button } from '@/Components/ui/button';
 
 export default function Sidebar({ className = "", userRole = "admin", isCollapsed = false, toggleSidebar }: { className?: string, userRole?: string, isCollapsed?: boolean, toggleSidebar?: () => void }) {
-    const { url, props } = usePage();
+    const page = usePage<any>();
+    const { url, props } = page;
+    const authUser = page.props?.auth?.user;
     const { school_settings } = props as any;
 
     // Define Menus based on Role
@@ -121,7 +123,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
                     // { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
                     { name: 'Presensi', href: '/admin/absensi', icon: ScanFace },
-                    // { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
+                    { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
                     // { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
                     // { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
                     // { name: 'PKL / Magang', href: '/admin/pkl', icon: Briefcase },
@@ -161,15 +163,12 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
     // Determine Profile Label
     const getProfile = () => {
         if (userRole === 'student') {
-            const { auth } = usePage<any>().props;
-            return { name: auth?.user?.name || 'Siswa Teladan', role: 'Murid Kelas X', initials: auth?.user?.name ? auth.user.name.substring(0, 2).toUpperCase() : 'ST' };
+            return { name: authUser?.name || 'Siswa Teladan', role: 'Murid Kelas X', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'ST' };
         }
         if (userRole === 'teacher') {
-            const { auth } = usePage<any>().props;
-            return { name: auth?.user?.name || 'Budi Santoso, S.Pd', role: 'Guru Matematika', initials: auth?.user?.name ? auth.user.name.substring(0, 2).toUpperCase() : 'BS' };
+            return { name: authUser?.name || 'Budi Santoso, S.Pd', role: 'Guru Matematika', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'BS' };
         }
-        const { auth } = usePage<any>().props;
-        return { name: auth?.user?.name || 'Administrator', role: 'Super Admin', initials: auth?.user?.name ? auth.user.name.substring(0, 2).toUpperCase() : 'AD' };
+        return { name: authUser?.name || 'Administrator', role: 'Super Admin', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'AD' };
     };
     const profile = getProfile();
 
@@ -203,7 +202,8 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 </div>
 
                 {/* Toggle Button (Integrated in Header) */}
-                <button 
+                <button
+                    type="button"
                     onClick={toggleSidebar}
                     className={cn(
                         "rounded-lg p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors",
@@ -235,8 +235,8 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
 
             {/* Navigation - Scrollable */}
             <div className="flex-1 overflow-y-auto px-3 space-y-6 py-2 hover-scroll">
-                {navGroups.map((group, groupIndex) => (
-                    <div key={groupIndex} className="space-y-1">
+                {navGroups.map((group) => (
+                    <div key={`${group.groupLabel}-${group.items[0]?.href ?? 'group'}`} className="space-y-1">
                         {group.groupLabel && !isCollapsed && (
                             <h4 className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 mt-4 animate-in fade-in duration-300">
                                 {group.groupLabel}
