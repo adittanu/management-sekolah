@@ -98,4 +98,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(ExternalIdentityMap::class);
     }
+
+    public function libraryLoans(): HasMany
+    {
+        return $this->hasMany(LibraryLoan::class);
+    }
+
+    public function libraryReadingProgresses(): HasMany
+    {
+        return $this->hasMany(LibraryReadingProgress::class);
+    }
 }

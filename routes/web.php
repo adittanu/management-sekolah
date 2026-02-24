@@ -94,9 +94,13 @@ Route::prefix('admin')
 
         Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
 
-        Route::get('/perpustakaan', function () {
-            return Inertia::render('Admin/Perpustakaan/Index');
-        })->name('perpustakaan');
+        Route::get('/perpustakaan', [App\Http\Controllers\Admin\LibraryController::class, 'index'])->name('perpustakaan');
+        Route::post('/perpustakaan/books', [App\Http\Controllers\Admin\LibraryController::class, 'storeBook'])->name('perpustakaan.books.store');
+        Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
+        Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
+        Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');
+        Route::get('/perpustakaan/books/{book}/file', [App\Http\Controllers\Admin\LibraryController::class, 'file'])->name('perpustakaan.reader.file');
+        Route::post('/perpustakaan/loans/{loan}/return', [App\Http\Controllers\Admin\LibraryController::class, 'returnLoan'])->name('perpustakaan.loans.return');
 
         Route::get('/ppdb', function () {
             return Inertia::render('Admin/PPDB/Index');
