@@ -6,8 +6,8 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 
 # Install dependencies
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 
 # Copy source files yang dibutuhkan untuk build
 COPY vite.config.js tsconfig.json tailwind.config.js postcss.config.js components.json ./
