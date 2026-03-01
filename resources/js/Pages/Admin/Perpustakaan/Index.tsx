@@ -154,7 +154,8 @@ export default function PerpustakaanIndex({
     const [pdfDocument, setPdfDocument] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [groupByCategory, setGroupByCategory] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'borrowed'>('all');
+    const [sortBy, setSortBy] = useState<'latest' | 'title'>('latest');
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const readerWrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -185,54 +186,52 @@ export default function PerpustakaanIndex({
         }
     }, [flash]);
 
-    // Group books by category
-    const booksByCategory = useMemo(() => {
-        const grouped: Record<string, Book[]> = {};
-        books.forEach(book => {
+    const categoryCounts = useMemo(() => {
+        const counts: Record<string, number> = { 'Semua Buku': books.length };
+        books.forEach((book) => {
             const category = book.category || 'Lainnya';
-            if (!grouped[category]) {
-                grouped[category] = [];
-            }
-            grouped[category].push(book);
+            counts[category] = (counts[category] || 0) + 1;
         });
-        return grouped;
+        return counts;
     }, [books]);
 
-    const categories = useMemo(() => Object.keys(booksByCategory), [booksByCategory]);
+    const categories = useMemo(
+        () => Object.keys(categoryCounts).filter((category) => category !== 'Semua Buku'),
+        [categoryCounts],
+    );
 
-    // Filter books based on search
-    const filteredBooks = useMemo(() => {
-        let allBooks = books;
-        
-        // Filter by category if selected
-        if (selectedCategory) {
-            allBooks = allBooks.filter(book => book.category === selectedCategory);
+    const filteredFlatBooks = useMemo(() => {
+        let result = [...books];
+
+        if (selectedCategory && selectedCategory !== 'Semua Buku') {
+            result = result.filter((book) => (book.category || 'Lainnya') === selectedCategory);
         }
-        
-        // Filter by search query
+
         if (searchQuery) {
-            allBooks = allBooks.filter(book => 
-                book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                book.author.toLowerCase().includes(searchQuery.toLowerCase())
+            const keyword = searchQuery.toLowerCase();
+            result = result.filter(
+                (book) =>
+                    book.title.toLowerCase().includes(keyword) ||
+                    book.author.toLowerCase().includes(keyword),
             );
         }
-        
-        // Return grouped or flat based on toggle
-        if (groupByCategory) {
-            const grouped: Record<string, Book[]> = {};
-            allBooks.forEach(book => {
-                const category = book.category || 'Lainnya';
-                if (!grouped[category]) {
-                    grouped[category] = [];
-                }
-                grouped[category].push(book);
-            });
-            return grouped;
+
+        if (statusFilter === 'available') {
+            result = result.filter((book) => !myActiveLoans.some((loan) => loan.book.id === book.id));
         }
-        
-        // Flat view - return as single group
-        return { 'Semua Buku': allBooks };
-    }, [books, searchQuery, selectedCategory, groupByCategory]);
+
+        if (statusFilter === 'borrowed') {
+            result = result.filter((book) => myActiveLoans.some((loan) => loan.book.id === book.id));
+        }
+
+        if (sortBy === 'title') {
+            result.sort((a, b) => a.title.localeCompare(b.title));
+        } else {
+            result.sort((a, b) => b.id - a.id);
+        }
+
+        return result;
+    }, [books, myActiveLoans, searchQuery, selectedCategory, sortBy, statusFilter]);
 
     // Get loan for a book
     const getLoanForBook = useCallback((bookId: number) => {
@@ -934,75 +933,32 @@ export default function PerpustakaanIndex({
                 
                 {/* Main Content */}
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    {/* Search and Filters */}
-                    <div className="flex flex-col md:flex-row gap-3 mb-6">
-                        <div className="flex-1 relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder="Cari judul atau penulis..."
-                                className="pl-10 bg-white"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-                        
-                        <div className="flex gap-2">
-                            {/* View Toggle */}
-                            <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
-                                <button
-                                    type="button"
-                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                                        !groupByCategory 
-                                            ? 'bg-white text-slate-900 shadow-sm' 
-                                            : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                                    onClick={() => setGroupByCategory(false)}
-                                >
-                                    Semua Buku
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                                        groupByCategory 
-                                            ? 'bg-white text-slate-900 shadow-sm' 
-                                            : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                                    onClick={() => setGroupByCategory(true)}
-                                >
-                                    Per Kategori
-                                </button>
-                            </div>
-                            
-                            {categories.length > 0 && (
-                                <select
-                                    className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    value={selectedCategory || ''}
-                                    onChange={(e) => setSelectedCategory(e.target.value || null)}
-                                >
-                                    <option value="">Semua Kategori</option>
-                                    {categories.map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
-                            )}
-                            
-                            <Button 
-                                className="bg-indigo-600 hover:bg-indigo-700"
-                                onClick={() => setView('add-book')}
-                            >
-                                <Plus className="w-4 h-4 mr-1.5" />
-                                Tambah Buku
-                            </Button>
-                        </div>
+                    <div className="flex justify-end mb-4">
+                        <Button 
+                            className="bg-indigo-600 hover:bg-indigo-700"
+                            onClick={() => setView('add-book')}
+                        >
+                            <Plus className="w-4 h-4 mr-1.5" />
+                            Tambah Buku
+                        </Button>
                     </div>
                     
                     {/* My Books Section */}
                     {myActiveLoans.length > 0 && (
                         <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-4">
-                                <BookMarked className="w-5 h-5 text-indigo-600" />
-                                <h2 className="text-lg font-semibold text-slate-900">Buku Saya</h2>
-                                <span className="text-sm text-slate-500">({myActiveLoans.length} dipinjam)</span>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <BookMarked className="w-5 h-5 text-indigo-600" />
+                                    <h2 className="text-3xl font-semibold text-slate-900">Buku Saya</h2>
+                                    <span className="text-sm text-slate-500">{myActiveLoans.length} dipinjam</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                                    onClick={() => setStatusFilter('borrowed')}
+                                >
+                                    Lihat Semua {'->'}
+                                </button>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1013,49 +969,118 @@ export default function PerpustakaanIndex({
                         </div>
                     )}
                     
-                    {/* Book Grid */}
-                    <div className="space-y-8">
-                        {Object.entries(filteredBooks).length === 0 || 
-                         Object.values(filteredBooks).every(books => books.length === 0) ? (
-                            <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
-                                <Library className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-slate-700">Tidak ada buku ditemukan</h3>
-                                <p className="text-slate-500">
-                                    {searchQuery 
-                                        ? 'Coba kata kunci pencarian lain'
-                                        : 'Belum ada buku di perpustakaan. Tambahkan buku pertama!'
-                                    }
-                                </p>
-                            </div>
-                        ) : (
-                            Object.entries(filteredBooks).map(([category, categoryBooks]) => (
-                                <div key={category}>
-                                    {/* Show category header only when grouped by category */}
-                                    {groupByCategory && (
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <Layers className="w-5 h-5 text-slate-400" />
-                                            <h2 className="text-lg font-semibold text-slate-900">{category}</h2>
-                                            <span className="text-sm text-slate-500">({categoryBooks.length} buku)</span>
-                                        </div>
-                                    )}
-                                    
-                                    <div 
-                                        className="grid gap-5"
-                                        style={{ 
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' 
-                                        }}
-                                    >
-                                        {categoryBooks.map((book) => (
-                                            <BookCard 
-                                                key={book.id} 
-                                                book={book} 
-                                                loan={getLoanForBook(book.id)} 
-                                            />
-                                        ))}
-                                    </div>
+                    <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+                        <aside className="space-y-6 border-r border-slate-200 pr-6">
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold tracking-[0.16em] text-slate-400 uppercase">Pencarian</p>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Input
+                                        placeholder="Cari buku..."
+                                        className="pl-10 bg-white"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
                                 </div>
-                            ))
-                        )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold tracking-[0.16em] text-slate-400 uppercase">Kategori Populer</p>
+                                <button
+                                    type="button"
+                                    className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+                                        !selectedCategory ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'
+                                    }`}
+                                    onClick={() => setSelectedCategory(null)}
+                                >
+                                    <span>Semua Buku</span>
+                                    <span>{categoryCounts['Semua Buku'] ?? 0}</span>
+                                </button>
+                                {categories.map((category) => (
+                                    <button
+                                        type="button"
+                                        key={category}
+                                        className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+                                            selectedCategory === category
+                                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                                : 'text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                        onClick={() => setSelectedCategory(category)}
+                                    >
+                                        <span>{category}</span>
+                                        <span>{categoryCounts[category]}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold tracking-[0.16em] text-slate-400 uppercase">Status</p>
+                                <button
+                                    type="button"
+                                    className={`w-full text-left rounded-lg px-3 py-2 text-sm ${statusFilter === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                                    onClick={() => setStatusFilter('all')}
+                                >
+                                    Semua
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`w-full text-left rounded-lg px-3 py-2 text-sm ${statusFilter === 'available' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                                    onClick={() => setStatusFilter('available')}
+                                >
+                                    Hanya Tersedia
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`w-full text-left rounded-lg px-3 py-2 text-sm ${statusFilter === 'borrowed' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                                    onClick={() => setStatusFilter('borrowed')}
+                                >
+                                    Sedang Dipinjam
+                                </button>
+                            </div>
+                        </aside>
+
+                        <section className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Layers className="w-5 h-5 text-indigo-600" />
+                                    <h2 className="text-2xl font-bold text-slate-900">Eksplorasi Buku</h2>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                    <span>Urutkan:</span>
+                                    <select
+                                        className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value as 'latest' | 'title')}
+                                    >
+                                        <option value="latest">Terbaru</option>
+                                        <option value="title">Judul A-Z</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {filteredFlatBooks.length === 0 ? (
+                                <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
+                                    <Library className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                                    <h3 className="text-lg font-medium text-slate-700">Tidak ada buku ditemukan</h3>
+                                    <p className="text-slate-500">Coba ubah filter pencarian atau kategori.</p>
+                                </div>
+                            ) : (
+                                <div
+                                    className="grid gap-5"
+                                    style={{
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                    }}
+                                >
+                                    {filteredFlatBooks.map((book) => (
+                                        <BookCard
+                                            key={book.id}
+                                            book={book}
+                                            loan={getLoanForBook(book.id)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </section>
                     </div>
                     
                     {/* Footer Stats */}
