@@ -18,7 +18,7 @@ RUN npx vite build
 # ============================================================
 # Stage 2: PHP Production Application
 # ============================================================
-FROM php:8.2-fpm AS production
+FROM php:8.4-fpm AS production
 
 # Pakai install-php-extensions — otomatis handle semua dependency
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
@@ -67,8 +67,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # Install PHP dependencies
+# Pakai update laravel/mcp saja karena belum ada di composer.lock
 COPY composer.json composer.lock ./
-RUN composer install \
+RUN composer update laravel/mcp \
     --no-dev \
     --optimize-autoloader \
     --no-scripts \
