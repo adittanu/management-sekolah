@@ -18,25 +18,26 @@ COPY public/ public/
 RUN npm run build
 
 # ============================================================
-# Stage 2: PHP Production Application
+# Stage 2: PHP Production Application (Debian-based)
 # ============================================================
-FROM php:8.2-fpm-alpine AS production
+FROM php:8.2-fpm AS production
 
 # Install system dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
     curl \
     libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
     libwebp-dev \
     libzip-dev \
     libxml2-dev \
-    oniguruma-dev \
-    icu-dev \
-    icu-libs \
-    && rm -rf /var/cache/apk/*
+    libonig-dev \
+    libicu-dev \
+    unzip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd \
@@ -68,6 +69,9 @@ RUN { \
     echo 'opcache.interned_strings_buffer=16'; \
     echo 'opcache.fast_shutdown=1'; \
 } > /usr/local/etc/php/conf.d/opcache.ini
+
+# Nginx: disable default config, pakai config kita
+RUN rm -f /etc/nginx/sites-enabled/default
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -105,7 +109,7 @@ RUN mkdir -p \
     && chmod -R 755 storage bootstrap/cache
 
 # Copy konfigurasi Docker
-COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
+COPY docker/nginx/default.conf /etc/nginx/sites-enabled/default.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
