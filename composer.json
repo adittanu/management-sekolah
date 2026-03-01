@@ -83,6 +83,13 @@
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
+        "platform": {
+            "ext-gd": "1",
+            "ext-zip": "1",
+            "ext-intl": "1",
+            "ext-bcmath": "1",
+            "ext-pcntl": "1"
+        },
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
