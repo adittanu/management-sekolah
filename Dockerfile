@@ -67,9 +67,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # Install PHP dependencies
-# Pakai update laravel/mcp saja karena belum ada di composer.lock
-COPY composer.json composer.lock ./
-RUN composer update laravel/mcp \
+# Pakai full composer update karena composer.lock out-of-sync dengan laravel/mcp
+COPY composer.json ./
+RUN composer update \
     --no-dev \
     --optimize-autoloader \
     --no-scripts \
