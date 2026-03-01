@@ -5,72 +5,60 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Install dependencies
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy source files yang dibutuhkan untuk build
 COPY vite.config.js tsconfig.json tailwind.config.js postcss.config.js components.json ./
 COPY resources/ resources/
 COPY public/ public/
 
-# Build client assets (skip tsc & SSR — SSR tidak dijalankan di production)
+# Build client assets (skip tsc & SSR)
 RUN npx vite build
 
 # ============================================================
-# Stage 2: PHP Production Application (Debian-based)
+# Stage 2: PHP Production Application
 # ============================================================
 FROM php:8.2-fpm AS production
 
-# Install system dependencies
+# Pakai install-php-extensions — otomatis handle semua dependency
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions
+
+# Install PHP extensions
+RUN install-php-extensions \
+    pdo_mysql \
+    mbstring \
+    xml \
+    ctype \
+    bcmath \
+    fileinfo \
+    tokenizer \
+    zip \
+    gd \
+    intl \
+    pcntl \
+    opcache
+
+# Install nginx & supervisor
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
-    curl \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libwebp-dev \
-    libzip-dev \
-    libxml2-dev \
-    libonig-dev \
-    libicu-dev \
     unzip \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
-RUN docker-php-ext-configure gd \
-        --with-freetype \
-        --with-jpeg \
-        --with-webp \
-    && docker-php-ext-install -j$(nproc) \
-        pdo_mysql \
-        mbstring \
-        xml \
-        ctype \
-        bcmath \
-        fileinfo \
-        tokenizer \
-        zip \
-        gd \
-        intl \
-        pcntl \
-        opcache
-
-# OPcache config untuk performance
+# OPcache config
 RUN { \
     echo 'opcache.enable=1'; \
     echo 'opcache.revalidate_freq=0'; \
     echo 'opcache.validate_timestamps=0'; \
     echo 'opcache.max_accelerated_files=10000'; \
     echo 'opcache.memory_consumption=192'; \
-    echo 'opcache.max_wasted_percentage=10'; \
     echo 'opcache.interned_strings_buffer=16'; \
     echo 'opcache.fast_shutdown=1'; \
 } > /usr/local/etc/php/conf.d/opcache.ini
 
-# Nginx: disable default config, pakai config kita
+# Nginx: hapus default config
 RUN rm -f /etc/nginx/sites-enabled/default
 
 # Install Composer
@@ -78,25 +66,27 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Install PHP dependencies (production only) — layer cache
+# Install PHP dependencies
+# Pakai update agar otomatis resolve jika lock file tidak sync
 COPY composer.json composer.lock ./
-RUN composer install \
+RUN composer update \
     --no-dev \
     --optimize-autoloader \
     --no-scripts \
     --no-interaction \
-    --prefer-dist
+    --prefer-dist \
+    --ignore-platform-reqs
 
 # Copy semua source aplikasi
 COPY . .
 
-# Timpa dengan built assets dari Stage 1
+# Timpa dengan built frontend assets
 COPY --from=frontend-builder /app/public/ public/
 
-# Jalankan post-install scripts
+# Post-install
 RUN composer dump-autoload --optimize
 
-# Buat direktori yang diperlukan & set permissions
+# Setup direktori & permissions
 RUN mkdir -p \
         storage/logs \
         storage/framework/cache/data \
@@ -107,7 +97,7 @@ RUN mkdir -p \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 storage bootstrap/cache
 
-# Copy konfigurasi Docker
+# Copy config files
 COPY docker/nginx/default.conf /etc/nginx/sites-enabled/default.conf
 COPY docker/supervisor/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /entrypoint.sh
