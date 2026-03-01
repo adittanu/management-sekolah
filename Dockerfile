@@ -67,15 +67,13 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # Install PHP dependencies
-# Pakai update agar otomatis resolve jika lock file tidak sync
 COPY composer.json composer.lock ./
-RUN composer update \
+RUN composer install \
     --no-dev \
     --optimize-autoloader \
     --no-scripts \
     --no-interaction \
-    --prefer-dist \
-    --ignore-platform-reqs
+    --prefer-dist
 
 # Copy semua source aplikasi
 COPY . .
