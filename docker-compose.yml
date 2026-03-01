@@ -1,0 +1,56 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Dokploy mengatur routing via UI (domain setting)
+    # Uncomment jika ingin test langsung tanpa Dokploy:
+    # ports:
+    #   - "8080:80"
+    environment:
+      APP_NAME: "${APP_NAME:-Sekolah Kita}"
+      APP_ENV: "production"
+      APP_DEBUG: "false"
+      APP_URL: "${APP_URL}"
+      APP_KEY: "${APP_KEY}"
+      DB_CONNECTION: "mysql"
+      DB_HOST: "mysql"
+      DB_PORT: "3306"
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      SESSION_DRIVER: "database"
+      QUEUE_CONNECTION: "database"
+      CACHE_STORE: "database"
+      LOG_CHANNEL: "stderr"
+      LOG_LEVEL: "error"
+      FILESYSTEM_DISK: "local"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - storage_uploads:/var/www/html/storage/app
+      - storage_logs:/var/www/html/storage/logs
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: "${DB_DATABASE}"
+      MYSQL_USER: "${DB_USERNAME}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql_data:
+  storage_uploads:
+  storage_logs:
