@@ -14,8 +14,8 @@ COPY vite.config.js tsconfig.json tailwind.config.js postcss.config.js component
 COPY resources/ resources/
 COPY public/ public/
 
-# Build client + SSR assets
-RUN npm run build
+# Build client assets (skip tsc & SSR — SSR tidak dijalankan di production)
+RUN npx vite build
 
 # ============================================================
 # Stage 2: PHP Production Application (Debian-based)
@@ -92,7 +92,6 @@ COPY . .
 
 # Timpa dengan built assets dari Stage 1
 COPY --from=frontend-builder /app/public/ public/
-COPY --from=frontend-builder /app/bootstrap/ssr/ bootstrap/ssr/
 
 # Jalankan post-install scripts
 RUN composer dump-autoload --optimize
