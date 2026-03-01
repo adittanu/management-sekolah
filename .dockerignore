@@ -35,4 +35,3 @@ git_tracked.diff
 new_files.diff
 build_log.txt
 bun.lock
-package-lock.json
