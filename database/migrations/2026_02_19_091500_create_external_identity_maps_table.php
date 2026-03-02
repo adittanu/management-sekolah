@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('external_identity_maps')) {
+            return;
+        }
+
         Schema::create('external_identity_maps', function (Blueprint $table) {
             $table->id();
             $table->string('provider', 50);

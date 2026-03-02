@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('classrooms', function (Blueprint $table) {
-            $table->string('level')->change();
-        });
+        if (Schema::hasTable('classrooms') && Schema::hasColumn('classrooms', 'level')) {
+            Schema::table('classrooms', function (Blueprint $table) {
+                $table->string('level')->change();
+            });
+        }
     }
 
     /**

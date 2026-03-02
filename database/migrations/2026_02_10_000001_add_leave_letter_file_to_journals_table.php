@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('journals', function (Blueprint $table) {
-            $table->string('leave_letter_file')->nullable()->after('proof_file');
-        });
+        if (! Schema::hasColumn('journals', 'leave_letter_file')) {
+            Schema::table('journals', function (Blueprint $table) {
+                $table->string('leave_letter_file')->nullable()->after('proof_file');
+            });
+        }
     }
 
     /**

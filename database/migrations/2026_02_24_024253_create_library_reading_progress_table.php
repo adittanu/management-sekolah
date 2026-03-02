@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('library_reading_progress')) {
+            return;
+        }
+
         Schema::create('library_reading_progress', function (Blueprint $table) {
             $table->id();
             $table->foreignId('library_book_id')->constrained('library_books')->cascadeOnDelete();

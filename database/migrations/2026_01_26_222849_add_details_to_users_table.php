@@ -12,10 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
-            $table->string('identity_number')->unique()->nullable()->after('role');
-            $table->enum('gender', ['L', 'P'])->nullable()->after('identity_number');
-            $table->string('avatar')->nullable()->after('gender');
+            if (! Schema::hasColumn('users', 'role')) {
+                $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
+            }
+            if (! Schema::hasColumn('users', 'identity_number')) {
+                $table->string('identity_number')->unique()->nullable()->after('role');
+            }
+            if (! Schema::hasColumn('users', 'gender')) {
+                $table->enum('gender', ['L', 'P'])->nullable()->after('identity_number');
+            }
+            if (! Schema::hasColumn('users', 'avatar')) {
+                $table->string('avatar')->nullable()->after('gender');
+            }
         });
     }
 

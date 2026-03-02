@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('attendances', function (Blueprint $table) {
-            $table->string('leave_letter_file')->nullable()->after('status');
-        });
+        if (! Schema::hasColumn('attendances', 'leave_letter_file')) {
+            Schema::table('attendances', function (Blueprint $table) {
+                $table->string('leave_letter_file')->nullable()->after('status');
+            });
+        }
     }
 
     /**
