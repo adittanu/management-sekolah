@@ -27,7 +27,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['library_book_id', 'user_id']);
-            $table->index(['library_book_id', 'current_page', 'last_seen_at']);
+            $table->index(['library_book_id', 'current_page', 'last_seen_at'], 'lrp_book_page_seen_index');
         });
     }
 
