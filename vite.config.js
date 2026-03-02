@@ -16,9 +16,11 @@ export default defineConfig({
             outDir: 'public',
             buildBase: '/',
             scope: '/',
+            manifestFilename: 'manifest.webmanifest',
             workbox: {
                 cleanupOutdatedCaches: true,
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff2}'],
+                globIgnores: ['manifest.webmanifest'],
                 navigateFallback: null
             },
             manifest: {

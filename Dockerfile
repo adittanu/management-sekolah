@@ -5,14 +5,14 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json* ./
+RUN npm ci --legacy-peer-deps
 
 COPY vite.config.js tsconfig.json tailwind.config.js postcss.config.js components.json ./
 COPY resources/ resources/
 COPY public/ public/
 
-# Build client assets (skip tsc & SSR)
+# Build client assets (skip tsc type-check & SSR for faster Docker builds)
 RUN npx vite build
 
 # ============================================================
