@@ -21,14 +21,14 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Clear existing data
-        DB::statement('PRAGMA foreign_keys = OFF');
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
         Attendance::truncate();
         Schedule::truncate();
         DB::table('classroom_user')->truncate();
         Classroom::truncate();
         Subject::truncate();
         User::truncate();
-        DB::statement('PRAGMA foreign_keys = ON');
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         // ============================================
         // 1. USERS (Admin, Teachers, Students)
