@@ -80,6 +80,10 @@ class AttendanceJournalSeeder extends Seeder
             $journalBatch    = [];
 
             foreach ($daySchedules as $schedule) {
+                if (! $schedule->classroom) {
+                    continue;
+                }
+
                 $students      = $schedule->classroom->students;
                 $troubleIds    = $students->take(4)->pluck('id')->toArray();
                 $subjectCode   = $schedule->subject->code;
