@@ -10,12 +10,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import InputError from '@/Components/InputError';
 import axios from 'axios';
 
+interface DemoUser {
+    name: string;
+    email: string;
+    role: string;
+}
+
+interface DemoAccounts {
+    student: DemoUser[];
+    teacher: DemoUser[];
+    admin: DemoUser[];
+}
+
 export default function Login({
     status,
     canResetPassword,
+    demoAccounts,
 }: {
     status?: string;
     canResetPassword: boolean;
+    demoAccounts: DemoAccounts;
 }) {
     const { props } = usePage();
     const { school_settings } = props as any;
@@ -26,6 +40,13 @@ export default function Login({
         login: '',
         password: '',
         remember: false as boolean,
+    });
+
+    // Track email yang sedang aktif per role agar bisa dapat user yang berbeda tiap klik
+    const [currentDemoEmails, setCurrentDemoEmails] = useState<Record<string, string>>({
+        student: '',
+        teacher: '',
+        admin: '',
     });
 
     // QR & Tab State
@@ -55,6 +76,34 @@ export default function Login({
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+    };
+
+    const handleFillDemo = (role: 'MURID' | 'GURU' | 'ADMIN') => {
+        const keyMap: Record<string, keyof DemoAccounts> = {
+            'MURID': 'student',
+            'GURU': 'teacher',
+            'ADMIN': 'admin',
+        };
+
+        const key = keyMap[role];
+        const users = demoAccounts[key];
+
+        if (!users || users.length === 0) return;
+
+        // Jika hanya 1 user, langsung pakai
+        if (users.length === 1) {
+            setData({ ...data, login: users[0].email, password: 'password' });
+            setCurrentDemoEmails(prev => ({ ...prev, [key]: users[0].email }));
+            return;
+        }
+
+        // Pilih user yang BERBEDA dari yang sedang aktif
+        const currentEmail = currentDemoEmails[key];
+        const candidates = users.filter(u => u.email !== currentEmail);
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+        setData({ ...data, login: picked.email, password: 'password' });
+        setCurrentDemoEmails(prev => ({ ...prev, [key]: picked.email }));
     };
 
     // Handle Email Login Submit
@@ -349,35 +398,38 @@ export default function Login({
                         </div>
 
                         <div className="grid grid-cols-3 gap-3 mt-6">
-                            <Link 
-                                href={route('siswa.dashboard')}
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('MURID')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-green-50/50 hover:border-green-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
                                     <GraduationCap className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-green-700">MURID</span>
-                            </Link>
+                            </button>
                             
-                            <Link 
-                                href={route('guru.dashboard')}
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('GURU')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                                     <BookOpen className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-blue-700">GURU</span>
-                            </Link>
+                            </button>
 
-                            <Link 
-                                href={route('admin.dashboard')}
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('ADMIN')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-purple-50/50 hover:border-purple-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
                                     <User className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-purple-700">ADMIN</span>
-                            </Link>
+                            </button>
                         </div>
                     </div>
                 </div>
