@@ -202,21 +202,31 @@ export default function SettingIndex({ school }: { school: SchoolProps }) {
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div className="space-y-2">
-                                            <Label>Website</Label>
-                                            <Input 
-                                                value={data.website}
-                                                onChange={(e) => setData('website', e.target.value)}
-                                                className="h-11" 
+                                            <Label>No. Telepon</Label>
+                                            <Input
+                                                value={data.phone}
+                                                onChange={(e) => setData('phone', e.target.value)}
+                                                className="h-11"
+                                                placeholder="Contoh: (021) 555-0101"
                                             />
+                                            {errors.phone && <div className="text-red-500 text-xs">{errors.phone}</div>}
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Email</Label>
-                                            <Input 
+                                            <Input
                                                 value={data.email}
                                                 onChange={(e) => setData('email', e.target.value)}
-                                                className="h-11" 
+                                                className="h-11"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Website</Label>
+                                            <Input
+                                                value={data.website}
+                                                onChange={(e) => setData('website', e.target.value)}
+                                                className="h-11"
                                             />
                                         </div>
                                     </div>

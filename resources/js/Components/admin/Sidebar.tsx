@@ -23,7 +23,8 @@ import {
     Trophy,
     Briefcase,
     Clock,
-    Bell
+    Bell,
+    FileEdit
 } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 
@@ -125,6 +126,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Data Rombel', href: '/admin/kelas', icon: School },
                     { name: 'Mata Pelajaran', href: '/admin/mapel', icon: BookOpen },
                     { name: 'Pengumuman', href: '/admin/pengumuman', icon: Bell },
+                    { name: 'Generator Surat', href: '/admin/generator-surat', icon: FileEdit },
                     { name: 'Jam Pelajaran', href: '/admin/time-slot', icon: Clock },
                     // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]

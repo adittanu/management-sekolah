@@ -2,7 +2,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Card, CardContent } from '@/Components/ui/card';
-import { Search, Plus, Bell, Trash2, Edit2 } from 'lucide-react';
+import { Search, Plus, Bell, Trash2, Edit2, Printer, Share2, MessageCircle, Send, Facebook } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Label } from '@/Components/ui/label';
@@ -55,6 +55,7 @@ export default function AnnouncementIndex({ announcements }: Props) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
     const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
+    const [announcementToShare, setAnnouncementToShare] = useState<Announcement | null>(null);
     const { flash } = usePage<PageProps>().props;
 
     useEffect(() => {
@@ -216,6 +217,12 @@ export default function AnnouncementIndex({ announcements }: Props) {
                                                     <Button variant="ghost" size="icon" onClick={() => openEditModal(announcement)}>
                                                         <Edit2 className="w-4 h-4" />
                                                     </Button>
+                                                    <Button variant="ghost" size="icon" className="text-emerald-600" title="Cetak Pengumuman" onClick={() => window.open(`/admin/pengumuman/${announcement.id}/print`, '_blank')}>
+                                                        <Printer className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-indigo-600" title="Bagikan Pengumuman" onClick={() => setAnnouncementToShare(announcement)}>
+                                                        <Share2 className="w-4 h-4" />
+                                                    </Button>
                                                     <Button variant="ghost" size="icon" className="text-red-600" onClick={() => setAnnouncementToDelete(announcement)}>
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
@@ -310,6 +317,52 @@ export default function AnnouncementIndex({ announcements }: Props) {
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+                <Dialog open={announcementToShare !== null} onOpenChange={(open) => !open && setAnnouncementToShare(null)}>
+                    <DialogContent className="sm:max-w-[400px]">
+                        <DialogHeader>
+                            <DialogTitle>Bagikan Pengumuman</DialogTitle>
+                            <DialogDescription>
+                                Pilih platform untuk membagikan pengumuman ini.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-3 py-4">
+                            <Button 
+                                variant="outline" 
+                                className="flex items-center justify-start gap-3 h-12 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => {
+                                    const text = encodeURIComponent(`*${announcementToShare?.title}*\n\n${announcementToShare?.content}`);
+                                    window.open(`https://wa.me/?text=${text}`, '_blank');
+                                }}
+                            >
+                                <MessageCircle className="w-5 h-5" />
+                                <span className="text-base font-semibold">WhatsApp</span>
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                className="flex items-center justify-start gap-3 h-12 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                onClick={() => {
+                                    const text = encodeURIComponent(`*${announcementToShare?.title}*\n\n${announcementToShare?.content}`);
+                                    const url = encodeURIComponent(window.location.origin + `/pengumuman/${announcementToShare?.id}`);
+                                    window.open(`https://t.me/share/url?url=${url}&text=${text}`, '_blank');
+                                }}
+                            >
+                                <Send className="w-5 h-5" />
+                                <span className="text-base font-semibold">Telegram</span>
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                className="flex items-center justify-start gap-3 h-12 text-blue-700 hover:text-blue-800 hover:bg-blue-50"
+                                onClick={() => {
+                                    const url = encodeURIComponent(window.location.origin + `/pengumuman/${announcementToShare?.id}`);
+                                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+                                }}
+                            >
+                                <Facebook className="w-5 h-5" />
+                                <span className="text-base font-semibold">Facebook</span>
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AdminLayout>
     );

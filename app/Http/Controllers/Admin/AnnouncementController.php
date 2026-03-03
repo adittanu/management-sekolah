@@ -99,4 +99,18 @@ class AnnouncementController extends Controller
 
         return redirect()->back()->with('success', 'Pengumuman berhasil dihapus.');
     }
+
+    /**
+     * Print a specific announcement with school letterhead.
+     */
+    public function print(Announcement $pengumuman)
+    {
+        $pengumuman->load('postedBy:id,name');
+        $school = \App\Models\School::first();
+
+        return Inertia::render('Admin/Pengumuman/Print', [
+            'announcement' => $pengumuman,
+            'school' => $school,
+        ]);
+    }
 }

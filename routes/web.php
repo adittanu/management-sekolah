@@ -69,7 +69,7 @@ Route::middleware('auth')->group(function () {
 
 // Admin Routes
 Route::prefix('admin')
-    ->middleware(['auth', RoleMiddleware::class.':admin'])
+    ->middleware(['auth', RoleMiddleware::class . ':admin'])
     ->name('admin.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
@@ -92,6 +92,12 @@ Route::prefix('admin')
         Route::resource('mapel', App\Http\Controllers\Admin\SubjectController::class)->except(['create', 'show', 'edit']);
 
         Route::resource('pengumuman', App\Http\Controllers\Admin\AnnouncementController::class)->except(['create', 'show', 'edit']);
+        Route::get('pengumuman/{pengumuman}/print', [App\Http\Controllers\Admin\AnnouncementController::class, 'print'])->name('pengumuman.print');
+
+        Route::resource('generator-surat', App\Http\Controllers\Admin\LetterGeneratorController::class)
+            ->except(['show'])
+            ->parameters(['generator-surat' => 'letter']);
+        Route::get('generator-surat/{letter}/print', [App\Http\Controllers\Admin\LetterGeneratorController::class, 'print'])->name('generator-surat.print');
 
         Route::resource('time-slot', App\Http\Controllers\Admin\TimeSlotController::class)->except(['create', 'show', 'edit']);
 
@@ -162,7 +168,7 @@ Route::prefix('admin')
 
 // Student (Murid) Routes
 Route::prefix('siswa')
-    ->middleware(['auth', RoleMiddleware::class.':student'])
+    ->middleware(['auth', RoleMiddleware::class . ':student'])
     ->name('siswa.')
     ->group(function () {
         Route::get('/dashboard', function () {
@@ -184,7 +190,7 @@ Route::prefix('siswa')
 
 // Parent (Orangtua) Routes
 Route::prefix('orangtua')
-    ->middleware(['auth', RoleMiddleware::class.':parent'])
+    ->middleware(['auth', RoleMiddleware::class . ':parent'])
     ->name('orangtua.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Orangtua\DashboardController::class, 'index'])->name('dashboard');
@@ -195,7 +201,7 @@ Route::prefix('orangtua')
 
 // Teacher (Guru) Routes
 Route::prefix('guru')
-    ->middleware(['auth', RoleMiddleware::class.':teacher'])
+    ->middleware(['auth', RoleMiddleware::class . ':teacher'])
     ->name('guru.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Guru\DashboardController::class, 'index'])->name('dashboard');
@@ -251,4 +257,4 @@ Route::get('/login-bypass', function (\Illuminate\Http\Request $request) {
     return redirect()->route('login')->withErrors(['email' => 'User not found for bypass login']);
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
