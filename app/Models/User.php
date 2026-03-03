@@ -66,7 +66,24 @@ class User extends Authenticatable
         return $this->role === 'student';
     }
 
+    public function isParent(): bool
+    {
+        return $this->role === 'parent';
+    }
+
     // Relationships
+    public function children()
+    {
+        return $this->belongsToMany(User::class, 'parent_student', 'parent_id', 'student_id')
+            ->withTimestamps();
+    }
+
+    public function parents()
+    {
+        return $this->belongsToMany(User::class, 'parent_student', 'student_id', 'parent_id')
+            ->withTimestamps();
+    }
+
     public function homeroomClass()
     {
         return $this->hasOne(Classroom::class, 'teacher_id');

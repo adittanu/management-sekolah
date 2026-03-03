@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             if (! Schema::hasColumn('users', 'role')) {
-                $table->enum('role', ['admin', 'teacher', 'student'])->default('student')->after('email');
+                $table->enum('role', ['admin', 'teacher', 'student', 'parent'])->default('student')->after('email');
             }
             if (! Schema::hasColumn('users', 'identity_number')) {
                 $table->string('identity_number')->unique()->nullable()->after('role');

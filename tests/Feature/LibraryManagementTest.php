@@ -121,4 +121,53 @@ class LibraryManagementTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_teacher_and_student_can_open_library_page_from_their_routes(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $teacherResponse = $this->actingAs($teacher)->get(route('guru.perpustakaan'));
+        $teacherResponse->assertOk();
+
+        $studentResponse = $this->actingAs($student)->get(route('siswa.perpustakaan'));
+        $studentResponse->assertOk();
+    }
+
+    public function test_student_can_borrow_and_sync_reader_with_student_library_routes(): void
+    {
+        $student = User::factory()->create(['role' => 'student']);
+        $book = LibraryBook::factory()->create(['total_pages' => 100, 'is_active' => true]);
+
+        $loanResponse = $this->actingAs($student)->post(route('siswa.perpustakaan.loans.store'), [
+            'library_book_id' => $book->id,
+            'user_id' => $student->id,
+            'duration_days' => 5,
+        ]);
+
+        $loanResponse->assertRedirect();
+        $this->assertDatabaseHas('library_loans', [
+            'library_book_id' => $book->id,
+            'user_id' => $student->id,
+            'status' => 'active',
+        ]);
+
+        $syncResponse = $this->actingAs($student)->post(route('siswa.perpustakaan.reader.sync', $book), [
+            'current_page' => 18,
+            'session_id' => 'sess-student-route',
+            'event' => 'page-change',
+        ]);
+
+        $syncResponse->assertOk();
+
+        $presenceResponse = $this->actingAs($student)->get(route('siswa.perpustakaan.reader.presence', [
+            'book' => $book->id,
+            'page' => 18,
+        ]));
+
+        $presenceResponse->assertOk();
+        $presenceResponse->assertJsonFragment([
+            'name' => $student->name,
+        ]);
+    }
 }

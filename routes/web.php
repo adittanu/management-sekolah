@@ -18,6 +18,7 @@ Route::get('/', function () {
             'admin' => redirect()->route('admin.dashboard'),
             'teacher' => redirect()->route('guru.dashboard'),
             'student' => redirect()->route('siswa.dashboard'),
+            'parent' => redirect()->route('orangtua.dashboard'),
             default => redirect()->route('dashboard'),
         };
     }
@@ -37,6 +38,7 @@ Route::get('/dashboard', function () {
         'admin' => redirect()->route('admin.dashboard'),
         'teacher' => redirect()->route('guru.dashboard'),
         'student' => redirect()->route('siswa.dashboard'),
+        'parent' => redirect()->route('orangtua.dashboard'),
         default => Inertia::render('Dashboard'),
     };
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -139,6 +141,24 @@ Route::prefix('siswa')
         Route::get('/dashboard', function () {
             return Inertia::render('Admin/Dashboard', ['role' => 'student']);
         })->name('dashboard');
+
+        Route::get('/perpustakaan', [App\Http\Controllers\Admin\LibraryController::class, 'index'])->name('perpustakaan');
+        Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
+        Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
+        Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');
+        Route::get('/perpustakaan/books/{book}/file', [App\Http\Controllers\Admin\LibraryController::class, 'file'])->name('perpustakaan.reader.file');
+        Route::post('/perpustakaan/loans/{loan}/return', [App\Http\Controllers\Admin\LibraryController::class, 'returnLoan'])->name('perpustakaan.loans.return');
+    });
+
+// Parent (Orangtua) Routes
+Route::prefix('orangtua')
+    ->middleware(['auth', RoleMiddleware::class.':parent'])
+    ->name('orangtua.')
+    ->group(function () {
+        Route::get('/dashboard', [App\Http\Controllers\Orangtua\DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/pengumuman', [App\Http\Controllers\Orangtua\AnnouncementController::class, 'index'])->name('pengumuman');
+        Route::get('/kehadiran', [App\Http\Controllers\Orangtua\AttendanceController::class, 'index'])->name('kehadiran');
+        Route::get('/perpustakaan', [App\Http\Controllers\Orangtua\LibraryController::class, 'index'])->name('perpustakaan');
     });
 
 // Teacher (Guru) Routes
@@ -155,6 +175,13 @@ Route::prefix('guru')
         Route::post('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('absensi.store');
 
         Route::get('/profile', [App\Http\Controllers\Guru\ProfileController::class, 'index'])->name('profile');
+
+        Route::get('/perpustakaan', [App\Http\Controllers\Admin\LibraryController::class, 'index'])->name('perpustakaan');
+        Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
+        Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
+        Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');
+        Route::get('/perpustakaan/books/{book}/file', [App\Http\Controllers\Admin\LibraryController::class, 'file'])->name('perpustakaan.reader.file');
+        Route::post('/perpustakaan/loans/{loan}/return', [App\Http\Controllers\Admin\LibraryController::class, 'returnLoan'])->name('perpustakaan.loans.return');
     });
 
 // QR Login Route
@@ -176,6 +203,7 @@ Route::get('/login-bypass', function (\Illuminate\Http\Request $request) {
             'admin' => redirect()->route('admin.dashboard'),
             'teacher' => redirect()->route('guru.dashboard'),
             'student' => redirect()->route('siswa.dashboard'),
+            'parent' => redirect()->route('orangtua.dashboard'),
             default => redirect()->route('dashboard'),
         };
     }

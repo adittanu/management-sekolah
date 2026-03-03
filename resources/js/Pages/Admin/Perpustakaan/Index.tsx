@@ -111,6 +111,7 @@ type PresenceParticipant = {
 };
 
 type LibraryPageProps = PageProps<{
+    role: 'admin' | 'teacher' | 'student';
     books: Book[];
     loans: Loan[];
     borrowers: Borrower[];
@@ -139,7 +140,7 @@ export default function PerpustakaanIndex({
     myActiveLoans,
     readingProgress,
 }: Props) {
-    const { flash, auth } = usePage<LibraryPageProps>().props;
+    const { flash, auth, role } = usePage<LibraryPageProps>().props;
     const [view, setView] = useState<'library' | 'reader' | 'add-book'>('library');
     const [selectedBook, setSelectedBook] = useState<Book | null>(null);
     const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
@@ -158,6 +159,8 @@ export default function PerpustakaanIndex({
     const [sortBy, setSortBy] = useState<'latest' | 'title'>('latest');
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const readerWrapperRef = useRef<HTMLDivElement | null>(null);
+    const libraryRoutePrefix = role === 'teacher' ? 'guru' : role === 'student' ? 'siswa' : 'admin';
+    const canManageBooks = role === 'admin';
 
     const bookForm = useForm<{
         title: string;
@@ -255,7 +258,7 @@ export default function PerpustakaanIndex({
             return;
         }
 
-        router.post(route('admin.perpustakaan.loans.store'), {
+        router.post(route(`${libraryRoutePrefix}.perpustakaan.loans.store`), {
             library_book_id: book.id,
             user_id: auth.user.id,
             duration_days: 7,
@@ -267,11 +270,17 @@ export default function PerpustakaanIndex({
                 toast.error('Gagal meminjam buku');
             },
         });
-    }, [auth.user]);
+    }, [auth.user, libraryRoutePrefix]);
 
     // Submit new book
     const submitBook = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
+        if (!canManageBooks) {
+            toast.error('Anda tidak memiliki izin menambah buku.');
+            setView('library');
+            return;
+        }
+
         bookForm.post(route('admin.perpustakaan.books.store'), {
             forceFormData: true,
             onSuccess: () => {
@@ -286,7 +295,7 @@ export default function PerpustakaanIndex({
     const syncReader = useCallback(async (eventType: 'join' | 'page-change' | 'heartbeat' | 'leave'): Promise<void> => {
         if (!selectedLoan) return;
         try {
-            await axios.post(route('admin.perpustakaan.reader.sync', selectedLoan.book.id), {
+            await axios.post(route(`${libraryRoutePrefix}.perpustakaan.reader.sync`, selectedLoan.book.id), {
                 current_page: currentPage,
                 session_id: sessionId,
                 event: eventType,
@@ -296,7 +305,7 @@ export default function PerpustakaanIndex({
                 toast.error('Pinjaman aktif tidak ditemukan. Silakan pinjam ulang.');
             }
         }
-    }, [currentPage, selectedLoan, sessionId]);
+    }, [currentPage, libraryRoutePrefix, selectedLoan, sessionId]);
 
     const loadPresence = useCallback(async (): Promise<void> => {
         if (!selectedLoan) {
@@ -304,7 +313,7 @@ export default function PerpustakaanIndex({
             return;
         }
         try {
-            const response = await axios.get(route('admin.perpustakaan.reader.presence', {
+            const response = await axios.get(route(`${libraryRoutePrefix}.perpustakaan.reader.presence`, {
                 book: selectedLoan.book.id,
                 page: currentPage,
             }));
@@ -312,7 +321,7 @@ export default function PerpustakaanIndex({
         } catch {
             setPresenceParticipants([]);
         }
-    }, [currentPage, selectedLoan]);
+    }, [currentPage, libraryRoutePrefix, selectedLoan]);
 
     useEffect(() => {
         if (!selectedLoan) return;
@@ -350,7 +359,7 @@ export default function PerpustakaanIndex({
             return;
         }
 
-        const readerSource = route('admin.perpustakaan.reader.file', selectedLoan.book.id);
+        const readerSource = route(`${libraryRoutePrefix}.perpustakaan.reader.file`, selectedLoan.book.id);
         setIsLoadingPdf(true);
         setPdfError(null);
 
@@ -374,7 +383,7 @@ export default function PerpustakaanIndex({
         return () => {
             setPdfDocument(null);
         };
-    }, [selectedLoan, view]);
+    }, [libraryRoutePrefix, selectedLoan, view]);
 
     // Render PDF page
     useEffect(() => {
@@ -440,10 +449,10 @@ export default function PerpustakaanIndex({
 
     // Return book
     const returnBook = useCallback((loanId: number) => {
-        router.post(route('admin.perpustakaan.loans.return', loanId), {}, {
+        router.post(route(`${libraryRoutePrefix}.perpustakaan.loans.return`, loanId), {}, {
             onSuccess: () => toast.success('Buku berhasil dikembalikan'),
         });
-    }, []);
+    }, [libraryRoutePrefix]);
 
     // Total stats
     const totalActiveBooks = useMemo(() => books.filter(b => b.is_active).length, [books]);
@@ -763,6 +772,19 @@ export default function PerpustakaanIndex({
 
     // Add Book View
     if (view === 'add-book') {
+        if (!canManageBooks) {
+            return (
+                <AdminLayout title="Perpustakaan Digital">
+                    <div className="rounded-xl border border-slate-200 bg-white p-6 text-center">
+                        <p className="text-sm text-slate-500">Anda tidak memiliki akses ke fitur tambah buku.</p>
+                        <Button className="mt-4" onClick={() => setView('library')}>
+                            Kembali ke Perpustakaan
+                        </Button>
+                    </div>
+                </AdminLayout>
+            );
+        }
+
         return (
             <AdminLayout title="Tambah Buku - Perpustakaan">
                 <div className="max-w-4xl mx-auto">
@@ -933,15 +955,17 @@ export default function PerpustakaanIndex({
                 
                 {/* Main Content */}
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    <div className="flex justify-end mb-4">
-                        <Button 
-                            className="bg-indigo-600 hover:bg-indigo-700"
-                            onClick={() => setView('add-book')}
-                        >
-                            <Plus className="w-4 h-4 mr-1.5" />
-                            Tambah Buku
-                        </Button>
-                    </div>
+                    {canManageBooks && (
+                        <div className="flex justify-end mb-4">
+                            <Button 
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                                onClick={() => setView('add-book')}
+                            >
+                                <Plus className="w-4 h-4 mr-1.5" />
+                                Tambah Buku
+                            </Button>
+                        </div>
+                    )}
                     
                     {/* My Books Section */}
                     {myActiveLoans.length > 0 && (

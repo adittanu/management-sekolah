@@ -51,6 +51,7 @@ class LibraryController extends Controller
             ->keyBy('library_book_id');
 
         return Inertia::render('Admin/Perpustakaan/Index', [
+            'role' => Auth::user()?->role,
             'books' => $books,
             'loans' => $loans,
             'borrowers' => $borrowers,

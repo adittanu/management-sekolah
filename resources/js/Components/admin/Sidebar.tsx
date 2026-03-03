@@ -61,7 +61,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
             {
                 groupLabel: "Akademik",
                 items: [
-                   
+                    { name: 'Perpustakaan', href: '/siswa/perpustakaan', icon: BookOpen },
                     // { name: 'Kelas Saya (LMS)', href: '/siswa/lms', icon: GraduationCap },
                     // { name: 'Tugas & Materi', href: '/siswa/tugas', icon: BookOpen },
                     // { name: 'Riwayat Presensi', href: '/siswa/absensi', icon: ScanFace },
@@ -88,12 +88,30 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 items: [
                     { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
                     { name: 'Presensi', href: '/guru/absensi', icon: ScanFace },
+                    { name: 'Perpustakaan', href: '/guru/perpustakaan', icon: BookOpen },
                 ]
             },
             {
                 groupLabel: "Kepegawaian",
                 items: [
                     { name: 'Data Pribadi', href: '/guru/profile', icon: Users },
+                ]
+            }
+        ];
+    } else if (userRole === 'parent') {
+        navGroups = [
+            {
+                groupLabel: "Menu Utama",
+                items: [
+                    { name: 'Dashboard', href: '/orangtua/dashboard', icon: LayoutDashboard },
+                    { name: 'Berita & Pengumuman', href: '/orangtua/pengumuman', icon: Bell },
+                ]
+            },
+            {
+                groupLabel: "Monitoring Anak",
+                items: [
+                    { name: 'Kehadiran Harian', href: '/orangtua/kehadiran', icon: ScanFace },
+                    { name: 'Peminjaman Buku', href: '/orangtua/perpustakaan', icon: BookOpen },
                 ]
             }
         ];
@@ -167,6 +185,9 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
         }
         if (userRole === 'teacher') {
             return { name: authUser?.name || 'Budi Santoso, S.Pd', role: 'Guru Matematika', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'BS' };
+        }
+        if (userRole === 'parent') {
+            return { name: authUser?.name || 'Orang Tua', role: 'Wali Murid', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'OT' };
         }
         return { name: authUser?.name || 'Administrator', role: 'Super Admin', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'AD' };
     };

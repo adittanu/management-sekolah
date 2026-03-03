@@ -20,6 +20,7 @@ interface DemoAccounts {
     student: DemoUser[];
     teacher: DemoUser[];
     admin: DemoUser[];
+    parent: DemoUser[];
 }
 
 export default function Login({
@@ -47,6 +48,7 @@ export default function Login({
         student: '',
         teacher: '',
         admin: '',
+        parent: '',
     });
 
     // QR & Tab State
@@ -78,11 +80,12 @@ export default function Login({
         return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
     };
 
-    const handleFillDemo = (role: 'MURID' | 'GURU' | 'ADMIN') => {
+    const handleFillDemo = (role: 'student' | 'teacher' | 'admin' | 'parent') => {
         const keyMap: Record<string, keyof DemoAccounts> = {
-            'MURID': 'student',
-            'GURU': 'teacher',
-            'ADMIN': 'admin',
+            'student': 'student',
+            'teacher': 'teacher',
+            'admin': 'admin',
+            'parent': 'parent',
         };
 
         const key = keyMap[role];
@@ -397,10 +400,10 @@ export default function Login({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 mt-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
                             <button 
                                 type="button"
-                                onClick={() => handleFillDemo('MURID')}
+                                onClick={() => handleFillDemo('student')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-green-50/50 hover:border-green-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
@@ -411,7 +414,7 @@ export default function Login({
                             
                             <button 
                                 type="button"
-                                onClick={() => handleFillDemo('GURU')}
+                                onClick={() => handleFillDemo('teacher')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
@@ -422,7 +425,18 @@ export default function Login({
 
                             <button 
                                 type="button"
-                                onClick={() => handleFillDemo('ADMIN')}
+                                onClick={() => handleFillDemo('parent')}
+                                className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-amber-50/50 hover:border-amber-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                                    <User className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-600 group-hover:text-amber-700">ORANGTUA</span>
+                            </button>
+
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('admin')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-purple-50/50 hover:border-purple-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">

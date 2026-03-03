@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use Illuminate\Http\RedirectResponse;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +35,10 @@ class AuthenticatedSessionController extends Controller
             'admin' => User::where('role', 'admin')
                 ->select('name', 'email', 'role')
                 ->get(),
+            // Orangtua ambil semua
+            'parent' => User::where('role', 'parent')
+                ->select('name', 'email', 'role')
+                ->get(),
         ];
 
         return Inertia::render('Auth/Login', [
@@ -55,11 +59,12 @@ class AuthenticatedSessionController extends Controller
 
         // Redirect based on user role
         $user = Auth::user();
-        
+
         return match ($user->role) {
             'admin' => redirect()->route('admin.dashboard'),
             'teacher' => redirect()->route('guru.dashboard'),
             'student' => redirect()->route('siswa.dashboard'),
+            'parent' => redirect()->route('orangtua.dashboard'),
             default => redirect()->route('dashboard'),
         };
     }

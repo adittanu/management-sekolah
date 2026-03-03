@@ -11,12 +11,12 @@ class UserSeeder extends Seeder
     {
         // ── Admin ────────────────────────────────────────────────
         User::create([
-            'name'            => 'Administrator',
-            'email'           => 'admin@sekolah.id',
-            'role'            => 'admin',
+            'name' => 'Administrator',
+            'email' => 'admin@sekolah.id',
+            'role' => 'admin',
             'identity_number' => null,
-            'gender'          => 'L',
-            'password'        => bcrypt('password'),
+            'gender' => 'L',
+            'password' => bcrypt('password'),
         ]);
 
         // ── Teachers ─────────────────────────────────────────────
@@ -40,45 +40,70 @@ class UserSeeder extends Seeder
 
         foreach ($teacherData as $data) {
             User::create(array_merge($data, [
-                'role'     => 'teacher',
+                'role' => 'teacher',
                 'password' => bcrypt('password'),
             ]));
         }
 
         // ── Students: 20 first names × 18 last names = 360 ──────
         $firstNames = [
-            'Ahmad','Budi','Citra','Dian','Eko',
-            'Fajar','Gita','Hendra','Indah','Jihan',
-            'Kartika','Lukman','Maya','Nanda','Okta',
-            'Putra','Qori','Rudi','Sinta','Taufik',
+            'Ahmad', 'Budi', 'Citra', 'Dian', 'Eko',
+            'Fajar', 'Gita', 'Hendra', 'Indah', 'Jihan',
+            'Kartika', 'Lukman', 'Maya', 'Nanda', 'Okta',
+            'Putra', 'Qori', 'Rudi', 'Sinta', 'Taufik',
         ];
         $lastNames = [
-            'Pratama','Setiawan','Dewi','Putra','Santoso',
-            'Rahmat','Sari','Wijaya','Kurniawan','Hidayat',
-            'Lestari','Nugroho','Permata','Susanto','Maharani',
-            'Fauzi','Abidin','Handoko',
+            'Pratama', 'Setiawan', 'Dewi', 'Putra', 'Santoso',
+            'Rahmat', 'Sari', 'Wijaya', 'Kurniawan', 'Hidayat',
+            'Lestari', 'Nugroho', 'Permata', 'Susanto', 'Maharani',
+            'Fauzi', 'Abidin', 'Handoko',
         ];
         $genderMap = [
-            'Ahmad'=>'L','Budi'=>'L','Citra'=>'P','Dian'=>'P','Eko'=>'L',
-            'Fajar'=>'L','Gita'=>'P','Hendra'=>'L','Indah'=>'P','Jihan'=>'P',
-            'Kartika'=>'P','Lukman'=>'L','Maya'=>'P','Nanda'=>'L','Okta'=>'P',
-            'Putra'=>'L','Qori'=>'P','Rudi'=>'L','Sinta'=>'P','Taufik'=>'L',
+            'Ahmad' => 'L', 'Budi' => 'L', 'Citra' => 'P', 'Dian' => 'P', 'Eko' => 'L',
+            'Fajar' => 'L', 'Gita' => 'P', 'Hendra' => 'L', 'Indah' => 'P', 'Jihan' => 'P',
+            'Kartika' => 'P', 'Lukman' => 'L', 'Maya' => 'P', 'Nanda' => 'L', 'Okta' => 'P',
+            'Putra' => 'L', 'Qori' => 'P', 'Rudi' => 'L', 'Sinta' => 'P', 'Taufik' => 'L',
         ];
 
         $nis = 20240001;
         foreach ($firstNames as $first) {
             foreach ($lastNames as $last) {
                 User::create([
-                    'name'            => $first . ' ' . $last,
-                    'email'           => strtolower($first . '.' . $last) . '@siswa.sekolah.id',
-                    'role'            => 'student',
+                    'name' => $first.' '.$last,
+                    'email' => strtolower($first.'.'.$last).'@siswa.sekolah.id',
+                    'role' => 'student',
                     'identity_number' => (string) $nis++,
-                    'gender'          => $genderMap[$first],
-                    'password'        => bcrypt('password'),
+                    'gender' => $genderMap[$first],
+                    'password' => bcrypt('password'),
                 ]);
             }
         }
 
         $this->command->info('Users seeded: 1 admin, 15 teachers, 360 students');
+
+        // ── Parents ──────────────────────────────────────────────
+        $parentData = [
+            ['name' => 'Bapak Budi (Ortu Ahmad)', 'email' => 'ortu.ahmad@sekolah.id', 'gender' => 'L'],
+            ['name' => 'Ibu Citra (Ortu Budi)', 'email' => 'ortu.budi@sekolah.id', 'gender' => 'P'],
+            ['name' => 'Bapak Eko (Ortu Citra)', 'email' => 'ortu.citra@sekolah.id', 'gender' => 'L'],
+            ['name' => 'Ibu Dian (Ortu Dian)', 'email' => 'ortu.dian@sekolah.id', 'gender' => 'P'],
+            ['name' => 'Bapak Fajar (Ortu Eko)', 'email' => 'ortu.eko@sekolah.id', 'gender' => 'L'],
+        ];
+
+        // Get first 5 students to link
+        $students = User::where('role', 'student')->limit(5)->get();
+
+        foreach ($parentData as $index => $data) {
+            $parent = User::create(array_merge($data, [
+                'role' => 'parent',
+                'password' => bcrypt('password'),
+            ]));
+
+            if (isset($students[$index])) {
+                $parent->children()->attach($students[$index]->id);
+            }
+        }
+
+        $this->command->info('Users seeded: 5 parents linked to 5 students');
     }
 }
