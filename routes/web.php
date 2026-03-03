@@ -200,6 +200,9 @@ Route::prefix('guru')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Guru\DashboardController::class, 'index'])->name('dashboard');
 
+        // Kelas Perwalian (Wali Kelas)
+        Route::get('/kelas', [App\Http\Controllers\Guru\ClassroomController::class, 'index'])->name('kelas');
+
         // Placeholder Routes
         Route::get('/jadwal', [App\Http\Controllers\Guru\ScheduleController::class, 'index'])->name('jadwal');
 

@@ -79,6 +79,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
             {
                 groupLabel: "Manajemen Kelas",
                 items: [
+                    { name: 'Kelas Perwalian', href: '/guru/kelas', icon: School },
                     { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
                     { name: 'Presensi', href: '/guru/absensi', icon: ScanFace },
                     { name: 'Perpustakaan', href: '/guru/perpustakaan', icon: BookOpen },
