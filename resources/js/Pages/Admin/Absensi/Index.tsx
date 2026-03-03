@@ -520,8 +520,9 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                 setIsEditModalOpen(false);
                 toast.success('Data presensi berhasil diperbarui.');
             },
-            onError: () => {
+            onError: (errors) => {
                 toast.error('Gagal memperbarui data. Periksa kembali input Anda.');
+                console.error(errors);
             },
         });
     };
@@ -1183,6 +1184,8 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                                                 )}
                                                 <div className="flex flex-col md:flex-row gap-6 relative">
                                                     <button
+                                                        type="button"
+                                                        aria-label="Edit riwayat ini"
                                                         onClick={() => handleOpenEditModal(item)}
                                                         className="absolute top-0 right-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                                                         title="Edit riwayat ini"
