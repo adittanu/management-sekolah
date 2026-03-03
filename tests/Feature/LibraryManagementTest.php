@@ -170,4 +170,112 @@ class LibraryManagementTest extends TestCase
             'name' => $student->name,
         ]);
     }
+
+    public function test_admin_can_update_book_metadata_and_replace_pdf_file(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $oldPdfPath = UploadedFile::fake()->create('kimia-lama.pdf', 1000, 'application/pdf')
+            ->store('library-books', 'public');
+
+        $book = LibraryBook::factory()->create([
+            'title' => 'Kimia Dasar',
+            'author' => 'Penulis Lama',
+            'category' => 'Sains',
+            'description' => 'Deskripsi lama',
+            'total_pages' => 220,
+            'pdf_path' => $oldPdfPath,
+            'is_active' => true,
+            'uploaded_by' => $admin->id,
+        ]);
+
+        $updateMetaResponse = $this->actingAs($admin)->patch(route('admin.perpustakaan.books.update', $book), [
+            'title' => 'Kimia Dasar Edisi Revisi',
+            'author' => 'Penulis Baru',
+            'category' => 'Sains',
+            'description' => 'Deskripsi diperbarui',
+            'total_pages' => 240,
+            'is_active' => false,
+        ]);
+
+        $updateMetaResponse->assertRedirect();
+
+        $this->assertDatabaseHas('library_books', [
+            'id' => $book->id,
+            'title' => 'Kimia Dasar Edisi Revisi',
+            'author' => 'Penulis Baru',
+            'description' => 'Deskripsi diperbarui',
+            'total_pages' => 240,
+            'is_active' => false,
+            'pdf_path' => $oldPdfPath,
+        ]);
+
+        $updatePdfResponse = $this->actingAs($admin)->patch(route('admin.perpustakaan.books.update', $book), [
+            'title' => 'Kimia Dasar Edisi Revisi',
+            'author' => 'Penulis Baru',
+            'category' => 'Sains',
+            'description' => 'Deskripsi diperbarui',
+            'total_pages' => 240,
+            'is_active' => true,
+            'pdf_file' => UploadedFile::fake()->create('kimia-baru.pdf', 1200, 'application/pdf'),
+        ]);
+
+        $updatePdfResponse->assertRedirect();
+
+        $book->refresh();
+
+        $this->assertDatabaseHas('library_books', [
+            'id' => $book->id,
+            'is_active' => true,
+        ]);
+        $this->assertNotSame($oldPdfPath, $book->pdf_path);
+        Storage::disk('public')->assertMissing($oldPdfPath);
+        Storage::disk('public')->assertExists($book->pdf_path);
+    }
+
+    public function test_admin_can_delete_book_without_active_loans_and_cannot_delete_book_with_active_loans(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $student = User::factory()->create(['role' => 'student']);
+
+        $deletablePdfPath = UploadedFile::fake()->create('sejarah.pdf', 900, 'application/pdf')
+            ->store('library-books', 'public');
+        $deletableBook = LibraryBook::factory()->create([
+            'pdf_path' => $deletablePdfPath,
+            'uploaded_by' => $admin->id,
+        ]);
+
+        $deleteResponse = $this->actingAs($admin)->delete(route('admin.perpustakaan.books.destroy', $deletableBook));
+        $deleteResponse->assertRedirect();
+
+        $this->assertDatabaseMissing('library_books', [
+            'id' => $deletableBook->id,
+        ]);
+        Storage::disk('public')->assertMissing($deletablePdfPath);
+
+        $lockedPdfPath = UploadedFile::fake()->create('fisika.pdf', 900, 'application/pdf')
+            ->store('library-books', 'public');
+        $lockedBook = LibraryBook::factory()->create([
+            'pdf_path' => $lockedPdfPath,
+            'uploaded_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.perpustakaan.loans.store'), [
+            'library_book_id' => $lockedBook->id,
+            'user_id' => $student->id,
+            'duration_days' => 7,
+        ])->assertRedirect();
+
+        $blockedDeleteResponse = $this->actingAs($admin)->delete(route('admin.perpustakaan.books.destroy', $lockedBook));
+        $blockedDeleteResponse->assertRedirect();
+        $blockedDeleteResponse->assertSessionHas('error');
+
+        $this->assertDatabaseHas('library_books', [
+            'id' => $lockedBook->id,
+        ]);
+        Storage::disk('public')->assertExists($lockedPdfPath);
+    }
 }

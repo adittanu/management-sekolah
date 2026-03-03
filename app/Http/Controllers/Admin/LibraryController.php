@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreLibraryBookRequest;
 use App\Http\Requests\Admin\StoreLibraryLoanRequest;
+use App\Http\Requests\Admin\UpdateLibraryBookRequest;
 use App\Http\Requests\Admin\UpdateLibraryReadingProgressRequest;
 use App\Models\LibraryBook;
 use App\Models\LibraryLoan;
@@ -24,7 +25,7 @@ class LibraryController extends Controller
     {
         $books = LibraryBook::query()
             ->latest()
-            ->get(['id', 'title', 'author', 'category', 'total_pages', 'is_active', 'created_at']);
+            ->get(['id', 'title', 'author', 'category', 'description', 'total_pages', 'is_active', 'created_at']);
 
         $loans = LibraryLoan::query()
             ->with(['book:id,title,total_pages', 'user:id,name'])
@@ -77,6 +78,52 @@ class LibraryController extends Controller
         ]);
 
         return back()->with('success', 'Buku digital berhasil ditambahkan.');
+    }
+
+    public function updateBook(UpdateLibraryBookRequest $request, LibraryBook $book): RedirectResponse
+    {
+        $validated = $request->validated();
+
+        $payload = [
+            'title' => $validated['title'],
+            'author' => $validated['author'],
+            'category' => $validated['category'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'total_pages' => $validated['total_pages'],
+            'is_active' => $validated['is_active'],
+        ];
+
+        if ($request->hasFile('pdf_file')) {
+            if (Storage::disk('public')->exists($book->pdf_path)) {
+                Storage::disk('public')->delete($book->pdf_path);
+            }
+
+            $payload['pdf_path'] = $request->file('pdf_file')->store('library-books', 'public');
+        }
+
+        $book->update($payload);
+
+        return back()->with('success', 'Buku digital berhasil diperbarui.');
+    }
+
+    public function destroyBook(LibraryBook $book): RedirectResponse
+    {
+        $hasActiveLoan = LibraryLoan::query()
+            ->where('library_book_id', $book->id)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($hasActiveLoan) {
+            return back()->with('error', 'Buku tidak bisa dihapus karena masih memiliki pinjaman aktif.');
+        }
+
+        if (Storage::disk('public')->exists($book->pdf_path)) {
+            Storage::disk('public')->delete($book->pdf_path);
+        }
+
+        $book->delete();
+
+        return back()->with('success', 'Buku berhasil dihapus.');
     }
 
     public function storeLoan(StoreLibraryLoanRequest $request): RedirectResponse

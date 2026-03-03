@@ -28,8 +28,12 @@ class UserController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        // Get students for parent-linking dropdown
+        $students = User::where('role', 'student')->select('id', 'name', 'identity_number')->orderBy('name')->get();
+
         return Inertia::render('Admin/User/Index', [
             'users' => $users,
+            'students' => $students,
             'filters' => [
                 'search' => request('search'),
                 'role' => request('role'),
@@ -71,7 +75,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:8',
-            'role' => 'required|in:admin,teacher,student',
+            'role' => 'required|in:admin,teacher,student,parent',
             'identity_number' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
             'gender' => 'nullable|in:L,P',
             'avatar' => 'nullable|string',
@@ -98,5 +102,39 @@ class UserController extends Controller
         $user->delete();
 
         return redirect()->back()->with('success', 'User deleted successfully.');
+    }
+
+    /**
+     * Get children linked to a parent user.
+     */
+    public function getChildren(User $user)
+    {
+        if ($user->role !== 'parent') {
+            return response()->json(['error' => 'User is not a parent'], 422);
+        }
+
+        $children = $user->children()->select('users.id', 'users.name', 'users.identity_number')->get();
+
+        return response()->json($children);
+    }
+
+    /**
+     * Link children to a parent user.
+     */
+    public function linkChildren(Request $request, User $user)
+    {
+        if ($user->role !== 'parent') {
+            return redirect()->back()->with('error', 'User is not a parent.');
+        }
+
+        $validated = $request->validate([
+            'student_ids' => 'required|array',
+            'student_ids.*' => 'exists:users,id',
+        ]);
+
+        // Sync children (replaces all existing links)
+        $user->children()->sync($validated['student_ids']);
+
+        return redirect()->back()->with('success', 'Data anak berhasil diperbarui.');
     }
 }

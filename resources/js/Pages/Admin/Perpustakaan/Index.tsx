@@ -22,10 +22,9 @@ import {
     BookMarked,
     ArrowLeft,
     Calendar,
-    MoreVertical,
+    Pencil,
     Trash2,
     Upload,
-    FileText as FileIcon,
     Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -70,6 +69,7 @@ type Book = {
     title: string;
     author: string;
     category: string | null;
+    description: string | null;
     total_pages: number;
     is_active: boolean;
 };
@@ -157,6 +157,7 @@ export default function PerpustakaanIndex({
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'borrowed'>('all');
     const [sortBy, setSortBy] = useState<'latest' | 'title'>('latest');
+    const [editingBook, setEditingBook] = useState<Book | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const readerWrapperRef = useRef<HTMLDivElement | null>(null);
     const libraryRoutePrefix = role === 'teacher' ? 'guru' : role === 'student' ? 'siswa' : 'admin';
@@ -272,7 +273,50 @@ export default function PerpustakaanIndex({
         });
     }, [auth.user, libraryRoutePrefix]);
 
-    // Submit new book
+    const openAddBookForm = useCallback((): void => {
+        if (!canManageBooks) {
+            return;
+        }
+
+        setEditingBook(null);
+        bookForm.reset();
+        bookForm.clearErrors();
+        setView('add-book');
+    }, [bookForm, canManageBooks]);
+
+    const openEditBookForm = useCallback((book: Book): void => {
+        if (!canManageBooks) {
+            return;
+        }
+
+        setEditingBook(book);
+        bookForm.setData({
+            title: book.title,
+            author: book.author,
+            category: book.category ?? '',
+            description: book.description ?? '',
+            total_pages: book.total_pages,
+            pdf_file: null,
+            is_active: book.is_active,
+        });
+        bookForm.clearErrors();
+        setView('add-book');
+    }, [bookForm, canManageBooks]);
+
+    const deleteBook = useCallback((book: Book): void => {
+        if (!canManageBooks) {
+            return;
+        }
+
+        const confirmDelete = window.confirm(`Hapus buku "${book.title}"?`);
+        if (!confirmDelete) {
+            return;
+        }
+
+        router.delete(route('admin.perpustakaan.books.destroy', book.id));
+    }, [canManageBooks]);
+
+    // Submit add/edit book
     const submitBook = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
         if (!canManageBooks) {
@@ -281,10 +325,25 @@ export default function PerpustakaanIndex({
             return;
         }
 
+        if (editingBook) {
+            bookForm.patch(route('admin.perpustakaan.books.update', editingBook.id), {
+                forceFormData: true,
+                onSuccess: () => {
+                    bookForm.reset();
+                    setEditingBook(null);
+                    setView('library');
+                    toast.success('Buku berhasil diperbarui');
+                },
+            });
+
+            return;
+        }
+
         bookForm.post(route('admin.perpustakaan.books.store'), {
             forceFormData: true,
             onSuccess: () => {
                 bookForm.reset();
+                setEditingBook(null);
                 setView('library');
                 toast.success('Buku berhasil ditambahkan');
             },
@@ -543,6 +602,29 @@ export default function PerpustakaanIndex({
                             Pinjam Buku
                         </Button>
                     )}
+
+                    {canManageBooks && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-slate-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                onClick={() => openEditBookForm(book)}
+                            >
+                                <Pencil className="w-3.5 h-3.5 mr-1" />
+                                Edit
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-slate-600 hover:text-rose-700 hover:bg-rose-50"
+                                onClick={() => deleteBook(book)}
+                            >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                Hapus
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -786,12 +868,15 @@ export default function PerpustakaanIndex({
         }
 
         return (
-            <AdminLayout title="Tambah Buku - Perpustakaan">
+            <AdminLayout title={editingBook ? 'Edit Buku - Perpustakaan' : 'Tambah Buku - Perpustakaan'}>
                 <div className="max-w-4xl mx-auto">
                     <Button 
                         variant="ghost" 
                         className="mb-4"
-                        onClick={() => setView('library')}
+                        onClick={() => {
+                            setEditingBook(null);
+                            setView('library');
+                        }}
                     >
                         <ArrowLeft className="w-4 h-4 mr-1" />
                         Kembali ke Perpustakaan
@@ -799,8 +884,10 @@ export default function PerpustakaanIndex({
                     
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
-                            <h1 className="text-xl font-semibold text-white">Tambah Buku Baru</h1>
-                            <p className="text-indigo-100 text-sm">Tambahkan buku digital ke perpustakaan</p>
+                            <h1 className="text-xl font-semibold text-white">{editingBook ? 'Edit Buku' : 'Tambah Buku Baru'}</h1>
+                            <p className="text-indigo-100 text-sm">
+                                {editingBook ? 'Perbarui metadata buku digital perpustakaan' : 'Tambahkan buku digital ke perpustakaan'}
+                            </p>
                         </div>
                         
                         <form onSubmit={submitBook} className="p-6 space-y-4">
@@ -863,7 +950,7 @@ export default function PerpustakaanIndex({
                             </div>
                             
                             <div className="space-y-2">
-                                <Label htmlFor="pdf_file">File PDF *</Label>
+                                <Label htmlFor="pdf_file">{editingBook ? 'File PDF (opsional)' : 'File PDF *'}</Label>
                                 <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors">
                                     <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                                     <Input 
@@ -877,6 +964,11 @@ export default function PerpustakaanIndex({
                                         <span className="text-indigo-600 font-medium">Klik untuk upload</span>
                                         <span className="text-slate-500"> atau drag and drop file PDF</span>
                                     </label>
+                                    {editingBook && !bookForm.data.pdf_file && (
+                                        <p className="text-xs text-slate-500 mt-2">
+                                            Biarkan kosong jika tidak ingin mengganti file PDF.
+                                        </p>
+                                    )}
                                     {bookForm.data.pdf_file && (
                                         <p className="text-sm text-emerald-600 mt-2">
                                             {bookForm.data.pdf_file.name}
@@ -885,12 +977,31 @@ export default function PerpustakaanIndex({
                                 </div>
                                 {bookForm.errors.pdf_file && <p className="text-xs text-red-500">{bookForm.errors.pdf_file}</p>}
                             </div>
+
+                            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-700">Status Buku</p>
+                                    <p className="text-xs text-slate-500">Buku nonaktif tetap tersimpan tapi tidak muncul untuk dipinjam.</p>
+                                </div>
+                                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={bookForm.data.is_active}
+                                        onChange={(e) => bookForm.setData('is_active', e.target.checked)}
+                                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    Aktif
+                                </label>
+                            </div>
                             
                             <div className="flex gap-3 pt-4">
                                 <Button 
                                     type="button" 
                                     variant="outline"
-                                    onClick={() => setView('library')}
+                                    onClick={() => {
+                                        setEditingBook(null);
+                                        setView('library');
+                                    }}
                                 >
                                     Batal
                                 </Button>
@@ -906,8 +1017,8 @@ export default function PerpustakaanIndex({
                                         </>
                                     ) : (
                                         <>
-                                            <Plus className="w-4 h-4 mr-1" />
-                                            Simpan Buku
+                                            {editingBook ? <Pencil className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                                            {editingBook ? 'Simpan Perubahan' : 'Simpan Buku'}
                                         </>
                                     )}
                                 </Button>
@@ -959,7 +1070,7 @@ export default function PerpustakaanIndex({
                         <div className="flex justify-end mb-4">
                             <Button 
                                 className="bg-indigo-600 hover:bg-indigo-700"
-                                onClick={() => setView('add-book')}
+                                onClick={openAddBookForm}
                             >
                                 <Plus className="w-4 h-4 mr-1.5" />
                                 Tambah Buku

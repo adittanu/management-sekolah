@@ -290,30 +290,6 @@ export default function Dashboard({
 
                  {/* Assignments / Tasks */}
                  <div className="space-y-6">
-                    <Card className="border-none shadow-sm bg-orange-50/50">
-                        <CardHeader>
-                            <CardTitle className="text-base text-orange-800">Tugas Mendesak</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="bg-white p-3 rounded-lg border border-orange-100 shadow-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                     <Badge className="bg-orange-100 text-orange-700 border-none shadow-none text-[10px]">TUGAS</Badge>
-                                     <span className="text-xs font-bold text-orange-600">Hari Ini!</span>
-                                </div>
-                                <h5 className="font-bold text-sm text-slate-800 mb-1">Latihan Soal Aljabar</h5>
-                                <p className="text-xs text-slate-500">Matematika Wajib • Bu Rina</p>
-                            </div>
-                            <div className="bg-white p-3 rounded-lg border border-orange-100 shadow-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                     <Badge className="bg-purple-100 text-purple-700 border-none shadow-none text-[10px]">KUIS</Badge>
-                                     <span className="text-xs font-bold text-slate-400">Besok</span>
-                                </div>
-                                <h5 className="font-bold text-sm text-slate-800 mb-1">Quiz Hukum Newton</h5>
-                                <p className="text-xs text-slate-500">Fisika • Pak Budi</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
                     <Card className="border-none shadow-sm">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base">Kehadiran Saya</CardTitle>

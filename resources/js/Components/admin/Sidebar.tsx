@@ -66,13 +66,6 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     // { name: 'Tugas & Materi', href: '/siswa/tugas', icon: BookOpen },
                     // { name: 'Riwayat Presensi', href: '/siswa/absensi', icon: ScanFace },
                 ]
-            },
-            {
-                groupLabel: "Laporan",
-                items: [
-                    // { name: 'Kartu Hasil Studi', href: '/siswa/khs', icon: FileText },
-                    // { name: 'Tagihan SPP', href: '/siswa/keuangan', icon: Wallet },
-                ]
             }
         ];
     } else if (userRole === 'teacher') {
@@ -168,7 +161,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
     }
 
     // Add Bottom Items to Nav Groups (Settings Section)
-    if (userRole !== 'teacher' && userRole !== 'student') {
+    if (userRole === 'admin') {
         navGroups.push({
             groupLabel: "Pengaturan",
             items: [

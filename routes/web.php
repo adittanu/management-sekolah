@@ -59,6 +59,8 @@ Route::prefix('admin')
         Route::post('user/import/preview', [ImportUserController::class, 'preview'])->name('user.import.preview');
         Route::post('user/import', [ImportUserController::class, 'import'])->name('user.import');
         Route::resource('user', UserController::class);
+        Route::get('user/{user}/children', [UserController::class, 'getChildren'])->name('user.children');
+        Route::post('user/{user}/children', [UserController::class, 'linkChildren'])->name('user.children.link');
 
         Route::resource('kelas', App\Http\Controllers\Admin\ClassroomController::class)
             ->parameters(['kelas' => 'classroom']);
@@ -98,6 +100,8 @@ Route::prefix('admin')
 
         Route::get('/perpustakaan', [App\Http\Controllers\Admin\LibraryController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan/books', [App\Http\Controllers\Admin\LibraryController::class, 'storeBook'])->name('perpustakaan.books.store');
+        Route::patch('/perpustakaan/books/{book}', [App\Http\Controllers\Admin\LibraryController::class, 'updateBook'])->name('perpustakaan.books.update');
+        Route::delete('/perpustakaan/books/{book}', [App\Http\Controllers\Admin\LibraryController::class, 'destroyBook'])->name('perpustakaan.books.destroy');
         Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
         Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
         Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');

@@ -2,7 +2,8 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { DataTable, ColumnDef } from '@/Components/admin/DataTable';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
-import { useState, useEffect, FormEventHandler } from 'react';
+import { useState, useEffect, FormEventHandler, useCallback } from 'react';
+import axios from 'axios';
 import * as Icons from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
 import { Input } from "@/Components/ui/input";
@@ -16,11 +17,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 import { ImportUserWizard } from "@/Pages/Admin/User/Partials/ImportUserWizard";
 
+interface Student {
+    id: number;
+    name: string;
+    identity_number: string | null;
+}
+
 interface User {
     id: number;
     name: string;
     email: string;
-    role: 'admin' | 'teacher' | 'student';
+    role: 'admin' | 'teacher' | 'student' | 'parent';
     identity_number: string | null;
     gender: 'L' | 'P' | null;
     avatar: string | null;
@@ -42,6 +49,7 @@ interface PaginatedUsers {
 
 interface Props extends PageProps {
     users: PaginatedUsers;
+    students: Student[];
     filters?: {
         search?: string;
         role?: string;
@@ -51,13 +59,15 @@ interface Props extends PageProps {
 const ROLE_LABELS: Record<string, string> = {
     admin: 'ADMIN',
     teacher: 'GURU',
-    student: 'SISWA'
+    student: 'SISWA',
+    parent: 'ORANGTUA'
 };
 
 const ROLE_VALUES: Record<string, string> = {
     'Semua': '',
     'SISWA': 'student',
     'GURU': 'teacher',
+    'ORANGTUA': 'parent',
     'ADMIN': 'admin'
 };
 
@@ -66,7 +76,7 @@ const getAvatarUrl = (user: User) => {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`;
 };
 
-export default function UserIndex({ users, filters }: Props) {
+export default function UserIndex({ users, students, filters }: Props) {
     const [qrUser, setQrUser] = useState<User | null>(null);
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [activeTab, setActiveTab] = useState(() => {
@@ -82,6 +92,49 @@ export default function UserIndex({ users, filters }: Props) {
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState(filters?.search || '');
+
+    // Parent-Student Linking State
+    const [isLinkChildrenOpen, setIsLinkChildrenOpen] = useState(false);
+    const [linkParent, setLinkParent] = useState<User | null>(null);
+    const [selectedChildIds, setSelectedChildIds] = useState<number[]>([]);
+    const [loadingChildren, setLoadingChildren] = useState(false);
+    const [linkProcessing, setLinkProcessing] = useState(false);
+
+    const openLinkChildrenModal = useCallback(async (parent: User) => {
+        setLinkParent(parent);
+        setLoadingChildren(true);
+        setIsLinkChildrenOpen(true);
+        try {
+            const res = await axios.get(`/admin/user/${parent.id}/children`);
+            setSelectedChildIds(res.data.map((c: Student) => c.id));
+        } catch {
+            setSelectedChildIds([]);
+        } finally {
+            setLoadingChildren(false);
+        }
+    }, []);
+
+    const handleLinkChildren = () => {
+        if (!linkParent) return;
+        setLinkProcessing(true);
+        router.post(`/admin/user/${linkParent.id}/children`, { student_ids: selectedChildIds }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setIsLinkChildrenOpen(false);
+                setLinkParent(null);
+                setSelectedChildIds([]);
+            },
+            onFinish: () => setLinkProcessing(false),
+        });
+    };
+
+    const toggleChildSelection = (studentId: number) => {
+        setSelectedChildIds(prev =>
+            prev.includes(studentId)
+                ? prev.filter(id => id !== studentId)
+                : [...prev, studentId]
+        );
+    };
     
     // Search functionality
     const handleSearch = (e: React.FormEvent) => {
@@ -94,7 +147,7 @@ export default function UserIndex({ users, filters }: Props) {
         name: '',
         email: '',
         password: '',
-        role: 'student' as 'admin' | 'teacher' | 'student',
+        role: 'student' as 'admin' | 'teacher' | 'student' | 'parent',
         identity_number: '',
         gender: '' as 'L' | 'P' | '',
         avatar: '' // Placeholder if needed in future
@@ -115,7 +168,7 @@ export default function UserIndex({ users, filters }: Props) {
         name: '',
         email: '',
         password: '',
-        role: 'student' as 'admin' | 'teacher' | 'student',
+        role: 'student' as 'admin' | 'teacher' | 'student' | 'parent',
         identity_number: '',
         gender: '' as 'L' | 'P' | '',
         avatar: ''
@@ -189,6 +242,7 @@ export default function UserIndex({ users, filters }: Props) {
                             ${row.role === 'student' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''}
                             ${row.role === 'teacher' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''}
                             ${row.role === 'admin' ? 'bg-red-100 text-red-700 hover:bg-red-200' : ''}
+                            ${row.role === 'parent' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : ''}
                         `}>
                             {displayRole}
                         </Badge>
@@ -214,6 +268,17 @@ export default function UserIndex({ users, filters }: Props) {
             accessorKey: "id",
             cell: (row: User) => (
                 <div className="flex items-center gap-1">
+                    {row.role === 'parent' && (
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-slate-500 hover:text-green-600 hover:bg-green-50 transition-colors"
+                            onClick={() => openLinkChildrenModal(row)}
+                            title="Tautkan Anak"
+                        >
+                            <Icons.Link2 className="h-4 w-4" />
+                        </Button>
+                    )}
                     <Button 
                         variant="ghost" 
                         size="icon" 
@@ -327,7 +392,7 @@ export default function UserIndex({ users, filters }: Props) {
 
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex gap-2 pb-2 overflow-x-auto w-full sm:w-auto">
-                        {['Semua', 'SISWA', 'GURU', 'ADMIN'].map((tab) => (
+                        {['Semua', 'SISWA', 'GURU', 'ORANGTUA', 'ADMIN'].map((tab) => (
                             <Button 
                                 key={tab} 
                                 onClick={() => handleTabClick(tab)}
@@ -406,8 +471,8 @@ export default function UserIndex({ users, filters }: Props) {
                                 {/* Role Selection */}
                                 <div className="space-y-2">
                                     <Label className="text-sm font-medium text-slate-700">Peran Pengguna (Role)</Label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {(['student', 'teacher', 'admin'] as const).map((role) => (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {(['student', 'teacher', 'parent', 'admin'] as const).map((role) => (
                                             <div 
                                                 key={role}
                                                 onClick={() => setCreateData('role', role)}
@@ -416,6 +481,7 @@ export default function UserIndex({ users, filters }: Props) {
                                                     ${createData.role === role ? 
                                                         (role === 'student' ? 'border-blue-500 bg-blue-50 text-blue-700' :
                                                          role === 'teacher' ? 'border-purple-500 bg-purple-50 text-purple-700' :
+                                                         role === 'parent' ? 'border-amber-500 bg-amber-50 text-amber-700' :
                                                          'border-red-500 bg-red-50 text-red-700')
                                                         : 'hover:bg-slate-50 text-slate-600'
                                                     }
@@ -518,8 +584,8 @@ export default function UserIndex({ users, filters }: Props) {
                             <div className="px-6 py-4 space-y-6">
                                 <div className="space-y-2">
                                     <Label className="text-sm font-medium text-slate-700">Peran Pengguna (Role)</Label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {(['student', 'teacher', 'admin'] as const).map((role) => (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {(['student', 'teacher', 'parent', 'admin'] as const).map((role) => (
                                             <div 
                                                 key={role}
                                                 onClick={() => setEditData('role', role)}
@@ -528,6 +594,7 @@ export default function UserIndex({ users, filters }: Props) {
                                                     ${editData.role === role ? 
                                                         (role === 'student' ? 'border-blue-500 bg-blue-50 text-blue-700' :
                                                          role === 'teacher' ? 'border-purple-500 bg-purple-50 text-purple-700' :
+                                                         role === 'parent' ? 'border-amber-500 bg-amber-50 text-amber-700' :
                                                          'border-red-500 bg-red-50 text-red-700')
                                                         : 'hover:bg-slate-50 text-slate-600'
                                                     }
@@ -710,6 +777,76 @@ export default function UserIndex({ users, filters }: Props) {
                                 </Button>
                             </div>
                         </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Link Children to Parent Dialog */}
+                <Dialog open={isLinkChildrenOpen} onOpenChange={(open) => { if (!open) { setIsLinkChildrenOpen(false); setLinkParent(null); } }}>
+                    <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden bg-white border-slate-100 shadow-2xl">
+                        <DialogHeader className="p-6 pb-2">
+                            <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <Icons.Link2 className="w-5 h-5 text-green-600" />
+                                Tautkan Anak ke Orangtua
+                            </DialogTitle>
+                            <DialogDescription>
+                                Pilih siswa yang merupakan anak dari <strong>{linkParent?.name}</strong>.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="px-6 py-4 max-h-[400px] overflow-y-auto">
+                            {loadingChildren ? (
+                                <div className="flex justify-center py-8">
+                                    <Icons.Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {students.map((student) => (
+                                        <div
+                                            key={student.id}
+                                            onClick={() => toggleChildSelection(student.id)}
+                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                                                selectedChildIds.includes(student.id)
+                                                    ? 'border-green-500 bg-green-50'
+                                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                                selectedChildIds.includes(student.id)
+                                                    ? 'bg-green-500 border-green-500 text-white'
+                                                    : 'border-slate-300'
+                                            }`}>
+                                                {selectedChildIds.includes(student.id) && (
+                                                    <Icons.Check className="w-3 h-3" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-medium text-slate-900">{student.name}</div>
+                                                <div className="text-xs text-slate-500">NIS: {student.identity_number || '-'}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {students.length === 0 && (
+                                        <div className="text-center py-8 text-slate-500">
+                                            Belum ada data siswa di sistem.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <DialogFooter className="p-6 pt-2 bg-slate-50/50">
+                            <div className="text-sm text-slate-500 mr-auto">
+                                {selectedChildIds.length} siswa dipilih
+                            </div>
+                            <Button type="button" variant="outline" onClick={() => setIsLinkChildrenOpen(false)}>Batal</Button>
+                            <Button 
+                                onClick={handleLinkChildren} 
+                                disabled={linkProcessing}
+                                className="bg-green-600 hover:bg-green-700 text-white min-w-[120px]"
+                            >
+                                {linkProcessing ? 'Menyimpan...' : 'Simpan Tautan'}
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             </div>
