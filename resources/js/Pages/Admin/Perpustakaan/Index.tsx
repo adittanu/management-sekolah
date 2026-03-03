@@ -28,8 +28,10 @@ import {
     Pencil,
     Trash2,
     Upload,
-    Layers
+    Layers,
+    Info
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import axios from 'axios';
@@ -895,14 +897,35 @@ export default function PerpustakaanIndex({
                             </Button>
                         </div>
                         
-                        <Button
-                            variant={sideNavigationEnabled ? "default" : "outline"}
-                            size="sm"
-                            className={sideNavigationEnabled ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-600 text-slate-300'}
-                            onClick={() => setSideNavigationEnabled(v => !v)}
-                        >
-                            {sideNavigationEnabled ? 'Nav: On' : 'Nav: Off'}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+                                onClick={() => {
+                                    const existing = bookmarks.find(b => b.page_number === currentPage);
+                                    if (existing) {
+                                        void deleteBookmark(existing.id);
+                                    } else {
+                                        setBookmarkNote('');
+                                        void saveBookmark();
+                                    }
+                                }}
+                                disabled={bookmarkProcessing}
+                                title={bookmarks.some(b => b.page_number === currentPage) ? 'Hapus Bookmark' : 'Tambahkan Bookmark'}
+                            >
+                                <Bookmark className={`w-4 h-4 mr-1.5 ${bookmarks.some(b => b.page_number === currentPage) ? 'fill-indigo-500 text-indigo-500' : ''}`} />
+                                Bookmark
+                            </Button>
+                            <Button
+                                variant={sideNavigationEnabled ? "default" : "outline"}
+                                size="sm"
+                                className={sideNavigationEnabled ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white'}
+                                onClick={() => setSideNavigationEnabled(v => !v)}
+                            >
+                                {sideNavigationEnabled ? 'Nav: On' : 'Nav: Off'}
+                            </Button>
+                        </div>
                     </div>
                 </div>
                 
@@ -959,162 +982,213 @@ export default function PerpustakaanIndex({
                     </div>
                     
                     <div className="w-[360px] bg-slate-900 border-l border-slate-800 flex flex-col">
-                        <div className="p-4 border-b border-slate-800">
-                            <h3 className="text-white font-medium flex items-center gap-2">
-                                <Users className="w-4 h-4" />
-                                Pembaca di Halaman {currentPage}
-                            </h3>
-                        </div>
+                        <Tabs defaultValue="comments" className="flex flex-col h-full">
+                            <div className="p-3 border-b border-slate-800 bg-slate-900">
+                                <TabsList className="w-full grid grid-cols-3 bg-slate-800">
+                                    <TabsTrigger value="comments" className="text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                        <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                                        Diskusi
+                                    </TabsTrigger>
+                                    <TabsTrigger value="bookmarks" className="text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                        <Bookmark className="w-3.5 h-3.5 mr-1.5" />
+                                        Bookmark
+                                    </TabsTrigger>
+                                    <TabsTrigger value="info" className="text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+                                        <Info className="w-3.5 h-3.5 mr-1.5" />
+                                        Info
+                                    </TabsTrigger>
+                                </TabsList>
+                            </div>
 
-                        <div className="flex-1 overflow-auto p-4 space-y-4">
-                            <section className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 space-y-2">
-                                {presenceParticipants.length === 0 ? (
-                                    <p className="text-sm text-slate-500">Belum ada pembaca lain di halaman ini.</p>
-                                ) : (
-                                    presenceParticipants.map((participant) => {
-                                        const participantName = participant.name || 'Pengguna';
 
-                                        return (
-                                            <div key={participant.user_id} className="flex items-center gap-3 rounded-lg bg-slate-900/70 p-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-medium">
-                                                    {participantName.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium text-slate-200 truncate">{participantName}</p>
-                                                    <p className="text-xs text-slate-500">Halaman {participant.current_page}</p>
-                                                </div>
+                            <div className="flex-1 overflow-hidden relative">
+                                <TabsContent value="comments" className="absolute inset-0 m-0 flex flex-col outline-none data-[state=inactive]:hidden">
+                                    {/* Chat Messages */}
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                        {comments.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 py-10">
+                                                <MessageSquare className="w-10 h-10 text-slate-600" />
+                                                <p className="text-sm text-slate-400">Belum ada diskusi untuk buku ini.</p>
                                             </div>
-                                        );
-                                    })
-                                )}
-                            </section>
+                                        ) : (
+                                            [...comments].reverse().map((comment) => {
+                                                const commenterName = comment.user?.name || 'Pengguna';
+                                                const commenterInitial = commenterName.charAt(0).toUpperCase();
+                                                const isOwnComment = comment.user_id === auth.user?.id;
 
-                            <section className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                                        <StickyNote className="w-4 h-4 text-indigo-400" />
-                                        Bookmark Pribadi
-                                    </h4>
-                                    <span className="text-xs text-slate-500">Halaman {currentPage}</span>
-                                </div>
-
-                                <textarea
-                                    value={bookmarkNote}
-                                    onChange={(event) => setBookmarkNote(event.target.value)}
-                                    placeholder="Tulis catatan pribadi untuk halaman ini (opsional)"
-                                    rows={3}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
-                                />
-
-                                <Button
-                                    size="sm"
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700"
-                                    disabled={bookmarkProcessing}
-                                    onClick={() => void saveBookmark()}
-                                >
-                                    <Bookmark className="w-4 h-4 mr-1.5" />
-                                    {bookmarkProcessing ? 'Menyimpan...' : 'Simpan Bookmark'}
-                                </Button>
-
-                                <div className="space-y-2 max-h-48 overflow-auto pr-1">
-                                    {bookmarks.length === 0 ? (
-                                        <p className="text-xs text-slate-500">Belum ada bookmark pribadi.</p>
-                                    ) : (
-                                        bookmarks.map((bookmark) => (
-                                            <div key={bookmark.id} className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 space-y-2">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs font-medium text-indigo-300 hover:text-indigo-200"
-                                                        onClick={() => setCurrentPage(bookmark.page_number)}
-                                                    >
-                                                        Halaman {bookmark.page_number}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-rose-300 hover:text-rose-200"
-                                                        onClick={() => void deleteBookmark(bookmark.id)}
-                                                    >
-                                                        Hapus
-                                                    </button>
-                                                </div>
-                                                {bookmark.note && (
-                                                    <p className="text-xs text-slate-300 whitespace-pre-wrap">{bookmark.note}</p>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </section>
-
-                            <section className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 space-y-3">
-                                <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4 text-emerald-400" />
-                                    Komentar Pembaca
-                                </h4>
-
-                                <div className="space-y-2 max-h-56 overflow-auto pr-1">
-                                    {comments.length === 0 ? (
-                                        <p className="text-xs text-slate-500">Belum ada komentar untuk buku ini.</p>
-                                    ) : (
-                                        comments.map((comment) => {
-                                            const commenterName = comment.user?.name || 'Pengguna';
-                                            const commenterInitial = commenterName.charAt(0).toUpperCase();
-                                            const isOwnComment = comment.user_id === auth.user?.id;
-
-                                            return (
-                                                <div key={comment.id} className="rounded-lg border border-slate-700 bg-slate-900/80 p-2">
-                                                    <div className="flex items-start gap-2">
-                                                        <div className="w-7 h-7 rounded-full bg-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center">
-                                                            {commenterInitial}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center justify-between gap-2">
-                                                                <p className={`text-xs font-medium ${isOwnComment ? 'text-indigo-300' : 'text-slate-300'}`}>{commenterName}</p>
-                                                                {comment.current_page !== null && (
-                                                                    <span className="text-[11px] text-slate-500">Hal {comment.current_page}</span>
-                                                                )}
+                                                return (
+                                                    <div key={comment.id} className={`flex items-end gap-2 ${isOwnComment ? 'flex-row-reverse' : ''}`}>
+                                                        {!isOwnComment && (
+                                                            <div className="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 text-slate-200 text-xs font-medium flex items-center justify-center">
+                                                                {commenterInitial}
                                                             </div>
-                                                            <p className="text-xs text-slate-200 whitespace-pre-wrap">{comment.comment}</p>
+                                                        )}
+                                                        <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${isOwnComment ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-800 text-slate-200 rounded-bl-sm'}`}>
+                                                            {!isOwnComment && (
+                                                                <p className="text-[11px] font-medium text-slate-400 mb-0.5">{commenterName}</p>
+                                                            )}
+                                                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{comment.comment}</p>
+                                                            {comment.current_page !== null && (
+                                                                <div className={`text-[10px] mt-1 text-right ${isOwnComment ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                                    Hal {comment.current_page}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                    {/* Chat Input */}
+                                    <div className="p-3 bg-slate-800/20 border-t border-slate-800">
+                                        <div className="relative">
+                                            <textarea
+                                                value={commentMessage}
+                                                onChange={(event) => setCommentMessage(event.target.value)}
+                                                placeholder="Tulis pesan..."
+                                                rows={1}
+                                                className="w-full rounded-2xl border border-slate-700 bg-slate-900 pl-4 pr-12 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none resize-none"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        if (commentMessage.trim() !== '' && !commentProcessing) {
+                                                            void sendComment();
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                disabled={commentProcessing || commentMessage.trim() === ''}
+                                                onClick={() => void sendComment()}
+                                            >
+                                                <Send className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="bookmarks" className="absolute inset-0 m-0 flex flex-col outline-none data-[state=inactive]:hidden">
+                                    <div className="p-4 border-b border-slate-800 bg-slate-800/20">
+                                        <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center justify-between">
+                                            <span>Halaman Saat Ini ({currentPage})</span>
+                                        </h4>
+                                        <div className="space-y-2">
+                                            <textarea
+                                                value={bookmarkNote}
+                                                onChange={(event) => setBookmarkNote(event.target.value)}
+                                                placeholder="Tambahkan catatan pribadi untuk halaman ini..."
+                                                rows={2}
+                                                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none resize-none"
+                                            />
+                                            <Button
+                                                size="sm"
+                                                className="w-full bg-slate-700 hover:bg-slate-600 text-white"
+                                                disabled={bookmarkProcessing}
+                                                onClick={() => void saveBookmark()}
+                                            >
+                                                {bookmarks.some(b => b.page_number === currentPage) ? 'Simpan Catatan' : 'Tandai & Simpan Catatan'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                        {bookmarks.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+                                                <Bookmark className="w-10 h-10 text-slate-600" />
+                                                <p className="text-sm text-slate-500">Belum ada daftar bookmark.</p>
+                                            </div>
+                                        ) : (
+                                            bookmarks.map((bookmark) => (
+                                                <div key={bookmark.id} className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 space-y-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <button
+                                                            type="button"
+                                                            className="text-sm font-medium text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5"
+                                                            onClick={() => setCurrentPage(bookmark.page_number)}
+                                                        >
+                                                            <BookOpen className="w-3.5 h-3.5" />
+                                                            Halaman {bookmark.page_number}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="text-slate-500 hover:text-rose-400"
+                                                            onClick={() => void deleteBookmark(bookmark.id)}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                    {bookmark.note && (
+                                                        <p className="text-xs text-slate-300 whitespace-pre-wrap">{bookmark.note}</p>
+                                                    )}
                                                 </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </TabsContent>
 
-                                <div className="space-y-2">
-                                    <textarea
-                                        value={commentMessage}
-                                        onChange={(event) => setCommentMessage(event.target.value)}
-                                        placeholder="Tulis komentar untuk pembaca lain..."
-                                        rows={3}
-                                        className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
-                                    />
-                                    <Button
-                                        size="sm"
-                                        className="w-full bg-emerald-600 hover:bg-emerald-700"
-                                        disabled={commentProcessing || commentMessage.trim() === ''}
-                                        onClick={() => void sendComment()}
-                                    >
-                                        <Send className="w-4 h-4 mr-1.5" />
-                                        {commentProcessing ? 'Mengirim...' : 'Kirim Komentar'}
-                                    </Button>
-                                </div>
-                            </section>
-                        </div>
+                                <TabsContent value="info" className="absolute inset-0 m-0 flex flex-col outline-none data-[state=inactive]:hidden">
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                                        {/* Book Info */}
+                                        <div>
+                                            <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+                                                <FileText className="w-4 h-4 text-indigo-400" />
+                                                Informasi Dokumen
+                                            </h4>
+                                            <div className="space-y-2 text-sm text-slate-400 bg-slate-800/30 p-3 rounded-lg border border-slate-800">
+                                                <div className="flex justify-between">
+                                                    <span>Total Halaman</span>
+                                                    <span className="text-slate-200 font-medium">{selectedBook.total_pages}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Kategori</span>
+                                                    <span className="text-slate-200 font-medium">{selectedBook.category || '-'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Batas Pinjam</span>
+                                                    <span className="text-rose-400 font-medium">{new Date(selectedLoan.due_at).toLocaleDateString('id-ID')}</span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                        <div className="p-4 border-t border-slate-800 bg-slate-800/30">
-                            <h4 className="text-sm font-medium text-slate-300 mb-2">Info Buku</h4>
-                            <div className="space-y-1 text-xs text-slate-400">
-                                <p>Total Halaman: {selectedBook.total_pages}</p>
-                                <p>Kategori: {selectedBook.category || '-'}</p>
-                                <p>Jatuh Tempo: {new Date(selectedLoan.due_at).toLocaleDateString('id-ID')}</p>
-                                <p>Bookmark Pribadi: {bookmarks.length}</p>
-                                <p>Total Komentar: {comments.length}</p>
+                                        <div className="h-px bg-slate-800" />
+
+                                        {/* Readers */}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                                                    <Users className="w-4 h-4 text-emerald-400" />
+                                                    Pembaca di Halaman {currentPage}
+                                                </h4>
+                                                <div className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-medium">
+                                                    {presenceParticipants.length}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {presenceParticipants.length === 0 ? (
+                                                    <p className="text-sm text-slate-500 text-center py-4">Belum ada pembaca lain di halaman ini.</p>
+                                                ) : (
+                                                    presenceParticipants.map((participant) => {
+                                                        const participantName = participant.name || 'Pengguna';
+                                                        return (
+                                                            <div key={participant.user_id} className="flex items-center gap-3 bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-medium">
+                                                                    {participantName.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-slate-200">{participantName}</p>
+                                                                    <p className="text-xs text-slate-500">Sedang membaca</p>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </TabsContent>
                             </div>
-                        </div>
+                        </Tabs>
                     </div>
                 </div>
             </div>
