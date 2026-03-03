@@ -281,6 +281,7 @@ class AttendanceController extends Controller
             'students' => 'required|array',
             'students.*.student_id' => 'required|exists:users,id',
             'students.*.status' => 'required|in:hadir,sakit,izin,alpha',
+            'students.*.leave_letter_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
             'teacher_status' => 'required|in:hadir,sakit,izin,alpha',
             'journal_topic' => 'nullable|string|max:255',
             'journal_content' => 'nullable|string',
