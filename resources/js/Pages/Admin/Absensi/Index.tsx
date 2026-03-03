@@ -7,10 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
-import { 
-    ScanFace, MapPin, CheckCircle, XCircle, Clock, Calendar, Search, Users, UserCheck, 
+import {
+    ScanFace, MapPin, CheckCircle, XCircle, Clock, Calendar, Search, Users, UserCheck,
     BookOpen, Download, List, Grid, Save, User, Undo2, ArrowRight, FileText, Upload,
-    X
+    X, Pencil
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Toaster } from "@/Components/ui/sonner"
@@ -21,6 +21,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/Components/ui/dialog"
@@ -176,6 +177,15 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
     const [students, setStudents] = useState<Student[]>([]);
     const isTeacherLeaveStatus = teacherStatus === 'Sakit' || teacherStatus === 'Izin';
     const [historyTeacherStatusFilter, setHistoryTeacherStatusFilter] = useState<'Semua' | AttendanceStatus>('Semua');
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingJournal, setEditingJournal] = useState<JournalModel | null>(null);
+    const [editStudents, setEditStudents] = useState<Student[]>([]);
+    const [editTeacherStatus, setEditTeacherStatus] = useState<AttendanceStatus>('Hadir');
+    const [editTopic, setEditTopic] = useState('');
+    const [editContent, setEditContent] = useState('');
+    const [editProofFile, setEditProofFile] = useState<File | null>(null);
+    const [editLeaveLetterFile, setEditLeaveLetterFile] = useState<File | null>(null);
     const filteredHistory = history.data.filter((item) => {
         if (historyTeacherStatusFilter === 'Semua') {
             return true;
@@ -450,6 +460,72 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
         setIsAttendanceModalOpen(true);
     };
 
+    const handleOpenEditModal = (item: JournalModel) => {
+        setEditingJournal(item);
+        setEditTeacherStatus(normalizeStatus(item.teacher_status ?? 'hadir'));
+        setEditTopic(item.title || '');
+        setEditContent(item.description || '');
+        setEditProofFile(null);
+        setEditLeaveLetterFile(null);
+        const mappedStudents: Student[] = (item.attendance_details || []).map(s => ({
+            ...s,
+            status: normalizeStatus(s.status),
+            leaveLetterFile: null,
+        }));
+        setEditStudents(mappedStudents);
+        setIsEditModalOpen(true);
+    };
+
+    const toggleEditStudentStatus = (id: number) => {
+        setEditStudents(prev => prev.map(student => {
+            if (student.id === id) {
+                const nextStatus: Record<AttendanceStatus, AttendanceStatus> = {
+                    'Hadir': 'Sakit', 'Sakit': 'Izin', 'Izin': 'Alpha',
+                    'Alpha': 'Hadir', 'Tidak Mengabsen': 'Hadir',
+                };
+                return { ...student, status: nextStatus[student.status], leaveLetterFile: null };
+            }
+            return student;
+        }));
+    };
+
+    const handleEditStudentLeaveFile = (studentId: number, file: File | null) => {
+        setEditStudents(prev => prev.map(s =>
+            s.id === studentId ? { ...s, leaveLetterFile: file } : s
+        ));
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingJournal) return;
+
+        const formData = new FormData();
+        formData.append('_method', 'PUT');
+        formData.append('teacher_status', editTeacherStatus.toLowerCase());
+        formData.append('journal_topic', editTopic);
+        formData.append('journal_content', editContent);
+        if (editProofFile) formData.append('proof_file', editProofFile);
+        const isTeacherOnLeave = editTeacherStatus === 'Sakit' || editTeacherStatus === 'Izin';
+        if (isTeacherOnLeave && editLeaveLetterFile) formData.append('leave_letter_file', editLeaveLetterFile);
+
+        editStudents.forEach((s, index) => {
+            formData.append(`students[${index}][student_id]`, s.id.toString());
+            formData.append(`students[${index}][status]`, s.status.toLowerCase());
+            if ((s.status === 'Sakit' || s.status === 'Izin') && s.leaveLetterFile) {
+                formData.append(`students[${index}][leave_letter_file]`, s.leaveLetterFile);
+            }
+        });
+
+        router.post(route('admin.absensi.update', editingJournal.id), formData, {
+            onSuccess: () => {
+                setIsEditModalOpen(false);
+                toast.success('Data presensi berhasil diperbarui.');
+            },
+            onError: () => {
+                toast.error('Gagal memperbarui data. Periksa kembali input Anda.');
+            },
+        });
+    };
+
     return (
         <AdminLayout title="Absensi & Kehadiran">
             <Toaster position="bottom-right" />
@@ -490,6 +566,179 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                             </div>
                         )}
                     </ScrollArea>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Riwayat Modal */}
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold">Edit Riwayat Absensi</DialogTitle>
+                        <DialogDescription>
+                            {editingJournal && (
+                                <span>
+                                    {editingJournal.schedule?.subject?.name} — {editingJournal.schedule?.classroom?.name}
+                                    {' · '}
+                                    <span className="font-medium text-slate-700">{editingJournal.date}</span>
+                                </span>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <ScrollArea className="flex-1 overflow-y-auto pr-2">
+                        <div className="space-y-5 py-1">
+
+                            {/* Teacher Status */}
+                            <div>
+                                <Label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-2 block">
+                                    Status Guru
+                                </Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {(['Hadir', 'Sakit', 'Izin', 'Alpha'] as AttendanceStatus[]).map(s => (
+                                        <button
+                                            key={s}
+                                            type="button"
+                                            onClick={() => setEditTeacherStatus(s)}
+                                            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                                editTeacherStatus === s
+                                                    ? getStatusColor(s) + ' ring-2 ring-offset-1 ring-current'
+                                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                                {(editTeacherStatus === 'Sakit' || editTeacherStatus === 'Izin') && (
+                                    <div className="mt-2">
+                                        <Label className="text-xs text-slate-500 mb-1 block">Surat Izin/Sakit Guru</Label>
+                                        <div className="border border-dashed border-slate-300 rounded-lg px-3 py-2 bg-white relative cursor-pointer hover:bg-slate-50">
+                                            <Input
+                                                type="file"
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                onChange={(e) => setEditLeaveLetterFile(e.target.files?.[0] ?? null)}
+                                                accept="image/*,application/pdf"
+                                            />
+                                            <p className="text-xs text-slate-600 truncate">
+                                                {editLeaveLetterFile
+                                                    ? editLeaveLetterFile.name
+                                                    : editingJournal?.leave_letter_file
+                                                        ? 'File saat ini: ' + editingJournal.leave_letter_file.split('/').pop()
+                                                        : 'Upload surat izin/sakit'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Journal Fields */}
+                            <div className="space-y-3">
+                                <div>
+                                    <Label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1 block">
+                                        Topik / Materi
+                                    </Label>
+                                    <Input
+                                        value={editTopic}
+                                        onChange={(e) => setEditTopic(e.target.value)}
+                                        placeholder="Contoh: Pertemuan — Teks Anekdot"
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1 block">
+                                        Catatan KBM
+                                    </Label>
+                                    <Textarea
+                                        value={editContent}
+                                        onChange={(e) => setEditContent(e.target.value)}
+                                        placeholder="Catatan kegiatan belajar mengajar..."
+                                        rows={3}
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1 block">
+                                        Bukti Mengajar
+                                    </Label>
+                                    <div className="border border-dashed border-slate-300 rounded-lg px-3 py-2 bg-white relative cursor-pointer hover:bg-slate-50">
+                                        <Input
+                                            type="file"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            onChange={(e) => setEditProofFile(e.target.files?.[0] ?? null)}
+                                            accept="image/*,application/pdf"
+                                        />
+                                        <p className="text-xs text-slate-600 truncate">
+                                            {editProofFile
+                                                ? editProofFile.name
+                                                : editingJournal?.proof_file
+                                                    ? 'File saat ini: ' + editingJournal.proof_file.split('/').pop()
+                                                    : 'Upload bukti mengajar (opsional)'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Student Attendance */}
+                            <div>
+                                <Label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-2 block">
+                                    Kehadiran Siswa ({editStudents.length} siswa)
+                                </Label>
+                                {editStudents.length === 0 ? (
+                                    <p className="text-sm text-slate-400 py-4 text-center">Tidak ada data siswa.</p>
+                                ) : (
+                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                                        {editStudents.map((student) => (
+                                            <div key={student.id} className="space-y-1">
+                                                <div
+                                                    onClick={() => toggleEditStudentStatus(student.id)}
+                                                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all select-none
+                                                        ${student.status === 'Hadir' ? 'bg-white border-slate-100 hover:border-emerald-200' : ''}
+                                                        ${student.status === 'Sakit' ? 'bg-blue-50 border-blue-200' : ''}
+                                                        ${student.status === 'Izin' ? 'bg-amber-50 border-amber-200' : ''}
+                                                        ${student.status === 'Alpha' ? 'bg-rose-50 border-rose-200' : ''}
+                                                    `}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-7 w-7">
+                                                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`} />
+                                                            <AvatarFallback className="text-xs">{student.name.substring(0, 2)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-slate-900 leading-none">{student.name}</p>
+                                                            <p className="text-xs text-slate-500">{student.nis}</p>
+                                                        </div>
+                                                    </div>
+                                                    <Badge variant="outline" className={`w-20 justify-center text-xs ${getStatusColor(student.status)}`}>
+                                                        {student.status}
+                                                    </Badge>
+                                                </div>
+                                                {(student.status === 'Sakit' || student.status === 'Izin') && (
+                                                    <div className="ml-10 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 bg-white relative cursor-pointer hover:bg-slate-50" onClick={(e) => e.stopPropagation()}>
+                                                        <Input
+                                                            type="file"
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                            onChange={(e) => handleEditStudentLeaveFile(student.id, e.target.files?.[0] ?? null)}
+                                                            accept="image/*,application/pdf"
+                                                        />
+                                                        <p className="text-xs text-slate-600 truncate">
+                                                            {student.leaveLetterFile ? student.leaveLetterFile.name : 'Upload surat siswa'}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                        </div>
+                    </ScrollArea>
+
+                    <DialogFooter className="pt-4 border-t mt-2">
+                        <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Batal</Button>
+                        <Button onClick={handleSaveEdit} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Save className="w-4 h-4 mr-2" />
+                            Simpan Perubahan
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -932,7 +1181,14 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                                                         <span>Absensi ini diisi otomatis oleh sistem karena guru tidak melakukan presensi setelah jam pelajaran berakhir.</span>
                                                     </div>
                                                 )}
-                                                <div className="flex flex-col md:flex-row gap-6">
+                                                <div className="flex flex-col md:flex-row gap-6 relative">
+                                                    <button
+                                                        onClick={() => handleOpenEditModal(item)}
+                                                        className="absolute top-0 right-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                        title="Edit riwayat ini"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
                                                     {/* Left: Schedule Info & Teacher */}
                                                     <div className="md:w-1/3 space-y-4">
                                                         <div className="flex items-center gap-3">
