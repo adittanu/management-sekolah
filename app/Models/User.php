@@ -125,4 +125,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(LibraryReadingProgress::class);
     }
+
+    public function libraryBookmarks(): HasMany
+    {
+        return $this->hasMany(LibraryBookmark::class);
+    }
+
+    public function libraryComments(): HasMany
+    {
+        return $this->hasMany(LibraryComment::class);
+    }
 }

@@ -1,10 +1,8 @@
-import { Link, Head, router, useForm, usePage } from '@inertiajs/react';
-import { Card, CardContent } from '@/Components/ui/card';
+import { Link, Head, useForm, router, usePage } from '@inertiajs/react';
 import { Input } from '@/Components/ui/input';
 import { Button } from '@/Components/ui/button';
-import { Badge } from '@/Components/ui/badge';
 import { Label } from '@/Components/ui/label';
-import { School, User, GraduationCap, Lock, LogIn, BookOpen, Quote, ChevronRight, Scan, Loader2, RefreshCw } from 'lucide-react';
+import { School, User, GraduationCap, BookOpen, Quote, ChevronRight, Scan, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState, useRef, FormEventHandler } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -12,25 +10,46 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import InputError from '@/Components/InputError';
 import axios from 'axios';
 
-export default function Welcome() {
+interface DemoUser {
+    name: string;
+    email: string;
+    role: string;
+}
+
+interface DemoAccounts {
+    student: DemoUser[];
+    teacher: DemoUser[];
+    admin: DemoUser[];
+    parent: DemoUser[];
+}
+
+export default function Welcome({
+    status,
+    canResetPassword,
+    demoAccounts,
+}: {
+    status?: string;
+    canResetPassword: boolean;
+    demoAccounts: DemoAccounts;
+}) {
     const { props } = usePage();
     const { school_settings } = props as any;
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    // Login Form State (using Inertia useForm)
+    // Standard Email Login Form
     const { data, setData, post, processing, errors, reset } = useForm({
         login: '',
         password: '',
         remember: false as boolean,
     });
 
-    // Handle Login Submit
-    const submit: FormEventHandler = (e) => {
-        e.preventDefault();
-        post(route('login'), {
-            onFinish: () => reset('password'),
-        });
-    };
+    // Track email yang sedang aktif per role agar bisa dapat user yang berbeda tiap klik
+    const [currentDemoEmails, setCurrentDemoEmails] = useState<Record<string, string>>({
+        student: '',
+        teacher: '',
+        admin: '',
+        parent: '',
+    });
 
     // QR & Tab State
     const [loginMethod, setLoginMethod] = useState<'manual' | 'qr'>('manual');
@@ -44,7 +63,7 @@ export default function Welcome() {
 
     // Refs
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const scannerRegionId = "html5qr-code-welcome-region";
+    const scannerRegionId = "html5qr-code-login-region";
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -59,6 +78,43 @@ export default function Welcome() {
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+    };
+
+    const handleFillDemo = (role: 'student' | 'teacher' | 'admin' | 'parent') => {
+        const keyMap: Record<string, keyof DemoAccounts> = {
+            'student': 'student',
+            'teacher': 'teacher',
+            'admin': 'admin',
+            'parent': 'parent',
+        };
+
+        const key = keyMap[role];
+        const users = demoAccounts[key];
+
+        if (!users || users.length === 0) return;
+
+        // Jika hanya 1 user, langsung pakai
+        if (users.length === 1) {
+            setData({ ...data, login: users[0].email, password: 'password' });
+            setCurrentDemoEmails(prev => ({ ...prev, [key]: users[0].email }));
+            return;
+        }
+
+        // Pilih user yang BERBEDA dari yang sedang aktif
+        const currentEmail = currentDemoEmails[key];
+        const candidates = users.filter(u => u.email !== currentEmail);
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+        setData({ ...data, login: picked.email, password: 'password' });
+        setCurrentDemoEmails(prev => ({ ...prev, [key]: picked.email }));
+    };
+
+    // Handle Email Login Submit
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post(route('login'), {
+            onFinish: () => reset('password'),
+        });
     };
 
     // QR Scanner Lifecycle
@@ -129,16 +185,24 @@ export default function Welcome() {
 
     const handleScanSuccess = (decodedText: string) => {
         try {
-            const data = JSON.parse(decodedText);
-            // Mock Verification
-            if (data && data.type === 'login_token') {
-                stopScanner(); // Stop scanning immediately
-                setShowOtpModal(true);
-            } else {
-               console.log("Invalid QR type:", data);
-            }
+            // Assume QR code contains raw identity_number or token
+            // Send to backend for verification
+            stopScanner(); // Stop first
+            
+            axios.post(route('auth.qr-login'), { token: decodedText })
+                .then((response: any) => { // Type as any for quick fix, properly define type later
+                    alert('Login Berhasil!');
+                    window.location.href = response.data.redirect_url;
+                })
+                .catch((error: any) => { // Type as any for quick fix
+                    console.error("QR Login Failed", error);
+                    setScannerError("QR Code tidak valid atau user tidak ditemukan.");
+                    setIsScannerRunning(false); 
+                });
+
         } catch (e) {
-            console.log("Invalid JSON:", decodedText);
+            console.log("Error processing scan:", e);
+            setScannerError("Gagal memproses QR Code.");
         }
     };
 
@@ -157,7 +221,7 @@ export default function Welcome() {
 
     return (
         <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white selection:bg-blue-100 selection:text-blue-900 font-sans">
-            <Head title={`Login - ${school_settings?.app_name || 'Sekolah Kita'}`} />
+            <Head title={`Log in - ${school_settings?.app_name || 'Sekolah Kita'}`} />
 
             {/* Left Column - Hero / Brand (Hidden on mobile) */}
             <div className="hidden lg:flex flex-col relative bg-slate-900 text-white overflow-hidden">
@@ -231,6 +295,12 @@ export default function Welcome() {
                     </div>
 
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                        {status && (
+                            <div className="mb-4 text-sm font-medium text-green-600">
+                                {status}
+                            </div>
+                        )}
+
                         <Tabs defaultValue="manual" onValueChange={(val) => setLoginMethod(val as 'manual' | 'qr')} className="w-full">
                             <TabsList className="grid w-full grid-cols-2 mb-6">
                                 <TabsTrigger value="manual" className="flex items-center gap-2">
@@ -249,10 +319,10 @@ export default function Welcome() {
                                         <Label htmlFor="login" className="text-slate-700 font-semibold">Email / NIS / NIP</Label>
                                         <Input 
                                             id="login" 
-                                            type="text"
+                                            type="text" 
                                             name="login"
                                             value={data.login}
-                                            autoComplete="off"
+                                            autoComplete="off" // Disable autocomplete to prevent browser/extension interference
                                             onChange={(e) => setData('login', e.target.value)}
                                             placeholder="Masukkan Email, NIS, atau NIP" 
                                             className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all hover:border-blue-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-50/50" 
@@ -262,11 +332,18 @@ export default function Welcome() {
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
-                                            <Link href={route('password.request')} className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline">Lupa Password?</Link>
+                                            {canResetPassword && (
+                                                <Link
+                                                    href={route('password.request')}
+                                                    className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                                >
+                                                    Lupa Password?
+                                                </Link>
+                                            )}
                                         </div>
                                         <Input 
                                             id="password" 
-                                            type="password"
+                                            type="password" 
                                             name="password"
                                             value={data.password}
                                             autoComplete="current-password"
@@ -323,36 +400,50 @@ export default function Welcome() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 mt-6">
-                            <Link 
-                                href={route('siswa.dashboard')}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('student')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-green-50/50 hover:border-green-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
                                     <GraduationCap className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-green-700">MURID</span>
-                            </Link>
+                            </button>
                             
-                            <Link 
-                                href={route('guru.dashboard')}
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('teacher')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/50 hover:border-blue-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                                     <BookOpen className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-blue-700">GURU</span>
-                            </Link>
+                            </button>
 
-                            <Link 
-                                href={route('admin.dashboard')}
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('parent')}
+                                className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-amber-50/50 hover:border-amber-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                                    <User className="w-4 h-4" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-600 group-hover:text-amber-700">ORANGTUA</span>
+                            </button>
+
+                            <button 
+                                type="button"
+                                onClick={() => handleFillDemo('admin')}
                                 className="group flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-50 hover:bg-purple-50/50 hover:border-purple-200 border border-transparent transition-all hover:shadow-md cursor-pointer"
                             >
                                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
                                     <User className="w-4 h-4" />
                                 </div>
                                 <span className="text-[10px] font-bold text-slate-600 group-hover:text-purple-700">ADMIN</span>
-                            </Link>
+                            </button>
                         </div>
                     </div>
                 </div>

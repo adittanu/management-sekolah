@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             DB::statement('PRAGMA foreign_keys = OFF');
         }
 
+        DB::table('library_comments')->truncate();
+        DB::table('library_bookmarks')->truncate();
         DB::table('library_reading_progress')->truncate();
         DB::table('library_loans')->truncate();
         DB::table('library_books')->truncate();

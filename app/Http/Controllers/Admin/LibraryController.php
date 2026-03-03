@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreLibraryBookmarkRequest;
 use App\Http\Requests\Admin\StoreLibraryBookRequest;
+use App\Http\Requests\Admin\StoreLibraryCommentRequest;
 use App\Http\Requests\Admin\StoreLibraryLoanRequest;
 use App\Http\Requests\Admin\UpdateLibraryBookRequest;
 use App\Http\Requests\Admin\UpdateLibraryReadingProgressRequest;
 use App\Models\LibraryBook;
+use App\Models\LibraryBookmark;
+use App\Models\LibraryComment;
 use App\Models\LibraryLoan;
 use App\Models\LibraryReadingProgress;
 use App\Models\User;
@@ -231,6 +235,153 @@ class LibraryController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$book->title.'.pdf"',
         ]);
+    }
+
+    public function bookmarks(LibraryBook $book): JsonResponse
+    {
+        if (! $this->hasActiveLoan($book->id, Auth::id())) {
+            abort(403, 'Tidak memiliki pinjaman aktif untuk melihat bookmark buku ini.');
+        }
+
+        $bookmarks = LibraryBookmark::query()
+            ->where('library_book_id', $book->id)
+            ->where('user_id', Auth::id())
+            ->orderBy('page_number')
+            ->get()
+            ->map(function (LibraryBookmark $bookmark) {
+                return [
+                    'id' => $bookmark->id,
+                    'page_number' => $bookmark->page_number,
+                    'note' => $bookmark->note,
+                    'created_at' => optional($bookmark->created_at)->toIso8601String(),
+                    'updated_at' => optional($bookmark->updated_at)->toIso8601String(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'bookmarks' => $bookmarks,
+        ]);
+    }
+
+    public function storeBookmark(StoreLibraryBookmarkRequest $request, LibraryBook $book): JsonResponse
+    {
+        if (! $this->hasActiveLoan($book->id, Auth::id())) {
+            abort(403, 'Tidak memiliki pinjaman aktif untuk menyimpan bookmark.');
+        }
+
+        $validated = $request->validated();
+        $pageNumber = min((int) $validated['page_number'], $book->total_pages);
+        $note = isset($validated['note']) ? trim((string) $validated['note']) : '';
+
+        $bookmark = LibraryBookmark::query()->firstOrNew([
+            'library_book_id' => $book->id,
+            'user_id' => Auth::id(),
+            'page_number' => $pageNumber,
+        ]);
+
+        $bookmark->note = $note !== '' ? $note : null;
+        $bookmark->save();
+
+        return response()->json([
+            'message' => 'Bookmark pribadi berhasil disimpan.',
+            'bookmark' => [
+                'id' => $bookmark->id,
+                'page_number' => $bookmark->page_number,
+                'note' => $bookmark->note,
+                'created_at' => optional($bookmark->created_at)->toIso8601String(),
+                'updated_at' => optional($bookmark->updated_at)->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function destroyBookmark(LibraryBook $book, LibraryBookmark $bookmark): JsonResponse
+    {
+        if (! $this->hasActiveLoan($book->id, Auth::id())) {
+            abort(403, 'Tidak memiliki pinjaman aktif untuk menghapus bookmark.');
+        }
+
+        if ((int) $bookmark->library_book_id !== (int) $book->id || (int) $bookmark->user_id !== (int) Auth::id()) {
+            abort(403, 'Anda tidak memiliki akses ke bookmark ini.');
+        }
+
+        $bookmark->delete();
+
+        return response()->json([
+            'message' => 'Bookmark pribadi berhasil dihapus.',
+        ]);
+    }
+
+    public function comments(LibraryBook $book): JsonResponse
+    {
+        if (! $this->hasActiveLoan($book->id, Auth::id())) {
+            abort(403, 'Tidak memiliki pinjaman aktif untuk melihat komentar buku ini.');
+        }
+
+        $comments = LibraryComment::query()
+            ->with('user:id,name')
+            ->where('library_book_id', $book->id)
+            ->latest()
+            ->limit(80)
+            ->get()
+            ->map(function (LibraryComment $comment) {
+                return [
+                    'id' => $comment->id,
+                    'user_id' => $comment->user_id,
+                    'current_page' => $comment->current_page,
+                    'comment' => $comment->comment,
+                    'created_at' => optional($comment->created_at)->toIso8601String(),
+                    'user' => [
+                        'id' => $comment->user?->id,
+                        'name' => $comment->user?->name,
+                    ],
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'comments' => $comments,
+        ]);
+    }
+
+    public function storeComment(StoreLibraryCommentRequest $request, LibraryBook $book): JsonResponse
+    {
+        if (! $this->hasActiveLoan($book->id, Auth::id())) {
+            abort(403, 'Tidak memiliki pinjaman aktif untuk mengirim komentar.');
+        }
+
+        $validated = $request->validated();
+        $commentText = trim((string) $validated['comment']);
+
+        if ($commentText === '') {
+            return response()->json([
+                'message' => 'Komentar wajib diisi.',
+            ], 422);
+        }
+
+        $comment = LibraryComment::query()->create([
+            'library_book_id' => $book->id,
+            'user_id' => Auth::id(),
+            'current_page' => isset($validated['current_page']) ? min((int) $validated['current_page'], $book->total_pages) : null,
+            'comment' => $commentText,
+        ]);
+
+        $comment->load('user:id,name');
+
+        return response()->json([
+            'message' => 'Komentar berhasil dikirim.',
+            'comment' => [
+                'id' => $comment->id,
+                'user_id' => $comment->user_id,
+                'current_page' => $comment->current_page,
+                'comment' => $comment->comment,
+                'created_at' => optional($comment->created_at)->toIso8601String(),
+                'user' => [
+                    'id' => $comment->user?->id,
+                    'name' => $comment->user?->name,
+                ],
+            ],
+        ], 201);
     }
 
     public function returnLoan(LibraryLoan $loan): RedirectResponse

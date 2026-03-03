@@ -51,4 +51,14 @@ class LibraryBook extends Model
     {
         return $this->hasMany(LibraryReadingProgress::class);
     }
+
+    public function bookmarks(): HasMany
+    {
+        return $this->hasMany(LibraryBookmark::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(LibraryComment::class);
+    }
 }

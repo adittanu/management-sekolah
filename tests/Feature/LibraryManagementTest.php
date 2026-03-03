@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\LibraryBook;
+use App\Models\LibraryBookmark;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -120,6 +121,142 @@ class LibraryManagementTest extends TestCase
         ]);
 
         $response->assertForbidden();
+    }
+
+    public function test_bookmarks_and_private_notes_are_visible_only_to_the_owner(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $owner = User::factory()->create(['role' => 'student']);
+        $otherReader = User::factory()->create(['role' => 'student']);
+        $book = LibraryBook::factory()->create(['total_pages' => 80, 'is_active' => true]);
+
+        $this->actingAs($admin)->post(route('admin.perpustakaan.loans.store'), [
+            'library_book_id' => $book->id,
+            'user_id' => $owner->id,
+            'duration_days' => 7,
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->post(route('admin.perpustakaan.loans.store'), [
+            'library_book_id' => $book->id,
+            'user_id' => $otherReader->id,
+            'duration_days' => 7,
+        ])->assertRedirect();
+
+        $storeBookmarkResponse = $this->actingAs($owner)->postJson(route('siswa.perpustakaan.reader.bookmarks.store', $book), [
+            'page_number' => 12,
+            'note' => 'Ringkasan rumus utama bab ini.',
+        ]);
+
+        $storeBookmarkResponse->assertOk();
+        $storeBookmarkResponse->assertJsonPath('bookmark.page_number', 12);
+
+        $bookmarkId = (int) $storeBookmarkResponse->json('bookmark.id');
+
+        $this->assertDatabaseHas('library_bookmarks', [
+            'id' => $bookmarkId,
+            'library_book_id' => $book->id,
+            'user_id' => $owner->id,
+            'page_number' => 12,
+            'note' => 'Ringkasan rumus utama bab ini.',
+        ]);
+
+        $ownerBookmarksResponse = $this->actingAs($owner)->getJson(route('siswa.perpustakaan.reader.bookmarks', $book));
+        $ownerBookmarksResponse->assertOk();
+        $ownerBookmarksResponse->assertJsonFragment([
+            'note' => 'Ringkasan rumus utama bab ini.',
+            'page_number' => 12,
+        ]);
+
+        $otherReaderBookmarksResponse = $this->actingAs($otherReader)->getJson(route('siswa.perpustakaan.reader.bookmarks', $book));
+        $otherReaderBookmarksResponse->assertOk();
+        $otherReaderBookmarksResponse->assertJsonMissing([
+            'note' => 'Ringkasan rumus utama bab ini.',
+        ]);
+
+        $blockedDeleteResponse = $this->actingAs($otherReader)->deleteJson(route('siswa.perpustakaan.reader.bookmarks.destroy', [
+            'book' => $book->id,
+            'bookmark' => $bookmarkId,
+        ]));
+
+        $blockedDeleteResponse->assertForbidden();
+
+        $this->assertDatabaseHas('library_bookmarks', [
+            'id' => $bookmarkId,
+        ]);
+    }
+
+    public function test_readers_with_active_loans_can_comment_on_the_same_book(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $readerA = User::factory()->create(['role' => 'student']);
+        $readerB = User::factory()->create(['role' => 'student']);
+        $book = LibraryBook::factory()->create(['total_pages' => 120, 'is_active' => true]);
+
+        $this->actingAs($admin)->post(route('admin.perpustakaan.loans.store'), [
+            'library_book_id' => $book->id,
+            'user_id' => $readerA->id,
+            'duration_days' => 7,
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->post(route('admin.perpustakaan.loans.store'), [
+            'library_book_id' => $book->id,
+            'user_id' => $readerB->id,
+            'duration_days' => 7,
+        ])->assertRedirect();
+
+        $commentAResponse = $this->actingAs($readerA)->postJson(route('siswa.perpustakaan.reader.comments.store', $book), [
+            'current_page' => 16,
+            'comment' => 'Bagian ini bagus, coba baca contoh di paragraf terakhir.',
+        ]);
+
+        $commentAResponse->assertCreated();
+
+        $commentBResponse = $this->actingAs($readerB)->postJson(route('siswa.perpustakaan.reader.comments.store', $book), [
+            'current_page' => 16,
+            'comment' => 'Setuju, penjelasannya sangat jelas.',
+        ]);
+
+        $commentBResponse->assertCreated();
+
+        $commentsResponse = $this->actingAs($readerA)->getJson(route('siswa.perpustakaan.reader.comments', $book));
+        $commentsResponse->assertOk();
+        $commentsResponse->assertJsonFragment([
+            'comment' => 'Bagian ini bagus, coba baca contoh di paragraf terakhir.',
+        ]);
+        $commentsResponse->assertJsonFragment([
+            'comment' => 'Setuju, penjelasannya sangat jelas.',
+        ]);
+    }
+
+    public function test_bookmark_and_comment_endpoints_require_active_loan(): void
+    {
+        $reader = User::factory()->create(['role' => 'student']);
+        $book = LibraryBook::factory()->create(['total_pages' => 60, 'is_active' => true]);
+        $bookmark = LibraryBookmark::factory()->create([
+            'library_book_id' => $book->id,
+            'user_id' => $reader->id,
+        ]);
+
+        $bookmarkStoreResponse = $this->actingAs($reader)->postJson(route('siswa.perpustakaan.reader.bookmarks.store', $book), [
+            'page_number' => 4,
+            'note' => 'Catatan tanpa pinjaman.',
+        ]);
+        $bookmarkStoreResponse->assertForbidden();
+
+        $bookmarkListResponse = $this->actingAs($reader)->getJson(route('siswa.perpustakaan.reader.bookmarks', $book));
+        $bookmarkListResponse->assertForbidden();
+
+        $bookmarkDeleteResponse = $this->actingAs($reader)->deleteJson(route('siswa.perpustakaan.reader.bookmarks.destroy', [
+            'book' => $book->id,
+            'bookmark' => $bookmark->id,
+        ]));
+        $bookmarkDeleteResponse->assertForbidden();
+
+        $commentResponse = $this->actingAs($reader)->postJson(route('siswa.perpustakaan.reader.comments.store', $book), [
+            'current_page' => 4,
+            'comment' => 'Komentar tanpa pinjaman.',
+        ]);
+        $commentResponse->assertForbidden();
     }
 
     public function test_teacher_and_student_can_open_library_page_from_their_routes(): void

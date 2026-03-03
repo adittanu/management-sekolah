@@ -16,6 +16,9 @@ import {
     Library, 
     Plus, 
     Search, 
+    Send,
+    MessageSquare,
+    StickyNote,
     X, 
     Users, 
     Bookmark,
@@ -110,6 +113,26 @@ type PresenceParticipant = {
     last_seen_at: string | null;
 };
 
+type LibraryBookmark = {
+    id: number;
+    page_number: number;
+    note: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+type LibraryComment = {
+    id: number;
+    user_id: number;
+    current_page: number | null;
+    comment: string;
+    created_at: string | null;
+    user: {
+        id: number | null;
+        name: string | null;
+    };
+};
+
 type LibraryPageProps = PageProps<{
     role: 'admin' | 'teacher' | 'student';
     books: Book[];
@@ -147,6 +170,12 @@ export default function PerpustakaanIndex({
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [sessionId, setSessionId] = useState<string>(() => `sess-${Date.now()}`);
     const [presenceParticipants, setPresenceParticipants] = useState<PresenceParticipant[]>([]);
+    const [bookmarks, setBookmarks] = useState<LibraryBookmark[]>([]);
+    const [comments, setComments] = useState<LibraryComment[]>([]);
+    const [bookmarkNote, setBookmarkNote] = useState<string>('');
+    const [commentMessage, setCommentMessage] = useState<string>('');
+    const [bookmarkProcessing, setBookmarkProcessing] = useState<boolean>(false);
+    const [commentProcessing, setCommentProcessing] = useState<boolean>(false);
     const [sideNavigationEnabled, setSideNavigationEnabled] = useState<boolean>(true);
     const [pdfPageCount, setPdfPageCount] = useState<number>(1);
     const [pdfScale, setPdfScale] = useState<number>(1.2);
@@ -249,6 +278,10 @@ export default function PerpustakaanIndex({
         const progress = readingProgress[book.id];
         setCurrentPage(progress?.current_page ?? 1);
         setSessionId(`sess-${Date.now()}`);
+        setBookmarks([]);
+        setComments([]);
+        setBookmarkNote('');
+        setCommentMessage('');
         setView('reader');
     }, [readingProgress]);
 
@@ -366,7 +399,7 @@ export default function PerpustakaanIndex({
         }
     }, [currentPage, libraryRoutePrefix, selectedLoan, sessionId]);
 
-    const loadPresence = useCallback(async (): Promise<void> => {
+    const loadPresence = useCallback(async (pageNumber: number): Promise<void> => {
         if (!selectedLoan) {
             setPresenceParticipants([]);
             return;
@@ -374,28 +407,128 @@ export default function PerpustakaanIndex({
         try {
             const response = await axios.get(route(`${libraryRoutePrefix}.perpustakaan.reader.presence`, {
                 book: selectedLoan.book.id,
-                page: currentPage,
+                page: pageNumber,
             }));
             setPresenceParticipants(response.data.participants ?? []);
         } catch {
             setPresenceParticipants([]);
         }
-    }, [currentPage, libraryRoutePrefix, selectedLoan]);
+    }, [libraryRoutePrefix, selectedLoan]);
+
+    const loadBookmarks = useCallback(async (): Promise<void> => {
+        if (!selectedLoan) {
+            setBookmarks([]);
+            return;
+        }
+
+        try {
+            const response = await axios.get(route(`${libraryRoutePrefix}.perpustakaan.reader.bookmarks`, selectedLoan.book.id));
+            const fetchedBookmarks = (response.data.bookmarks ?? []) as LibraryBookmark[];
+            setBookmarks(fetchedBookmarks.sort((a, b) => a.page_number - b.page_number));
+        } catch {
+            setBookmarks([]);
+        }
+    }, [libraryRoutePrefix, selectedLoan]);
+
+    const loadComments = useCallback(async (): Promise<void> => {
+        if (!selectedLoan) {
+            setComments([]);
+            return;
+        }
+
+        try {
+            const response = await axios.get(route(`${libraryRoutePrefix}.perpustakaan.reader.comments`, selectedLoan.book.id));
+            setComments((response.data.comments ?? []) as LibraryComment[]);
+        } catch {
+            setComments([]);
+        }
+    }, [libraryRoutePrefix, selectedLoan]);
+
+    const saveBookmark = useCallback(async (): Promise<void> => {
+        if (!selectedLoan || bookmarkProcessing) {
+            return;
+        }
+
+        try {
+            setBookmarkProcessing(true);
+            const response = await axios.post(route(`${libraryRoutePrefix}.perpustakaan.reader.bookmarks.store`, selectedLoan.book.id), {
+                page_number: currentPage,
+                note: bookmarkNote.trim() === '' ? null : bookmarkNote.trim(),
+            });
+            const newBookmark = response.data.bookmark as LibraryBookmark;
+            setBookmarks((previous) => {
+                const withoutCurrent = previous.filter((item) => item.id !== newBookmark.id);
+                return [...withoutCurrent, newBookmark].sort((a, b) => a.page_number - b.page_number);
+            });
+            setBookmarkNote('');
+            toast.success(response.data.message ?? 'Bookmark pribadi tersimpan.');
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 403) {
+                toast.error('Pinjaman aktif tidak ditemukan.');
+                return;
+            }
+
+            toast.error('Gagal menyimpan bookmark pribadi.');
+        } finally {
+            setBookmarkProcessing(false);
+        }
+    }, [bookmarkNote, bookmarkProcessing, currentPage, libraryRoutePrefix, selectedLoan]);
+
+    const deleteBookmark = useCallback(async (bookmarkId: number): Promise<void> => {
+        if (!selectedLoan) {
+            return;
+        }
+
+        try {
+            await axios.delete(route(`${libraryRoutePrefix}.perpustakaan.reader.bookmarks.destroy`, {
+                book: selectedLoan.book.id,
+                bookmark: bookmarkId,
+            }));
+            setBookmarks((previous) => previous.filter((item) => item.id !== bookmarkId));
+            toast.success('Bookmark pribadi dihapus.');
+        } catch {
+            toast.error('Gagal menghapus bookmark.');
+        }
+    }, [libraryRoutePrefix, selectedLoan]);
+
+    const sendComment = useCallback(async (): Promise<void> => {
+        const trimmedComment = commentMessage.trim();
+        if (!selectedLoan || trimmedComment === '' || commentProcessing) {
+            return;
+        }
+
+        try {
+            setCommentProcessing(true);
+            const response = await axios.post(route(`${libraryRoutePrefix}.perpustakaan.reader.comments.store`, selectedLoan.book.id), {
+                current_page: currentPage,
+                comment: trimmedComment,
+            });
+            const newComment = response.data.comment as LibraryComment;
+            setComments((previous) => [newComment, ...previous].slice(0, 80));
+            setCommentMessage('');
+            toast.success(response.data.message ?? 'Komentar berhasil dikirim.');
+        } catch {
+            toast.error('Gagal mengirim komentar.');
+        } finally {
+            setCommentProcessing(false);
+        }
+    }, [commentMessage, commentProcessing, currentPage, libraryRoutePrefix, selectedLoan]);
 
     useEffect(() => {
         if (!selectedLoan) return;
         void syncReader('join');
-        void loadPresence();
+        void loadBookmarks();
+        void loadComments();
         return () => {
             void syncReader('leave');
         };
-    }, [loadPresence, selectedLoan, syncReader]);
+    }, [loadBookmarks, loadComments, selectedLoan, syncReader]);
 
     useEffect(() => {
         if (!selectedLoan) return;
         void syncReader('page-change');
-        void loadPresence();
-    }, [loadPresence, selectedLoan, syncReader]);
+        void loadPresence(currentPage);
+    }, [currentPage, loadPresence, selectedLoan, syncReader]);
 
     useEffect(() => {
         if (!selectedLoan) return;
@@ -403,13 +536,17 @@ export default function PerpustakaanIndex({
             void syncReader('heartbeat');
         }, 15000);
         const presenceTimer = window.setInterval(() => {
-            void loadPresence();
+            void loadPresence(currentPage);
         }, 10000);
+        const commentsTimer = window.setInterval(() => {
+            void loadComments();
+        }, 12000);
         return () => {
             window.clearInterval(heartbeatTimer);
             window.clearInterval(presenceTimer);
+            window.clearInterval(commentsTimer);
         };
-    }, [loadPresence, selectedLoan, syncReader]);
+    }, [currentPage, loadComments, loadPresence, selectedLoan, syncReader]);
 
     // Load PDF document
     useEffect(() => {
@@ -487,6 +624,17 @@ export default function PerpustakaanIndex({
         setCurrentPage((page) => Math.min(page + 1, pdfPageCount));
     }, [pdfPageCount]);
 
+    const closeReader = useCallback((): void => {
+        setView('library');
+        setSelectedBook(null);
+        setSelectedLoan(null);
+        setPresenceParticipants([]);
+        setBookmarks([]);
+        setComments([]);
+        setBookmarkNote('');
+        setCommentMessage('');
+    }, []);
+
     useEffect(() => {
         if (view !== 'reader' || !sideNavigationEnabled) return;
         const handleKeyDown = (event: KeyboardEvent): void => {
@@ -499,12 +647,12 @@ export default function PerpustakaanIndex({
                 goToNextPage();
             }
             if (event.key === 'Escape') {
-                setView('library');
+                closeReader();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [goToNextPage, goToPrevPage, sideNavigationEnabled, view]);
+    }, [closeReader, goToNextPage, goToPrevPage, sideNavigationEnabled, view]);
 
     // Return book
     const returnBook = useCallback((loanId: number) => {
@@ -707,7 +855,7 @@ export default function PerpustakaanIndex({
                             variant="ghost" 
                             size="sm" 
                             className="text-slate-400 hover:text-white"
-                            onClick={() => setView('library')}
+                            onClick={closeReader}
                         >
                             <ArrowLeft className="w-4 h-4 mr-1" />
                             Kembali
@@ -801,7 +949,7 @@ export default function PerpustakaanIndex({
                                 <button
                                     type="button"
                                     aria-label="Halaman berikutnya"
-                                    className="fixed right-[320px] top-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition"
+                                    className="fixed right-[364px] top-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/80 text-slate-300 hover:bg-slate-700 transition"
                                     onClick={goToNextPage}
                                 >
                                     <ChevronRight className="h-6 w-6" />
@@ -810,40 +958,161 @@ export default function PerpustakaanIndex({
                         )}
                     </div>
                     
-                    {/* Sidebar - Presence & Info */}
-                    <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col">
+                    <div className="w-[360px] bg-slate-900 border-l border-slate-800 flex flex-col">
                         <div className="p-4 border-b border-slate-800">
                             <h3 className="text-white font-medium flex items-center gap-2">
                                 <Users className="w-4 h-4" />
                                 Pembaca di Halaman {currentPage}
                             </h3>
                         </div>
-                        
-                        <div className="flex-1 overflow-auto p-4 space-y-2">
-                            {presenceParticipants.length === 0 ? (
-                                <p className="text-sm text-slate-500">Belum ada pembaca lain di halaman ini.</p>
-                            ) : (
-                                presenceParticipants.map((participant) => (
-                                    <div key={participant.user_id} className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/50">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                                            {participant.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-slate-200">{participant.name}</p>
-                                            <p className="text-xs text-slate-500">Halaman {participant.current_page}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
+
+                        <div className="flex-1 overflow-auto p-4 space-y-4">
+                            <section className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 space-y-2">
+                                {presenceParticipants.length === 0 ? (
+                                    <p className="text-sm text-slate-500">Belum ada pembaca lain di halaman ini.</p>
+                                ) : (
+                                    presenceParticipants.map((participant) => {
+                                        const participantName = participant.name || 'Pengguna';
+
+                                        return (
+                                            <div key={participant.user_id} className="flex items-center gap-3 rounded-lg bg-slate-900/70 p-3">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-medium">
+                                                    {participantName.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-slate-200 truncate">{participantName}</p>
+                                                    <p className="text-xs text-slate-500">Halaman {participant.current_page}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </section>
+
+                            <section className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                                        <StickyNote className="w-4 h-4 text-indigo-400" />
+                                        Bookmark Pribadi
+                                    </h4>
+                                    <span className="text-xs text-slate-500">Halaman {currentPage}</span>
+                                </div>
+
+                                <textarea
+                                    value={bookmarkNote}
+                                    onChange={(event) => setBookmarkNote(event.target.value)}
+                                    placeholder="Tulis catatan pribadi untuk halaman ini (opsional)"
+                                    rows={3}
+                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                                />
+
+                                <Button
+                                    size="sm"
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700"
+                                    disabled={bookmarkProcessing}
+                                    onClick={() => void saveBookmark()}
+                                >
+                                    <Bookmark className="w-4 h-4 mr-1.5" />
+                                    {bookmarkProcessing ? 'Menyimpan...' : 'Simpan Bookmark'}
+                                </Button>
+
+                                <div className="space-y-2 max-h-48 overflow-auto pr-1">
+                                    {bookmarks.length === 0 ? (
+                                        <p className="text-xs text-slate-500">Belum ada bookmark pribadi.</p>
+                                    ) : (
+                                        bookmarks.map((bookmark) => (
+                                            <div key={bookmark.id} className="rounded-lg border border-slate-700 bg-slate-900/80 p-2 space-y-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="text-xs font-medium text-indigo-300 hover:text-indigo-200"
+                                                        onClick={() => setCurrentPage(bookmark.page_number)}
+                                                    >
+                                                        Halaman {bookmark.page_number}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="text-xs text-rose-300 hover:text-rose-200"
+                                                        onClick={() => void deleteBookmark(bookmark.id)}
+                                                    >
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                                {bookmark.note && (
+                                                    <p className="text-xs text-slate-300 whitespace-pre-wrap">{bookmark.note}</p>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </section>
+
+                            <section className="rounded-xl border border-slate-800 bg-slate-800/40 p-3 space-y-3">
+                                <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                                    Komentar Pembaca
+                                </h4>
+
+                                <div className="space-y-2 max-h-56 overflow-auto pr-1">
+                                    {comments.length === 0 ? (
+                                        <p className="text-xs text-slate-500">Belum ada komentar untuk buku ini.</p>
+                                    ) : (
+                                        comments.map((comment) => {
+                                            const commenterName = comment.user?.name || 'Pengguna';
+                                            const commenterInitial = commenterName.charAt(0).toUpperCase();
+                                            const isOwnComment = comment.user_id === auth.user?.id;
+
+                                            return (
+                                                <div key={comment.id} className="rounded-lg border border-slate-700 bg-slate-900/80 p-2">
+                                                    <div className="flex items-start gap-2">
+                                                        <div className="w-7 h-7 rounded-full bg-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center">
+                                                            {commenterInitial}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <p className={`text-xs font-medium ${isOwnComment ? 'text-indigo-300' : 'text-slate-300'}`}>{commenterName}</p>
+                                                                {comment.current_page !== null && (
+                                                                    <span className="text-[11px] text-slate-500">Hal {comment.current_page}</span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-slate-200 whitespace-pre-wrap">{comment.comment}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <textarea
+                                        value={commentMessage}
+                                        onChange={(event) => setCommentMessage(event.target.value)}
+                                        placeholder="Tulis komentar untuk pembaca lain..."
+                                        rows={3}
+                                        className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                        disabled={commentProcessing || commentMessage.trim() === ''}
+                                        onClick={() => void sendComment()}
+                                    >
+                                        <Send className="w-4 h-4 mr-1.5" />
+                                        {commentProcessing ? 'Mengirim...' : 'Kirim Komentar'}
+                                    </Button>
+                                </div>
+                            </section>
                         </div>
-                        
-                        {/* Book info */}
+
                         <div className="p-4 border-t border-slate-800 bg-slate-800/30">
                             <h4 className="text-sm font-medium text-slate-300 mb-2">Info Buku</h4>
                             <div className="space-y-1 text-xs text-slate-400">
                                 <p>Total Halaman: {selectedBook.total_pages}</p>
                                 <p>Kategori: {selectedBook.category || '-'}</p>
                                 <p>Jatuh Tempo: {new Date(selectedLoan.due_at).toLocaleDateString('id-ID')}</p>
+                                <p>Bookmark Pribadi: {bookmarks.length}</p>
+                                <p>Total Komentar: {comments.length}</p>
                             </div>
                         </div>
                     </div>

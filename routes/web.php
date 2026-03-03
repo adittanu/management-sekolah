@@ -23,11 +23,29 @@ Route::get('/', function () {
         };
     }
 
+    $demoAccounts = [
+        'student' => \App\Models\User::where('role', 'student')
+            ->inRandomOrder()
+            ->select('name', 'email', 'role')
+            ->limit(20)
+            ->get(),
+        'teacher' => \App\Models\User::where('role', 'teacher')
+            ->select('name', 'email', 'role')
+            ->get(),
+        'admin' => \App\Models\User::where('role', 'admin')
+            ->select('name', 'email', 'role')
+            ->get(),
+        'parent' => \App\Models\User::where('role', 'parent')
+            ->select('name', 'email', 'role')
+            ->get(),
+    ];
+
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
+        'demoAccounts' => $demoAccounts,
     ]);
 });
 
@@ -105,6 +123,11 @@ Route::prefix('admin')
         Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
         Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
         Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');
+        Route::get('/perpustakaan/books/{book}/reader/bookmarks', [App\Http\Controllers\Admin\LibraryController::class, 'bookmarks'])->name('perpustakaan.reader.bookmarks');
+        Route::post('/perpustakaan/books/{book}/reader/bookmarks', [App\Http\Controllers\Admin\LibraryController::class, 'storeBookmark'])->name('perpustakaan.reader.bookmarks.store');
+        Route::delete('/perpustakaan/books/{book}/reader/bookmarks/{bookmark}', [App\Http\Controllers\Admin\LibraryController::class, 'destroyBookmark'])->name('perpustakaan.reader.bookmarks.destroy');
+        Route::get('/perpustakaan/books/{book}/reader/comments', [App\Http\Controllers\Admin\LibraryController::class, 'comments'])->name('perpustakaan.reader.comments');
+        Route::post('/perpustakaan/books/{book}/reader/comments', [App\Http\Controllers\Admin\LibraryController::class, 'storeComment'])->name('perpustakaan.reader.comments.store');
         Route::get('/perpustakaan/books/{book}/file', [App\Http\Controllers\Admin\LibraryController::class, 'file'])->name('perpustakaan.reader.file');
         Route::post('/perpustakaan/loans/{loan}/return', [App\Http\Controllers\Admin\LibraryController::class, 'returnLoan'])->name('perpustakaan.loans.return');
 
@@ -150,6 +173,11 @@ Route::prefix('siswa')
         Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
         Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
         Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');
+        Route::get('/perpustakaan/books/{book}/reader/bookmarks', [App\Http\Controllers\Admin\LibraryController::class, 'bookmarks'])->name('perpustakaan.reader.bookmarks');
+        Route::post('/perpustakaan/books/{book}/reader/bookmarks', [App\Http\Controllers\Admin\LibraryController::class, 'storeBookmark'])->name('perpustakaan.reader.bookmarks.store');
+        Route::delete('/perpustakaan/books/{book}/reader/bookmarks/{bookmark}', [App\Http\Controllers\Admin\LibraryController::class, 'destroyBookmark'])->name('perpustakaan.reader.bookmarks.destroy');
+        Route::get('/perpustakaan/books/{book}/reader/comments', [App\Http\Controllers\Admin\LibraryController::class, 'comments'])->name('perpustakaan.reader.comments');
+        Route::post('/perpustakaan/books/{book}/reader/comments', [App\Http\Controllers\Admin\LibraryController::class, 'storeComment'])->name('perpustakaan.reader.comments.store');
         Route::get('/perpustakaan/books/{book}/file', [App\Http\Controllers\Admin\LibraryController::class, 'file'])->name('perpustakaan.reader.file');
         Route::post('/perpustakaan/loans/{loan}/return', [App\Http\Controllers\Admin\LibraryController::class, 'returnLoan'])->name('perpustakaan.loans.return');
     });
@@ -184,6 +212,11 @@ Route::prefix('guru')
         Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
         Route::post('/perpustakaan/books/{book}/reader/sync', [App\Http\Controllers\Admin\LibraryController::class, 'syncReader'])->name('perpustakaan.reader.sync');
         Route::get('/perpustakaan/books/{book}/reader/presence', [App\Http\Controllers\Admin\LibraryController::class, 'presence'])->name('perpustakaan.reader.presence');
+        Route::get('/perpustakaan/books/{book}/reader/bookmarks', [App\Http\Controllers\Admin\LibraryController::class, 'bookmarks'])->name('perpustakaan.reader.bookmarks');
+        Route::post('/perpustakaan/books/{book}/reader/bookmarks', [App\Http\Controllers\Admin\LibraryController::class, 'storeBookmark'])->name('perpustakaan.reader.bookmarks.store');
+        Route::delete('/perpustakaan/books/{book}/reader/bookmarks/{bookmark}', [App\Http\Controllers\Admin\LibraryController::class, 'destroyBookmark'])->name('perpustakaan.reader.bookmarks.destroy');
+        Route::get('/perpustakaan/books/{book}/reader/comments', [App\Http\Controllers\Admin\LibraryController::class, 'comments'])->name('perpustakaan.reader.comments');
+        Route::post('/perpustakaan/books/{book}/reader/comments', [App\Http\Controllers\Admin\LibraryController::class, 'storeComment'])->name('perpustakaan.reader.comments.store');
         Route::get('/perpustakaan/books/{book}/file', [App\Http\Controllers\Admin\LibraryController::class, 'file'])->name('perpustakaan.reader.file');
         Route::post('/perpustakaan/loans/{loan}/return', [App\Http\Controllers\Admin\LibraryController::class, 'returnLoan'])->name('perpustakaan.loans.return');
     });
