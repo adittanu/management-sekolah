@@ -271,4 +271,84 @@ class AttendanceController extends Controller
 
         return redirect()->back()->with('success', 'Data presensi dan jurnal berhasil disimpan.');
     }
+
+    /**
+     * Update the specified attendance session.
+     */
+    public function update(Request $request, Journal $absensi)
+    {
+        $validated = $request->validate([
+            'students' => 'required|array',
+            'students.*.student_id' => 'required|exists:users,id',
+            'students.*.status' => 'required|in:hadir,sakit,izin,alpha',
+            'teacher_status' => 'required|in:hadir,sakit,izin,alpha',
+            'journal_topic' => 'nullable|string|max:255',
+            'journal_content' => 'nullable|string',
+            'proof_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'leave_letter_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+        ]);
+
+        DB::transaction(function () use ($validated, $request, $absensi) {
+            $schedule = Schedule::find($absensi->schedule_id);
+
+            // 1. Update student attendance records
+            foreach ($validated['students'] as $index => $studentData) {
+                $attendanceKey = [
+                    'schedule_id' => $absensi->schedule_id,
+                    'student_id' => $studentData['student_id'],
+                    'date' => $absensi->date,
+                ];
+
+                $existing = Attendance::where($attendanceKey)->first();
+                $leaveLetterPath = $existing?->leave_letter_file;
+
+                if ($request->hasFile("students.$index.leave_letter_file")) {
+                    $leaveLetterPath = $request->file("students.$index.leave_letter_file")
+                        ->store('attendances/leave-letters', 'public');
+                }
+
+                if (! in_array($studentData['status'], ['sakit', 'izin'], true)) {
+                    $leaveLetterPath = null;
+                }
+
+                Attendance::updateOrCreate(
+                    $attendanceKey,
+                    ['status' => $studentData['status'], 'leave_letter_file' => $leaveLetterPath]
+                );
+            }
+
+            // 2. Update teacher attendance record
+            if ($schedule && $schedule->teacher_id) {
+                Attendance::updateOrCreate(
+                    [
+                        'schedule_id' => $absensi->schedule_id,
+                        'student_id' => $schedule->teacher_id,
+                        'date' => $absensi->date,
+                    ],
+                    ['status' => $validated['teacher_status']]
+                );
+            }
+
+            // 3. Update journal
+            $proofPath = $absensi->proof_file;
+            if ($request->hasFile('proof_file')) {
+                $proofPath = $request->file('proof_file')->store('journals', 'public');
+            }
+
+            $leaveLetterPath = $absensi->leave_letter_file;
+            if ($request->hasFile('leave_letter_file')) {
+                $leaveLetterPath = $request->file('leave_letter_file')
+                    ->store('journals/leave-letters', 'public');
+            }
+
+            $absensi->update([
+                'title' => $validated['journal_topic'] ?? '-',
+                'description' => $validated['journal_content'] ?? '-',
+                'proof_file' => $proofPath,
+                'leave_letter_file' => $leaveLetterPath,
+            ]);
+        });
+
+        return redirect()->back()->with('success', 'Data presensi berhasil diperbarui.');
+    }
 }
