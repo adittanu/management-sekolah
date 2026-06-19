@@ -177,7 +177,7 @@ export default function KelasShow({ classroom, teachers, availableStudents }: Pr
             )
         },
         { 
-            header: "NISN", 
+            header: "NIS", 
             accessorKey: "identity_number", 
             cell: (row: User) => row.identity_number || '-'
         }, 
@@ -480,7 +480,7 @@ export default function KelasShow({ classroom, teachers, availableStudents }: Pr
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                                 <Input 
-                                    placeholder="Cari nama siswa atau NISN..." 
+                                    placeholder="Cari nama siswa atau NIS..." 
                                     className="pl-10"
                                     value={studentSearchQuery}
                                     onChange={(e) => setStudentSearchQuery(e.target.value)}
@@ -512,7 +512,7 @@ export default function KelasShow({ classroom, teachers, availableStudents }: Pr
                                             />
                                             <div className="flex-1">
                                                 <div className="font-medium text-slate-900">{student.name}</div>
-                                                <div className="text-xs text-slate-500">{student.identity_number || 'No NISN'}</div>
+                                                <div className="text-xs text-slate-500">{student.identity_number || 'No NIS'}</div>
                                             </div>
                                         </div>
                                     ))

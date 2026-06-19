@@ -1,16 +1,30 @@
 import { PropsWithChildren, useState, useEffect } from 'react';
 import Sidebar from '@/Components/admin/Sidebar';
 import ChatWidget from '@/Components/ChatWidget';
+import TourProvider from '@/Components/Tour/TourProvider';
 import { Head, usePage } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, HelpCircle } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
+import { useTour } from '@/Components/Tour/TourContext';
 
 export default function AdminLayout({ children, title, disableChatWidget = false, fullWidth = false }: PropsWithChildren<{ title?: string, disableChatWidget?: boolean, fullWidth?: boolean }>) {
+    const { props } = usePage<any>();
+    const role = props.role || props.auth?.user?.role || 'admin';
+    return (
+        <TourProvider role={role as string}>
+            <AdminLayoutContent title={title} fullWidth={fullWidth} disableChatWidget={disableChatWidget}>
+                {children}
+            </AdminLayoutContent>
+        </TourProvider>
+    );
+}
+
+function AdminLayoutContent({ children, title, disableChatWidget = false, fullWidth = false }: PropsWithChildren<{ title?: string, disableChatWidget?: boolean, fullWidth?: boolean }>) {
     // Get role from Inertia props, passed from web.php
-    // In a real app this might come from auth.user.role
-    const { role } = usePage<any>().props;
-    
+    const { props } = usePage<any>();
+    const role = props.role || props.auth?.user?.role || 'admin';
+
     // Initialize state from localStorage if available
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -28,17 +42,19 @@ export default function AdminLayout({ children, title, disableChatWidget = false
         setIsSidebarCollapsed(newState);
         localStorage.setItem('sidebarCollapsed', String(newState));
     };
-    
+
+    const { startTour } = useTour();
+
     return (
         <div className="min-h-screen bg-slate-50 flex font-sans">
             <Head title={title} />
-            
-            {/* Sidebar - Fixed on desktop, hidden on mobile (for now) */}
+
+            {/* Sidebar - Fixed on desktop, hidden on mobile */}
             <div className="hidden md:block fixed inset-y-0 z-50">
-                <Sidebar 
-                    userRole={role as string} 
-                    isCollapsed={isSidebarCollapsed} 
-                    toggleSidebar={toggleSidebar} 
+                <Sidebar
+                    userRole={role as string}
+                    isCollapsed={isSidebarCollapsed}
+                    toggleSidebar={toggleSidebar}
                 />
             </div>
 
@@ -46,15 +62,15 @@ export default function AdminLayout({ children, title, disableChatWidget = false
             {isMobileMenuOpen && (
                 <div className="fixed inset-0 z-50 md:hidden">
                     {/* Backdrop */}
-                    <div 
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
+                    <div
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
                         onClick={() => setIsMobileMenuOpen(false)}
                     />
                     {/* Sidebar Content */}
                     <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl animate-in slide-in-from-left duration-300">
                         <div className="absolute right-2 top-2 z-50">
-                            <Button 
-                                variant="ghost" 
+                            <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 className="h-8 w-8 rounded-full"
@@ -62,9 +78,9 @@ export default function AdminLayout({ children, title, disableChatWidget = false
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
-                        <Sidebar 
-                            userRole={role as string} 
-                            isCollapsed={false} 
+                        <Sidebar
+                            userRole={role as string}
+                            isCollapsed={false}
                             toggleSidebar={() => setIsMobileMenuOpen(false)}
                             className="w-full border-none shadow-none h-full"
                         />
@@ -81,9 +97,9 @@ export default function AdminLayout({ children, title, disableChatWidget = false
                  <div className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-30">
                     <div className="flex items-center gap-2 font-bold text-slate-800">
                          {/* Mobile Hamburger */}
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => setIsMobileMenuOpen(true)}
                             className="-ml-2"
                         >
@@ -91,6 +107,15 @@ export default function AdminLayout({ children, title, disableChatWidget = false
                         </Button>
                         <span className="text-lg">SEKOLAH KITA</span>
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={startTour}
+                        title="Lihat Tour"
+                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                    >
+                        <HelpCircle className="h-5 w-5" />
+                    </Button>
                 </div>
 
                 <div className={cn("flex-1 overflow-y-auto w-full mx-auto", fullWidth ? "p-0" : "p-4 md:p-8 max-w-7xl")}>
@@ -98,7 +123,7 @@ export default function AdminLayout({ children, title, disableChatWidget = false
                 </div>
             </main>
 
-{/* Global Chat Widget */}
+            {/* Global Chat Widget */}
             {/* {!disableChatWidget && <ChatWidget currentUserRole={role as string} />} */}
         </div>
     );

@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\Classroom;
-use Illuminate\Support\Facades\Log;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class UserImportService
@@ -14,14 +14,16 @@ class UserImportService
     {
         $spreadsheet = IOFactory::load($file->getPathname());
         $sheet = $spreadsheet->getActiveSheet();
-        
+
         $rows = [];
         foreach ($sheet->getRowIterator() as $index => $row) {
-            if ($index > 6) break; // Header + 5 rows
-            
+            if ($index > 8) {
+                break;
+            } // Header + 7 rows (to show all role types in preview)
+
             $cellIterator = $row->getCellIterator();
             $cellIterator->setIterateOnlyExistingCells(false);
-            
+
             $cells = [];
             foreach ($cellIterator as $cell) {
                 $cells[] = $cell->getValue();
@@ -39,28 +41,30 @@ class UserImportService
     {
         // Disable time limit for large imports
         set_time_limit(0);
-        
+
         $spreadsheet = IOFactory::load($file->getPathname());
         $sheet = $spreadsheet->getActiveSheet();
-        
+
         $stats = [
             'success' => 0,
             'failed' => 0,
-            'errors' => []
+            'errors' => [],
         ];
 
         $rows = $sheet->toArray();
         if (empty($rows)) {
-            $stats['errors'][] = "File is empty or cannot be read.";
+            $stats['errors'][] = 'File is empty or cannot be read.';
+
             return $stats;
         }
 
         // Normalize header for mapping
         $header = array_map('strtolower', $rows[0]);
         $dataRows = array_slice($rows, 1);
-        
+
         if (empty($dataRows)) {
-            $stats['errors'][] = "No data rows found in file.";
+            $stats['errors'][] = 'No data rows found in file.';
+
             return $stats;
         }
 
@@ -69,36 +73,36 @@ class UserImportService
 
         // Wrap entire import in a single transaction - all or nothing
         DB::beginTransaction();
-        
+
         try {
             foreach ($dataRows as $index => $row) {
                 $rowIndex = $index + 2; // +2 because of header row and 0-based index
 
                 $userData = $this->extractUserData($row, $colMap);
-                
+
                 if (empty($userData['email'])) {
                     throw new \Exception("Row {$rowIndex}: Email is empty");
                 }
 
                 // Check if user exists first
                 $existingUser = User::where('email', $userData['email'])->first();
-                
+
                 if ($existingUser) {
                     // Update existing user (skip password hashing unless new password provided)
                     $existingUser->name = $userData['name'];
                     $existingUser->role = $userData['role']; // Set directly (not mass-assignable)
                     $existingUser->identity_number = $userData['identity_number'] ?? null;
-                    
+
                     // Only set new password if explicitly provided (auto-hashed by model cast)
-                    if (!empty($userData['password'])) {
+                    if (! empty($userData['password'])) {
                         $existingUser->password = $userData['password'];
                     }
-                    
+
                     $existingUser->save();
                     $user = $existingUser;
                 } else {
                     // Create new user (password auto-hashed by model cast)
-                    $user = new User();
+                    $user = new User;
                     $user->name = $userData['name'];
                     $user->email = $userData['email'];
                     $user->password = $userData['password'] ?? 'password';
@@ -108,22 +112,22 @@ class UserImportService
                 }
 
                 // Assign to classroom based on Role
-                if (!empty($userData['classroom'])) {
+                if (! empty($userData['classroom'])) {
                     if ($user->role === 'student') {
                         // Extract classroom details from name if possible (e.g., XI-RPL-1)
                         $classDetails = $this->parseClassroomName($userData['classroom']);
-                        
+
                         $classroom = Classroom::firstOrCreate(
                             ['name' => $userData['classroom']],
                             [
                                 'level' => $classDetails['level'],
                                 'major' => $classDetails['major'],
-                                'academic_year' => date('Y') . '/' . (date('Y') + 1)
+                                'academic_year' => date('Y').'/'.(date('Y') + 1),
                             ]
                         );
                         $user->classrooms()->syncWithoutDetaching([$classroom->id]);
                     }
-                } elseif (!empty($userData['cohort'])) {
+                } elseif (! empty($userData['cohort'])) {
                     // Fallback to old logic if classroom column not mapped but cohort is
                     if ($user->role === 'student') {
                         // For students, cohort is their classroom
@@ -134,25 +138,24 @@ class UserImportService
                             [
                                 'level' => $classDetails['level'],
                                 'major' => $classDetails['major'],
-                                'academic_year' => date('Y') . '/' . (date('Y') + 1)
+                                'academic_year' => date('Y').'/'.(date('Y') + 1),
                             ]
                         );
                         $user->classrooms()->syncWithoutDetaching([$classroom->id]);
-                    } 
-                    elseif ($user->role === 'teacher') {
+                    } elseif ($user->role === 'teacher') {
                         // For teachers, cohort might be the classroom they are homeroom teacher for
                         // Simple logic: If cohort is NOT 'Teacher'/'Guru', assume it's a class they manage
                         $isClassroomName = stripos($userData['cohort'], 'Teacher') === false && stripos($userData['cohort'], 'Guru') === false;
-                        
+
                         if ($isClassroomName) {
                             $classDetails = $this->parseClassroomName($userData['cohort']);
-                            
+
                             $classroom = Classroom::firstOrCreate(
                                 ['name' => $userData['cohort']],
                                 [
                                     'level' => $classDetails['level'],
                                     'major' => $classDetails['major'],
-                                    'academic_year' => date('Y') . '/' . (date('Y') + 1)
+                                    'academic_year' => date('Y').'/'.(date('Y') + 1),
                                 ]
                             );
                             // Assign as homeroom teacher
@@ -173,7 +176,7 @@ class UserImportService
             $stats['success'] = 0;
             $stats['failed'] = count($dataRows);
             $stats['errors'][] = $e->getMessage();
-            Log::error("Import Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            Log::error('Import Error: '.$e->getMessage()."\n".$e->getTraceAsString());
         }
 
         return $stats;
@@ -190,12 +193,15 @@ class UserImportService
             'username' => -1, // identity_number
             'cohort1' => -1,
             'classroom' => -1,
+            'role' => -1,
         ];
 
         // 1. Try manual mapping
         foreach ($manualMapping as $key => $colName) {
-            if ($colName === 'ignore') continue;
-            
+            if ($colName === 'ignore') {
+                continue;
+            }
+
             $idx = array_search(strtolower($colName), $header);
             if ($idx !== false) {
                 $map[$key] = $idx;
@@ -221,32 +227,48 @@ class UserImportService
         $lastname = isset($map['lastname']) && $map['lastname'] > -1 ? ($row[$map['lastname']] ?? '') : '';
         $cohort = isset($map['cohort1']) && $map['cohort1'] > -1 ? ($row[$map['cohort1']] ?? '') : '';
         $classroom = isset($map['classroom']) && $map['classroom'] > -1 ? ($row[$map['classroom']] ?? '') : '';
-        
+
         $email = isset($map['email']) && $map['email'] > -1 ? ($row[$map['email']] ?? null) : null;
         $password = isset($map['password']) && $map['password'] > -1 ? ($row[$map['password']] ?? null) : null;
         $username = isset($map['username']) && $map['username'] > -1 ? ($row[$map['username']] ?? null) : null;
 
-        // Determine role logic - Fixed logic
-        $role = 'student';
+        // Determine role logic
         $cohortStr = (string) $cohort;
         $classroomStr = (string) $classroom;
 
+        // Check if a direct role column was mapped and has a value
+        $roleColIdx = $map['role'] ?? -1;
+        $directRole = ($roleColIdx > -1) ? strtolower(trim((string) ($row[$roleColIdx] ?? ''))) : '';
+        $validRoles = ['admin', 'teacher', 'student', 'parent'];
+        if (in_array($directRole, $validRoles)) {
+            $role = $directRole;
+        } else {
+            // Fallback: determine role from cohort1 column
+            $role = 'student';
+            if (stripos($cohortStr, 'Teacher') !== false || stripos($cohortStr, 'Guru') !== false) {
+                $role = 'teacher';
+            } elseif (stripos($cohortStr, 'Parent') !== false || stripos($cohortStr, 'Orang Tua') !== false || stripos($cohortStr, 'ORTU') !== false) {
+                $role = 'parent';
+            } elseif (stripos($cohortStr, 'Admin') !== false) {
+                $role = 'admin';
+            }
+        }
+
         // Fallback: if cohort is empty but classroom is set, use classroom as cohort
-        if (empty($cohortStr) && !empty($classroomStr)) {
+        if (empty($cohortStr) && ! empty($classroomStr)) {
             $cohortStr = $classroomStr;
         }
 
         // If classroom is empty but cohort looks like a classroom, use it
-        if (empty($classroomStr) && !empty($cohortStr)) {
-             // Simple logic: If cohort is NOT 'Teacher'/'Guru', assume it's a class they manage
-             $isClassroomName = stripos($cohortStr, 'Teacher') === false && stripos($cohortStr, 'Guru') === false;
-             if ($isClassroomName) {
-                 $classroomStr = $cohortStr;
-             }
-        }
-        
-        if (stripos($cohortStr, 'Teacher') !== false || stripos($cohortStr, 'Guru') !== false) {
-            $role = 'teacher';
+        if (empty($classroomStr) && ! empty($cohortStr)) {
+            $isClassroomName = stripos($cohortStr, 'Teacher') === false
+                && stripos($cohortStr, 'Guru') === false
+                && stripos($cohortStr, 'Parent') === false
+                && stripos($cohortStr, 'ORTU') === false
+                && stripos($cohortStr, 'Admin') === false;
+            if ($isClassroomName) {
+                $classroomStr = $cohortStr;
+            }
         }
 
         return [
@@ -269,9 +291,13 @@ class UserImportService
         if (count($parts) >= 1) {
             // Try to detect level
             $lvl = strtoupper($parts[0]);
-            if ($lvl === 'X' || $lvl === '10') $level = '10';
-            elseif ($lvl === 'XI' || $lvl === '11') $level = '11';
-            elseif ($lvl === 'XII' || $lvl === '12') $level = '12';
+            if ($lvl === 'X' || $lvl === '10') {
+                $level = '10';
+            } elseif ($lvl === 'XI' || $lvl === '11') {
+                $level = '11';
+            } elseif ($lvl === 'XII' || $lvl === '12') {
+                $level = '12';
+            }
         }
 
         if (count($parts) >= 2) {

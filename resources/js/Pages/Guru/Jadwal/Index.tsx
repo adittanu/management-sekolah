@@ -92,7 +92,10 @@ export default function JadwalGuruIndex({ schedules, homeroomSchedules, homeroom
     const getTimesFromSlot = (slotNumber: number): { start: string; end: string } => {
         const slot = activeTimeSlots.find((timeSlot) => timeSlot.slot_number === slotNumber);
         if (slot) {
-            return { start: slot.start_time, end: slot.end_time };
+            return {
+                start: slot.start_time.substring(0, 5),
+                end: slot.end_time.substring(0, 5)
+            };
         }
 
         const startMinutes = 7 * 60 + (slotNumber - 1) * 45;
@@ -109,12 +112,18 @@ export default function JadwalGuruIndex({ schedules, homeroomSchedules, homeroom
 
     const getSlotByStartTime = (time: string): TimeSlot | undefined => {
         const normalized = time.substring(0, 5);
-        return activeTimeSlots.find((slot) => slot.start_time === normalized);
+        return activeTimeSlots.find((slot) => {
+            const slotStart = slot.start_time.substring(0, 5);
+            return slotStart === normalized;
+        });
     };
 
     const getSlotByEndTime = (time: string): TimeSlot | undefined => {
         const normalized = time.substring(0, 5);
-        return activeTimeSlots.find((slot) => slot.end_time === normalized);
+        return activeTimeSlots.find((slot) => {
+            const slotEnd = slot.end_time.substring(0, 5);
+            return slotEnd === normalized;
+        });
     };
 
     const getJamFromTime = (time: string): number => {

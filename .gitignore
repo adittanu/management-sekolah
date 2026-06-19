@@ -26,3 +26,15 @@ Thumbs.db
 .playwright-mcp/
 .gitignore
 docs/plans/
+build_log.txt
+changes.diff
+combined_diff.txt
+full_changes.diff
+git_tracked.diff
+new_files.diff
+analyze_excel.py
+analyze_student.py
+project-context.md
+WORKFLOW-DECISION-GUIDE.md
+TROUBLESHOOTING_LOGIN.md
+toArray*)

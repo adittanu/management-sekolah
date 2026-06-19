@@ -1,38 +1,50 @@
+import { useEffect, useRef } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { cn } from '@/lib/utils';
-import { 
-    LayoutDashboard, 
-    Users, 
-    School, 
-    Calendar, 
-    BookOpen, 
-    FileText, 
-    Settings, 
+import {
+    LayoutDashboard,
+    Users,
+    School,
+    Calendar,
+    BookOpen,
+    FileText,
+    Settings,
     ShieldCheck,
     Video,
     Wallet,
     ScanFace,
     UserPlus,
     GraduationCap,
-    LogOut, 
+    LogOut,
     MessageSquare,
     ChevronLeft,
     ChevronRight,
     ExternalLink,
+    MapPin,
     Wrench,
     Trophy,
     Briefcase,
     Clock,
     Bell,
-    FileEdit
+    FileEdit,
+    HelpCircle
 } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
+import { useTour } from '@/Components/Tour/TourContext';
 
 export default function Sidebar({ className = "", userRole = "admin", isCollapsed = false, toggleSidebar }: { className?: string, userRole?: string, isCollapsed?: boolean, toggleSidebar?: () => void }) {
     const page = usePage<any>();
     const { url, props } = page;
     const authUser = page.props?.auth?.user;
     const { school_settings } = props as any;
+
+    const activeRef = useRef<HTMLAnchorElement>(null);
+
+    useEffect(() => {
+        if (activeRef.current) {
+            activeRef.current.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        }
+    }, [url]);
 
     // Define Menus based on Role
     type NavItem = {
@@ -55,17 +67,13 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Menu Utama",
                 items: [
                     { name: 'Dashboard', href: '/siswa/dashboard', icon: LayoutDashboard },
-                    // { name: 'Jadwal Pelajaran', href: '/siswa/jadwal', icon: Calendar },
-                    // { name: 'Pesan', href: '/admin/chat', icon: MessageSquare },
                 ]
             },
             {
                 groupLabel: "Akademik",
                 items: [
+                    { name: 'Raport Saya', href: '/siswa/rapor', icon: GraduationCap },
                     { name: 'Perpustakaan', href: '/siswa/perpustakaan', icon: BookOpen },
-                    // { name: 'Kelas Saya (LMS)', href: '/siswa/lms', icon: GraduationCap },
-                    // { name: 'Tugas & Materi', href: '/siswa/tugas', icon: BookOpen },
-                    // { name: 'Riwayat Presensi', href: '/siswa/absensi', icon: ScanFace },
                 ]
             }
         ];
@@ -83,6 +91,8 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Kelas Perwalian', href: '/guru/kelas', icon: School },
                     { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
                     { name: 'Presensi', href: '/guru/absensi', icon: ScanFace },
+                    { name: 'Input Nilai', href: '/guru/rapor/input', icon: FileText },
+                    { name: 'Raport', href: '/guru/rapor/view', icon: GraduationCap },
                     { name: 'Perpustakaan', href: '/guru/perpustakaan', icon: BookOpen },
                 ]
             },
@@ -106,7 +116,9 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                 groupLabel: "Monitoring Anak",
                 items: [
                     { name: 'Kehadiran Harian', href: '/orangtua/kehadiran', icon: ScanFace },
+                    { name: 'Raport Anak', href: '/orangtua/rapor', icon: GraduationCap },
                     { name: 'Peminjaman Buku', href: '/orangtua/perpustakaan', icon: BookOpen },
+                    { name: 'Keuangan Anak', href: '/orangtua/keuangan', icon: Wallet },
                 ]
             }
         ];
@@ -125,6 +137,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Manajemen User', href: '/admin/user', icon: Users },
                     { name: 'Data Rombel', href: '/admin/kelas', icon: School },
                     { name: 'Mata Pelajaran', href: '/admin/mapel', icon: BookOpen },
+                    { name: 'Ruangan', href: '/admin/ruangan', icon: MapPin },
                     { name: 'Pengumuman', href: '/admin/pengumuman', icon: Bell },
                     { name: 'Generator Surat', href: '/admin/generator-surat', icon: FileEdit },
                     { name: 'Jam Pelajaran', href: '/admin/time-slot', icon: Clock },
@@ -137,21 +150,20 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Jadwal Pelajaran', href: '/admin/jadwal', icon: Calendar },
                     // { name: 'E-Learning (LMS)', href: '/admin/lms', icon: GraduationCap },
                     { name: 'Presensi', href: '/admin/absensi', icon: ScanFace },
+                    { name: 'Input Nilai', href: '/admin/rapor/input', icon: FileText },
+                    { name: 'Raport', href: '/admin/rapor/view', icon: GraduationCap },
                     { name: 'Perpustakaan', href: '/admin/perpustakaan', icon: BookOpen },
                     // { name: 'Kelas Online (Daring)', href: '/admin/daring', icon: Video },
                     // { name: 'Ekstrakulikuler', href: '/admin/ekskul', icon: Trophy },
                     // { name: 'PKL / Magang', href: '/admin/pkl', icon: Briefcase },
                 ]
             },
-            // {
-                //     groupLabel: "Administrasi",
-                //     items: [
-                //         { name: 'Sarana Prasarana', href: '/admin/sarpras', icon: Wrench },
-                //         { name: 'PPDB Online', href: '/admin/ppdb', icon: UserPlus },
-                //         { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
-                //         { name: 'Laporan Sekolah', href: '/admin/laporan', icon: FileText },
-                //     ]
-                // },
+            {
+                groupLabel: "Administrasi",
+                items: [
+                    { name: 'Keuangan & SPP', href: '/admin/keuangan', icon: Wallet },
+                ]
+            },
             // {
             //     groupLabel: "Aplikasi Terintegrasi (SSO)",
             //     items: [
@@ -188,13 +200,17 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
         return { name: authUser?.name || 'Administrator', role: 'Super Admin', initials: authUser?.name ? authUser.name.substring(0, 2).toUpperCase() : 'AD' };
     };
     const profile = getProfile();
+    const { startTour } = useTour();
 
     return (
-        <div className={cn(
-            "pb-0 h-full border-r bg-white shadow-sm flex flex-col transition-all duration-300 relative", 
-            isCollapsed ? "w-20" : "w-64",
-            className
-        )}>
+        <div
+            data-tour="sidebar"
+            className={cn(
+                "pb-0 h-full border-r bg-white shadow-sm flex flex-col transition-all duration-300 relative",
+                isCollapsed ? "w-20" : "w-64",
+                className
+            )}
+        >
             {/* Header - Fixed */}
             <div className={cn(
                 "border-b border-slate-50 shrink-0 flex items-center transition-all relative",
@@ -259,11 +275,55 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                                 {group.groupLabel}
                             </h4>
                         )}
-                        {group.items.map((item) => (
-                            item.external ? (
+                        {group.items.map((item) => {
+                            // Map nav items to tour targets for all roles
+                            const tourTargetMap: Record<string, string> = {
+                                // Admin
+                                '/admin/dashboard': 'nav-dashboard',
+                                '/admin/user': 'nav-users',
+                                '/admin/kelas': 'nav-kelas',
+                                '/admin/mapel': 'nav-mapel',
+                                '/admin/ruangan': 'nav-ruangan',
+                                '/admin/pengumuman': 'nav-pengumuman',
+                                '/admin/generator-surat': 'nav-generator-surat',
+                                '/admin/time-slot': 'nav-time-slot',
+                                '/admin/jadwal': 'nav-jadwal',
+                                '/admin/absensi': 'nav-absensi',
+                                '/admin/perpustakaan': 'nav-perpustakaan',
+                                '/admin/keuangan': 'nav-keuangan',
+                                '/admin/rapor/input': 'nav-rapor-input',
+                                '/admin/rapor/view': 'nav-rapor-view',
+                                '/admin/setting': 'nav-setting',
+                                // Teacher
+                                '/guru/dashboard': 'nav-dashboard',
+                                '/guru/kelas': 'nav-kelas',
+                                '/guru/jadwal': 'nav-jadwal',
+                                '/guru/absensi': 'nav-absensi',
+                                '/guru/perpustakaan': 'nav-perpustakaan',
+                                '/guru/rapor/input': 'nav-rapor-input',
+                                '/guru/rapor/view': 'nav-rapor-view',
+                                '/guru/profile': 'nav-profile',
+                                // Student
+                                '/siswa/dashboard': 'nav-dashboard',
+                                '/siswa/rapor': 'nav-rapor',
+                                '/siswa/perpustakaan': 'nav-perpustakaan',
+                                // Parent
+                                '/orangtua/dashboard': 'nav-dashboard',
+                                '/orangtua/pengumuman': 'nav-pengumuman',
+                                '/orangtua/kehadiran': 'nav-kehadiran',
+                                '/orangtua/rapor': 'nav-rapor',
+                                '/orangtua/perpustakaan': 'nav-perpustakaan',
+                                '/orangtua/keuangan': 'nav-keuangan',
+                            };
+                            const tourKey = tourTargetMap[item.href];
+                            const pathname = url.split('?')[0];
+                            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+
+                            return item.external ? (
                                 <a
                                     key={item.href}
                                     href={item.href}
+                                    data-tour={tourKey}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title={isCollapsed ? item.name : ''}
@@ -280,30 +340,54 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                                 <Link
                                     key={item.href}
                                     href={item.href}
+                                    ref={isActive ? activeRef : undefined}
+                                    data-tour={tourKey}
                                     title={isCollapsed ? item.name : ''}
                                     className={cn(
                                         "flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 group relative",
                                         isCollapsed ? "justify-center px-0" : "px-3",
-                                        url.startsWith(item.href) 
-                                            ? "bg-blue-50 text-blue-600 shadow-sm" 
+                                        isActive
+                                            ? "bg-blue-50 text-blue-600 shadow-sm"
                                             : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                                     )}
                                 >
-                                    <item.icon className={cn("h-4 w-4 transition-colors shrink-0", url.startsWith(item.href) ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")} />
+                                    <item.icon className={cn("h-4 w-4 transition-colors shrink-0", isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600")} />
                                     {!isCollapsed && <span className="animate-in fade-in duration-300">{item.name}</span>}
-                                    {url.startsWith(item.href) && !isCollapsed && (
+                                    {item.href === '/orangtua/keuangan' && authUser?.unpaid_billings_count > 0 && (
+                                        <span className={cn(
+                                            "flex items-center justify-center rounded-full font-bold",
+                                            isCollapsed 
+                                                ? "absolute top-1 right-2 w-4 h-4 bg-red-500 text-white text-[9px] shadow-sm animate-pulse" 
+                                                : "ml-auto h-5 w-5 bg-red-100 text-red-600 text-[10px]"
+                                        )}>
+                                            {authUser.unpaid_billings_count}
+                                        </span>
+                                    )}
+                                    {isActive && !isCollapsed && (
                                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-600 rounded-r-full"></div>
                                     )}
                                 </Link>
-                            )
-                        ))}
+                            );
+                        })}
                     </div>
                 ))}
             </div>
 
-            {/* Footer - Fixed (Logout Only) */}
+            {/* Footer - Fixed */}
             <div className={cn("border-t border-slate-100 shrink-0 bg-white z-10", isCollapsed ? "p-2" : "p-3")}>
                 <div className="space-y-1">
+                    <button
+                        type="button"
+                        onClick={startTour}
+                        title={isCollapsed ? "Lihat Tour" : ''}
+                        className={cn(
+                            "w-full flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-all",
+                             isCollapsed ? "justify-center px-0" : "px-3"
+                        )}
+                    >
+                        <HelpCircle className="h-5 w-5 shrink-0" />
+                        {!isCollapsed && <span className="animate-in fade-in duration-300">Lihat Tour</span>}
+                    </button>
                     <Link
                         href={route('logout')}
                         method="post"

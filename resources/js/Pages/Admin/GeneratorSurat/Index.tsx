@@ -131,7 +131,7 @@ export default function LetterGeneratorIndex({ letters }: Props) {
                         <p className="text-slate-500">Buat surat resmi sekolah dengan kop surat, cetak, atau bagikan.</p>
                     </div>
                     <Link href={route('admin.generator-surat.create')}>
-                        <Button className="bg-indigo-600 hover:bg-indigo-700">
+                        <Button data-tour="btn-create-surat" className="bg-indigo-600 hover:bg-indigo-700">
                             <Plus className="w-4 h-4 mr-2" />
                             Buat Surat Baru
                         </Button>

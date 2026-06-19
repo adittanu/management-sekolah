@@ -5,22 +5,22 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { PageProps } from '@/types';
-import { 
-    BookOpen, 
-    ChevronLeft, 
-    ChevronRight, 
-    Clock3, 
-    Eye, 
-    FileText, 
-    Loader2, 
-    Library, 
-    Plus, 
-    Search, 
+import {
+    BookOpen,
+    ChevronLeft,
+    ChevronRight,
+    Clock3,
+    Eye,
+    FileText,
+    Loader2,
+    Library,
+    Plus,
+    Search,
     Send,
     MessageSquare,
     StickyNote,
-    X, 
-    Users, 
+    X,
+    Users,
     Bookmark,
     BookMarked,
     ArrowLeft,
@@ -673,17 +673,17 @@ export default function PerpustakaanIndex({
         const colors = getBookColor(book.id);
         const progress = readingProgress[book.id];
         const progressPercent = progress ? Math.round((progress.current_page / book.total_pages) * 100) : 0;
-        
+
         return (
             <div className="group bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-slate-300 transition-all duration-300">
                 {/* Book Cover */}
                 <div className={`${colors.bg} aspect-[3/4] relative overflow-hidden`}>
                     {/* Decorative Elements */}
                     <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/20" />
-                    
+
                     {/* Book Spine Effect */}
                     <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-r from-black/30 to-transparent" />
-                    
+
                     {/* Top Info */}
                     <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
                         <span className={`text-xs font-medium px-2 py-1 rounded-full bg-white/95 ${colors.text} shadow-sm`}>
@@ -695,7 +695,7 @@ export default function PerpustakaanIndex({
                             </span>
                         )}
                     </div>
-                    
+
                     {/* Center Content - Title on Cover */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
                         <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mb-3">
@@ -705,14 +705,14 @@ export default function PerpustakaanIndex({
                             {book.title}
                         </h3>
                     </div>
-                    
+
                     {/* Bottom Info */}
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
                         <p className="text-white/90 text-xs font-medium">{book.author}</p>
                         <p className="text-white/70 text-xs">{book.total_pages} halaman</p>
                     </div>
                 </div>
-                
+
                 {/* Card Body */}
                 <div className="p-4">
                     {/* Progress Bar (if borrowed) */}
@@ -723,18 +723,18 @@ export default function PerpustakaanIndex({
                                 <span className="text-slate-700 font-medium">{progressPercent}%</span>
                             </div>
                             <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div 
+                                <div
                                     className={`h-full ${colors.bg} rounded-full transition-all duration-500`}
                                     style={{ width: `${progressPercent}%` }}
                                 />
                             </div>
                         </div>
                     )}
-                    
+
                     {/* Action Button */}
                     {borrowed ? (
-                        <Button 
-                            size="sm" 
+                        <Button
+                            size="sm"
                             className={`w-full ${colors.bg} hover:opacity-90 text-white`}
                             onClick={() => startReading(book, loan)}
                         >
@@ -742,8 +742,8 @@ export default function PerpustakaanIndex({
                             Lanjutkan Baca
                         </Button>
                     ) : (
-                        <Button 
-                            size="sm" 
+                        <Button
+                            size="sm"
                             variant="outline"
                             className="w-full border-slate-300 hover:bg-slate-50"
                             onClick={() => borrowBook(book)}
@@ -784,12 +784,12 @@ export default function PerpustakaanIndex({
     const MyBookCard = ({ loan }: { loan: Loan }) => {
         const book = books.find(b => b.id === loan.book.id);
         if (!book) return null;
-        
+
         const colors = getBookColor(book.id);
         const progress = readingProgress[book.id];
         const progressPercent = progress ? Math.round((progress.current_page / book.total_pages) * 100) : 0;
         const daysLeft = Math.ceil((new Date(loan.due_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        
+
         return (
             <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
                 <div className="flex gap-4">
@@ -797,12 +797,12 @@ export default function PerpustakaanIndex({
                     <div className={`${colors.light} ${colors.border} border rounded-lg p-3 flex-shrink-0`}>
                         <BookOpen className={`w-6 h-6 ${colors.text}`} />
                     </div>
-                    
+
                     {/* Book Info */}
                     <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-slate-900 text-sm truncate">{book.title}</h4>
                         <p className="text-xs text-slate-500 mb-2">{book.author}</p>
-                        
+
                         {/* Due Date Badge */}
                         <div className="flex items-center gap-2 mb-2">
                             <Clock3 className={`w-3 h-3 ${daysLeft < 3 ? 'text-rose-500' : 'text-slate-400'}`} />
@@ -810,30 +810,30 @@ export default function PerpustakaanIndex({
                                 {daysLeft > 0 ? `${daysLeft} hari lagi` : 'Jatuh tempo hari ini'}
                             </span>
                         </div>
-                        
+
                         {/* Progress */}
                         <div className="flex items-center gap-2 mb-3">
                             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div 
+                                <div
                                     className={`h-full ${colors.bg} rounded-full`}
                                     style={{ width: `${progressPercent}%` }}
                                 />
                             </div>
                             <span className="text-xs text-slate-500">{progressPercent}%</span>
                         </div>
-                        
+
                         {/* Actions */}
                         <div className="flex gap-2">
-                            <Button 
-                                size="sm" 
+                            <Button
+                                size="sm"
                                 className={`flex-1 h-8 text-xs ${colors.bg} hover:opacity-90 text-white`}
                                 onClick={() => startReading(book, loan)}
                             >
                                 Baca
                             </Button>
-                            <Button 
-                                size="sm" 
-                                variant="ghost" 
+                            <Button
+                                size="sm"
+                                variant="ghost"
                                 className="h-8 w-8 p-0 text-slate-400 hover:text-rose-500"
                                 onClick={() => returnBook(loan.id)}
                             >
@@ -853,30 +853,30 @@ export default function PerpustakaanIndex({
                 {/* Reader Header */}
                 <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-slate-400 hover:text-white"
                             onClick={closeReader}
                         >
                             <ArrowLeft className="w-4 h-4 mr-1" />
                             Kembali
                         </Button>
-                        
+
                         <div className="h-6 w-px bg-slate-700" />
-                        
+
                         <div>
                             <h1 className="text-white font-medium text-sm">{selectedBook.title}</h1>
                             <p className="text-slate-400 text-xs">{selectedBook.author}</p>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                         {/* Page navigation */}
                         <div className="flex items-center gap-2 bg-slate-800 rounded-lg p-1">
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0 text-slate-400 hover:text-white"
                                 onClick={goToPrevPage}
                                 disabled={currentPage <= 1}
@@ -886,9 +886,9 @@ export default function PerpustakaanIndex({
                             <span className="text-sm text-slate-300 min-w-[80px] text-center">
                                 {currentPage} / {pdfPageCount}
                             </span>
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 w-8 p-0 text-slate-400 hover:text-white"
                                 onClick={goToNextPage}
                                 disabled={currentPage >= pdfPageCount}
@@ -896,7 +896,7 @@ export default function PerpustakaanIndex({
                                 <ChevronRight className="w-4 h-4" />
                             </Button>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
@@ -928,7 +928,7 @@ export default function PerpustakaanIndex({
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Reader Content */}
                 <div className="flex-1 flex overflow-hidden">
                     {/* PDF Viewer */}
@@ -951,13 +951,13 @@ export default function PerpustakaanIndex({
                                     </div>
                                 </div>
                             )}
-                            
+
                             <canvas
                                 ref={canvasRef}
                                 className={`mx-auto rounded shadow-2xl bg-white ${isLoadingPdf || pdfError ? 'hidden' : ''}`}
                             />
                         </div>
-                        
+
                         {/* Side navigation buttons */}
                         {sideNavigationEnabled && (
                             <>
@@ -980,7 +980,7 @@ export default function PerpustakaanIndex({
                             </>
                         )}
                     </div>
-                    
+
                     <div className="w-[360px] bg-slate-900 border-l border-slate-800 flex flex-col">
                         <Tabs defaultValue="comments" className="flex flex-col h-full">
                             <div className="p-3 border-b border-slate-800 bg-slate-900">
@@ -1091,7 +1091,7 @@ export default function PerpustakaanIndex({
                                             </Button>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                         {bookmarks.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
@@ -1213,8 +1213,8 @@ export default function PerpustakaanIndex({
         return (
             <AdminLayout title={editingBook ? 'Edit Buku - Perpustakaan' : 'Tambah Buku - Perpustakaan'}>
                 <div className="max-w-4xl mx-auto">
-                    <Button 
-                        variant="ghost" 
+                    <Button
+                        variant="ghost"
                         className="mb-4"
                         onClick={() => {
                             setEditingBook(null);
@@ -1224,7 +1224,7 @@ export default function PerpustakaanIndex({
                         <ArrowLeft className="w-4 h-4 mr-1" />
                         Kembali ke Perpustakaan
                     </Button>
-                    
+
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4">
                             <h1 className="text-xl font-semibold text-white">{editingBook ? 'Edit Buku' : 'Tambah Buku Baru'}</h1>
@@ -1232,72 +1232,72 @@ export default function PerpustakaanIndex({
                                 {editingBook ? 'Perbarui metadata buku digital perpustakaan' : 'Tambahkan buku digital ke perpustakaan'}
                             </p>
                         </div>
-                        
+
                         <form onSubmit={submitBook} className="p-6 space-y-4">
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="title">Judul Buku *</Label>
-                                    <Input 
-                                        id="title" 
-                                        value={bookForm.data.title} 
+                                    <Input
+                                        id="title"
+                                        value={bookForm.data.title}
                                         onChange={(e) => bookForm.setData('title', e.target.value)}
                                         placeholder="Masukkan judul buku"
                                     />
                                     {bookForm.errors.title && <p className="text-xs text-red-500">{bookForm.errors.title}</p>}
                                 </div>
-                                
+
                                 <div className="space-y-2">
                                     <Label htmlFor="author">Penulis *</Label>
-                                    <Input 
-                                        id="author" 
-                                        value={bookForm.data.author} 
+                                    <Input
+                                        id="author"
+                                        value={bookForm.data.author}
                                         onChange={(e) => bookForm.setData('author', e.target.value)}
                                         placeholder="Masukkan nama penulis"
                                     />
                                     {bookForm.errors.author && <p className="text-xs text-red-500">{bookForm.errors.author}</p>}
                                 </div>
                             </div>
-                            
+
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="category">Kategori</Label>
-                                    <Input 
-                                        id="category" 
-                                        value={bookForm.data.category} 
+                                    <Input
+                                        id="category"
+                                        value={bookForm.data.category}
                                         onChange={(e) => bookForm.setData('category', e.target.value)}
                                         placeholder="Contoh: Fiksi, Sains, Sejarah"
                                     />
                                 </div>
-                                
+
                                 <div className="space-y-2">
                                     <Label htmlFor="total_pages">Total Halaman *</Label>
-                                    <Input 
-                                        id="total_pages" 
+                                    <Input
+                                        id="total_pages"
                                         type="number"
                                         min={1}
-                                        value={bookForm.data.total_pages} 
+                                        value={bookForm.data.total_pages}
                                         onChange={(e) => bookForm.setData('total_pages', Number(e.target.value))}
                                     />
                                     {bookForm.errors.total_pages && <p className="text-xs text-red-500">{bookForm.errors.total_pages}</p>}
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-2">
                                 <Label htmlFor="description">Deskripsi</Label>
-                                <Input 
-                                    id="description" 
-                                    value={bookForm.data.description} 
+                                <Input
+                                    id="description"
+                                    value={bookForm.data.description}
                                     onChange={(e) => bookForm.setData('description', e.target.value)}
                                     placeholder="Deskripsi singkat tentang buku"
                                 />
                             </div>
-                            
+
                             <div className="space-y-2">
                                 <Label htmlFor="pdf_file">{editingBook ? 'File PDF (opsional)' : 'File PDF *'}</Label>
                                 <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-indigo-500 transition-colors">
                                     <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                                    <Input 
-                                        id="pdf_file" 
+                                    <Input
+                                        id="pdf_file"
                                         type="file"
                                         accept="application/pdf"
                                         className="hidden"
@@ -1336,10 +1336,10 @@ export default function PerpustakaanIndex({
                                     Aktif
                                 </label>
                             </div>
-                            
+
                             <div className="flex gap-3 pt-4">
-                                <Button 
-                                    type="button" 
+                                <Button
+                                    type="button"
                                     variant="outline"
                                     onClick={() => {
                                         setEditingBook(null);
@@ -1348,8 +1348,8 @@ export default function PerpustakaanIndex({
                                 >
                                     Batal
                                 </Button>
-                                <Button 
-                                    type="submit" 
+                                <Button
+                                    type="submit"
                                     disabled={bookForm.processing}
                                     className="bg-indigo-600 hover:bg-indigo-700"
                                 >
@@ -1391,7 +1391,7 @@ export default function PerpustakaanIndex({
                                     Kelola dan akses buku digital dalam satu tempat
                                 </p>
                             </div>
-                            
+
                             {/* Stats */}
                             <div className="flex gap-3">
                                 <div className="bg-slate-50 rounded-lg px-4 py-2 border border-slate-200">
@@ -1406,13 +1406,14 @@ export default function PerpustakaanIndex({
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Main Content */}
                 <div className="max-w-7xl mx-auto px-4 py-6">
                     {canManageBooks && (
                         <div className="flex justify-end mb-4">
-                            <Button 
+                            <Button
                                 className="bg-indigo-600 hover:bg-indigo-700"
+                                data-tour="btn-add-buku"
                                 onClick={openAddBookForm}
                             >
                                 <Plus className="w-4 h-4 mr-1.5" />
@@ -1420,7 +1421,7 @@ export default function PerpustakaanIndex({
                             </Button>
                         </div>
                     )}
-                    
+
                     {/* My Books Section */}
                     {myActiveLoans.length > 0 && (
                         <div className="mb-8">
@@ -1438,7 +1439,7 @@ export default function PerpustakaanIndex({
                                     Lihat Semua {'->'}
                                 </button>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {myActiveLoans.map((loan) => (
                                     <MyBookCard key={loan.id} loan={loan} />
@@ -1446,7 +1447,7 @@ export default function PerpustakaanIndex({
                             </div>
                         </div>
                     )}
-                    
+
                     <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
                         <aside className="space-y-6 border-r border-slate-200 pr-6">
                             <div className="space-y-2">
@@ -1560,7 +1561,7 @@ export default function PerpustakaanIndex({
                             )}
                         </section>
                     </div>
-                    
+
                     {/* Footer Stats */}
                     <div className="mt-12 pt-8 border-t border-slate-200">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

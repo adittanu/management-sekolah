@@ -52,6 +52,7 @@ class UserController extends Controller
             'password' => 'required|string|min:8',
             'role' => 'required|in:admin,teacher,student',
             'identity_number' => 'nullable|string|unique:users',
+            'teacher_code' => 'nullable|string|unique:users,teacher_code',
             'gender' => 'nullable|in:L,P',
             'avatar' => 'nullable|string',
         ]);
@@ -77,6 +78,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
             'role' => 'required|in:admin,teacher,student,parent',
             'identity_number' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
+            'teacher_code' => ['nullable', 'string', Rule::unique('users', 'teacher_code')->ignore($user->id)],
             'gender' => 'nullable|in:L,P',
             'avatar' => 'nullable|string',
         ]);

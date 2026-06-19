@@ -170,7 +170,7 @@ export default function AnnouncementIndex({ announcements }: Props) {
                         </div>
                         <p className="text-slate-500">Kelola pengumuman yang ditampilkan di dashboard guru.</p>
                     </div>
-                    <Button onClick={openAddModal} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={openAddModal} data-tour="btn-add-pengumuman" className="bg-blue-600 hover:bg-blue-700">
                         <Plus className="w-4 h-4 mr-2" />
                         Tambah Pengumuman
                     </Button>

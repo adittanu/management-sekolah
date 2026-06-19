@@ -1,7 +1,7 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Search, Clock, MapPin, CalendarDays, Plus, Trash2, Pencil } from 'lucide-react';
+import { Search, Clock, MapPin, CalendarDays, Plus, Trash2, Pencil, Sparkles, Loader2, AlertTriangle, CheckCircle2, X, Download, Upload } from 'lucide-react';
 import { Card } from '@/Components/ui/card';
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from '@/Components/ui/badge';
 import { DndContext, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { DraggableScheduleCard, DroppableCell } from '@/Components/Jadwal/DragDropComponents';
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
+
 
 // Define Interfaces
 interface Subject {
@@ -25,6 +26,7 @@ interface Classroom {
     id: number;
     name: string;
     level?: string;
+    is_mobile?: boolean;
 }
 
 interface Teacher {
@@ -70,19 +72,56 @@ interface TimeSlot {
     is_active: boolean;
 }
 
+interface Room {
+    id: number;
+    name: string;
+    code: string;
+    type: string;
+    capacity?: number;
+    is_active?: boolean;
+}
+
 interface Props {
     schedules: Schedule[];
     subjects: Subject[];
     classrooms: Classroom[];
     teachers: Teacher[];
     timeSlots: TimeSlot[];
+    rooms: Room[];
+    classroomIdsWithSchedule?: number[];
+    autoResult?: {
+        auto_generate_saved?: number;
+        auto_generate_errors?: string[];
+        auto_generate_conflicts?: string[];
+        auto_generate_warnings?: string[];
+        auto_generate_unfulfilled?: string[];
+        auto_generate_next_classroom_id?: number;
+        auto_generate_next_classroom_name?: string;
+        auto_generate_stats?: {
+            total_lessons: number;
+            scheduled: number;
+            conflicts: number;
+            fill_rate: number;
+            classroom_id?: number;
+        };
+    } | null;
 }
 
-export default function JadwalIndex({ schedules, subjects, classrooms, teachers, timeSlots }: Props) {
+export default function JadwalIndex({ schedules, subjects, classrooms, teachers, timeSlots, rooms = [], classroomIdsWithSchedule = [], autoResult }: Props) {
     const SLOT_ROW_HEIGHT_PX = 140;
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDay, setSelectedDay] = useState('Semua');
-    const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class'); // New State
+    const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class');
+    const [isAutoGenerateOpen, setIsAutoGenerateOpen] = useState(false);
+    const [autoGenClassroomId, setAutoGenClassroomId] = useState('');
+    const [autoGenClearExisting, setAutoGenClearExisting] = useState(false);
+    const [autoGenRequirements, setAutoGenRequirements] = useState<Record<string, number>>({});
+    const [autoGenProcessing, setAutoGenProcessing] = useState(false);
+    const [autoGenPrompt, setAutoGenPrompt] = useState('');
+    const [autoGenIsMobile, setAutoGenIsMobile] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importProcessing, setImportProcessing] = useState(false);
 
     // Use Inertia Form
     const { data, setData, processing, errors, reset, clearErrors } = useForm({
@@ -103,7 +142,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     // or keep using Name if it's easier for the current prop structure.
     // Looking at previous code: `selectedClass` stored NAME.
     // Let's make it generic: `selectedFilterValue`
-    
+
     const [selectedFilterValue, setSelectedFilterValue] = useState('');
 
     // Initialize selection when mode or data changes
@@ -127,12 +166,15 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
     // Filter Logic for Days
     const visibleDays = selectedDay === 'Semua' ? days : [selectedDay];
-    
+
     // Helper to get time from TimeSlot object
     const getTimesFromSlot = (slotNumber: number) => {
         const slot = timeSlots.find(ts => ts.slot_number === slotNumber);
         if (slot) {
-            return { start: slot.start_time, end: slot.end_time };
+            return {
+                start: slot.start_time.substring(0, 5),
+                end: slot.end_time.substring(0, 5)
+            };
         }
         // Fallback to calculation if slot not found
         const startMinutes = 7 * 60 + (slotNumber - 1) * 45;
@@ -147,12 +189,18 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
     const getSlotByStartTime = (time: string): TimeSlot | undefined => {
         const normalized = time.substring(0, 5);
-        return activeTimeSlots.find((slot) => slot.start_time === normalized);
+        return activeTimeSlots.find((slot) => {
+            const slotStart = slot.start_time.substring(0, 5);
+            return slotStart === normalized;
+        });
     };
 
     const getSlotByEndTime = (time: string): TimeSlot | undefined => {
         const normalized = time.substring(0, 5);
-        return activeTimeSlots.find((slot) => slot.end_time === normalized);
+        return activeTimeSlots.find((slot) => {
+            const slotEnd = slot.end_time.substring(0, 5);
+            return slotEnd === normalized;
+        });
     };
 
     const getMaxSlotNumber = (): number => {
@@ -165,8 +213,8 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         const startSlotData = activeTimeSlots.find((slot) => slot.slot_number === startSlot);
         const endSlotData = activeTimeSlots.find((slot) => slot.slot_number === endSlotNumber);
 
-        const start = startSlotData?.start_time ?? getTimesFromSlot(startSlot).start;
-        const end = endSlotData?.end_time ?? getTimesFromSlot(startSlot).end;
+        const start = (startSlotData?.start_time ?? getTimesFromSlot(startSlot).start).substring(0, 5);
+        const end = (endSlotData?.end_time ?? getTimesFromSlot(startSlot).end).substring(0, 5);
 
         return { start, end };
     };
@@ -199,7 +247,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     // Transform raw schedules to the structure expected by the UI
     const transformScheduleData = (scheduleList: Schedule[]): Record<string, ScheduleGridItem[]> => {
         const transformedData: Record<string, ScheduleGridItem[]> = {};
-        
+
         // Initialize days
         days.forEach(day => {
             transformedData[day] = [];
@@ -210,14 +258,14 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
         list.forEach(schedule => {
             if (!schedule.subject || !schedule.classroom || !schedule.teacher) return;
-            
+
             const startSlot = getJamFromTime(schedule.start_time);
             const endSlot = Math.max(startSlot, getEndJamFromTime(schedule.end_time, startSlot));
             const durationSlots = Math.max(1, endSlot - startSlot + 1);
-            
+
             // Push to day bucket
             if (!transformedData[schedule.day]) transformedData[schedule.day] = [];
-            
+
             transformedData[schedule.day].push({
                 id: schedule.id,
                 jam: startSlot,
@@ -255,10 +303,10 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
     const handleAddSchedule = (day: string = '', jam: string = '') => {
         setEditingScheduleId(null);
         clearErrors();
-        
+
         let start = '';
         let end = '';
-        
+
         if (jam) {
             const times = getTimesFromSlot(parseInt(jam));
             start = times.start;
@@ -377,7 +425,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
             });
         }
     };
-    
+
     // ... Dnd Sensors ...
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -415,7 +463,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         // Optimistic update
         // Deep copy needed to properly revert state later if needed
         const previousData = JSON.parse(JSON.stringify(scheduleData));
-        
+
         setScheduleData((prev) => {
             // Deep copy for mutation
             const newData = JSON.parse(JSON.stringify(prev)) as Record<string, ScheduleGridItem[]>;
@@ -425,15 +473,15 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
              // 1. Remove from Source
             const sourceList = newData[sourceDay] || [];
             const itemIndex = sourceList.findIndex((scheduleItem) => scheduleItem.id === scheduleId);
-            if (itemIndex === -1) return prev; 
+            if (itemIndex === -1) return prev;
 
             const [movedItem] = sourceList.splice(itemIndex, 1);
-            newData[sourceDay] = [...sourceList]; 
+            newData[sourceDay] = [...sourceList];
 
             // 2. Add to Target (If occupied, we might need to handle swap or reject)
             // For now, let's just push and let backend validate
             if (!newData[targetDay]) newData[targetDay] = [];
-            
+
             // Check if target is occupied
             const targetList = newData[targetDay] || [];
 
@@ -460,12 +508,12 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                 .filter((item) => item.id !== scheduleId)
                 .filter(isSameDimension)
                 .some((item) => isRangeOverlap(item.startSlot, item.endSlot, targetJam, targetEndSlot));
-            
+
             if (isOccupied) {
                 // If occupied, revert (or handle swap later)
                 toast.error('Slot waktu sudah terisi!');
                 // MUST RETURN A NEW OBJECT TO TRIGGER RENDER
-                return JSON.parse(JSON.stringify(previousData)); 
+                return JSON.parse(JSON.stringify(previousData));
             }
 
             movedItem.jam = targetJam;
@@ -484,7 +532,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         // Backend Update
         const activeDuration = Math.max(1, activeData.durationSlots ?? 1);
         const movedTimes = getSlotRangeTimes(targetJam, activeDuration);
-        
+
         router.put(route('admin.jadwal.update', scheduleId), {
             day: targetDay,
             start_time: movedTimes.start,
@@ -532,6 +580,135 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
         : Math.max(1, getMaxSlotNumber() - selectedStartSlot + 1);
     const selectedTimeSlot = timeSlots.find((slot) => slot.slot_number.toString() === data.jam);
 
+    // Sync mobile status when selected classroom in auto-generator changes
+    useEffect(() => {
+        if (autoGenClassroomId) {
+            const cls = classrooms.find(c => c.id.toString() === autoGenClassroomId);
+            setAutoGenIsMobile(cls?.is_mobile || false);
+        } else {
+            setAutoGenIsMobile(false);
+        }
+    }, [autoGenClassroomId, classrooms]);
+
+    // Auto-Generate toast notifications
+    useEffect(() => {
+        if (!autoResult) return;
+
+        if (autoResult.auto_generate_saved) {
+            const classroom = classrooms.find(c => c.id === autoResult.auto_generate_stats?.classroom_id);
+            const classroomName = classroom?.name ?? '';
+            toast.success(`✅ Berhasil! ${autoResult.auto_generate_saved} jadwal dibuat untuk kelas ${classroomName}.`, {
+                duration: 5000,
+                description: autoResult.auto_generate_stats
+                    ? `${autoResult.auto_generate_stats.scheduled}/${autoResult.auto_generate_stats.total_lessons} slot terisi (${autoResult.auto_generate_stats.fill_rate}%)`
+                    : undefined,
+            });
+            if (classroom) {
+                setViewMode('class');
+                setSelectedFilterValue(classroom.name);
+            }
+        }
+        if (autoResult.auto_generate_conflicts && autoResult.auto_generate_conflicts.length > 0) {
+            autoResult.auto_generate_conflicts.forEach((c: string) => toast.warning(`⚠️ ${c}`, { duration: 6000 }));
+        }
+        if (autoResult.auto_generate_errors && autoResult.auto_generate_errors.length > 0) {
+            autoResult.auto_generate_errors.forEach((e: string) => toast.error(`❌ Gagal: ${e}`, { duration: 6000 }));
+        }
+        if (autoResult.auto_generate_warnings && autoResult.auto_generate_warnings.length > 0) {
+            autoResult.auto_generate_warnings.forEach((w: string) => toast.warning(`⚠️ ${w}`, { duration: 8000 }));
+        }
+        if (autoResult.auto_generate_unfulfilled && autoResult.auto_generate_unfulfilled.length > 0) {
+            toast.warning(`⚠️ Mapel yang belum terpenuhi: ${autoResult.auto_generate_unfulfilled.join(', ')}`, { duration: 10000 });
+        }
+        if (autoResult.auto_generate_next_classroom_name) {
+            toast.info(`💡 Kelas berikutnya belum punya jadwal: ${autoResult.auto_generate_next_classroom_name}`, { duration: 8000 });
+        }
+    }, [autoResult]);
+
+    const toggleAutoGenSubject = (subjectId: string) => {
+        setAutoGenRequirements(prev => {
+            const updated = { ...prev };
+            if (updated[subjectId]) {
+                delete updated[subjectId];
+            } else {
+                updated[subjectId] = 2;
+            }
+            return updated;
+        });
+    };
+
+    const updateAutoGenHours = (subjectId: string, hours: number) => {
+        setAutoGenRequirements(prev => ({
+            ...prev,
+            [subjectId]: Math.max(1, Math.min(10, hours)),
+        }));
+    };
+
+    const selectAllSubjects = () => {
+        const all: Record<string, number> = {};
+        subjects.forEach(s => {
+            all[s.id.toString()] = 2;
+        });
+        setAutoGenRequirements(all);
+    };
+
+    const clearAllSubjects = () => {
+        setAutoGenRequirements({});
+    };
+
+    const handleAutoGenerate = () => {
+        if (!autoGenClassroomId) {
+            toast.error('Pilih kelas terlebih dahulu');
+            return;
+        }
+        const validRequirements = Object.entries(autoGenRequirements)
+            .filter(([id, hours]) => id && hours > 0)
+            .map(([id, hours]) => ({
+                subject_id: parseInt(id),
+                hours,
+            }));
+        if (validRequirements.length === 0) {
+            toast.error('Pilih minimal satu mata pelajaran');
+            return;
+        }
+
+        setAutoGenProcessing(true);
+        setIsAutoGenerateOpen(false);
+
+        router.post(route('admin.jadwal.auto-generate'), {
+            classroom_id: parseInt(autoGenClassroomId),
+            requirements: validRequirements,
+            clear_existing: autoGenClearExisting,
+            prompt: autoGenPrompt.trim() || undefined,
+            is_mobile: autoGenIsMobile,
+        }, {
+            onFinish: () => setAutoGenProcessing(false),
+        });
+    };
+
+    /** Auto-navigate to next classroom after a successful generate */
+    const handleGoToNextClassroom = () => {
+        if (autoResult?.auto_generate_next_classroom_id) {
+            const nextId = autoResult.auto_generate_next_classroom_id.toString();
+            setAutoGenClassroomId(nextId);
+            setAutoGenRequirements({});
+            setAutoGenClearExisting(false);
+            setIsAutoGenerateOpen(true);
+            toast.info(`Siap generate kelas: ${autoResult.auto_generate_next_classroom_name}`);
+        }
+    };
+
+    /** Re-generate the same classroom */
+    const handleRegenerateCurrent = () => {
+        if (autoResult?.auto_generate_stats?.classroom_id) {
+            const currentId = autoResult.auto_generate_stats.classroom_id.toString();
+            setAutoGenClassroomId(currentId);
+            setAutoGenClearExisting(true);
+            setIsAutoGenerateOpen(true);
+            toast.info('Generate ulang kelas yang sama (jadwal lama akan dihapus)');
+        }
+    };
+
     return (
         <AdminLayout title="Atur Jadwal KBM">
             <div className="space-y-6 w-full max-w-full">
@@ -545,20 +722,20 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                         </div>
                         <p className="text-slate-500">Kelola jadwal mengajar guru dan penggunaan ruangan.</p>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                         {/* View Mode Toggle */}
                         <div className="bg-slate-100 p-1 rounded-lg flex items-center">
-                            <Button 
-                                variant={viewMode === 'class' ? 'secondary' : 'ghost'} 
+                            <Button
+                                variant={viewMode === 'class' ? 'secondary' : 'ghost'}
                                 size="sm"
                                 onClick={() => setViewMode('class')}
                                 className={viewMode === 'class' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}
                             >
                                 Kelas
                             </Button>
-                            <Button 
-                                variant={viewMode === 'teacher' ? 'secondary' : 'ghost'} 
+                            <Button
+                                variant={viewMode === 'teacher' ? 'secondary' : 'ghost'}
                                 size="sm"
                                 onClick={() => setViewMode('teacher')}
                                 className={viewMode === 'teacher' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}
@@ -573,14 +750,47 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                     <SelectValue placeholder={viewMode === 'class' ? "Pilih Kelas" : "Pilih Guru"} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {viewMode === 'class' 
-                                        ? classrooms.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)
+                                    {viewMode === 'class'
+                                        ? classrooms.map(c => {
+                                            const hasSchedule = classroomIdsWithSchedule.includes(c.id);
+                                            return (
+                                                <SelectItem key={c.id} value={c.name}>
+                                                    {hasSchedule ? '✅' : '⬜'} {c.name}
+                                                </SelectItem>
+                                            );
+                                        })
                                         : teachers.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)
                                     }
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button 
+                        <Button
+                            data-tour="btn-auto-generate"
+                            onClick={() => setIsAutoGenerateOpen(true)}
+                            variant="outline"
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-300"
+                        >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Auto Generate
+                        </Button>
+                        <a href={route('admin.jadwal.export')} target="_blank" rel="noopener noreferrer">
+                            <Button
+                                variant="outline"
+                                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Export Excel
+                            </Button>
+                        </a>
+                        <Button
+                            variant="outline"
+                            className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+                            onClick={() => setIsImportOpen(true)}
+                        >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Import Excel
+                        </Button>
+                        <Button
                             onClick={() => handleAddSchedule()}
                             className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
                         >
@@ -592,7 +802,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between sticky top-0 z-30 overflow-hidden">
                      <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto scrollbar-hide min-w-0 flex-1">
-                        <Button 
+                        <Button
                              onClick={() => setSelectedDay('Semua')}
                              variant={selectedDay === 'Semua' ? 'secondary' : 'ghost'}
                              className={selectedDay === 'Semua' ? 'bg-slate-900 text-white hover:bg-slate-800 shrink-0' : 'text-slate-500 shrink-0'}
@@ -610,11 +820,11 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                             </Button>
                         ))}
                      </div>
-                     
+
                      <div className="relative w-full sm:w-64 shrink-0">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                        <Input 
-                            placeholder="Cari Guru atau Mapel..." 
+                        <Input
+                            placeholder="Cari Guru atau Mapel..."
                             className="pl-10 bg-slate-50 border-slate-200 w-full"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -622,10 +832,53 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                      </div>
                 </div>
 
+                {/* Auto-generate result summary banner */}
+                {autoResult?.auto_generate_saved && autoResult.auto_generate_stats?.classroom_id && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-purple-100 p-2 rounded-lg">
+                                    <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-purple-900">
+                                        Generate selesai: {classrooms.find(c => c.id === autoResult.auto_generate_stats?.classroom_id)?.name}
+                                    </p>
+                                    <p className="text-xs text-purple-600">
+                                        {autoResult.auto_generate_stats.scheduled}/{autoResult.auto_generate_stats.total_lessons} slot terisi ({autoResult.auto_generate_stats.fill_rate}%)
+                                        {autoResult.auto_generate_errors && autoResult.auto_generate_errors.length > 0 && (
+                                            <span className="text-red-500 ml-2">• {autoResult.auto_generate_errors.length} error</span>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleRegenerateCurrent}
+                                    className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                                >
+                                    🔄 Generate Ulang
+                                </Button>
+                                {autoResult.auto_generate_next_classroom_id && (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleGoToNextClassroom}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                                    >
+                                        ➡️ Generate Kelas: {autoResult.auto_generate_next_classroom_name}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 w-full max-w-full">
                     <div className="overflow-x-auto w-full pb-3">
                         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                            <div 
+                            <div
                                 className={`grid divide-x divide-slate-100 border-b border-slate-200 ${visibleDays.length > 1 ? 'min-w-[1000px]' : 'w-full'}`}
                                 style={{ gridTemplateColumns: `100px repeat(${visibleDays.length}, minmax(0, 1fr))` }}
                             >
@@ -663,7 +916,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                             const scheduleItem = getScheduleItem(day, jam);
                                             const isStartCell = Boolean(scheduleItem && scheduleItem.startSlot === jam);
                                             const isCoveredCell = Boolean(scheduleItem && scheduleItem.startSlot < jam);
-                                            
+
                                             // Filter
                                             const isVisible = !searchQuery || (scheduleItem && (
                                                 scheduleItem.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -775,7 +1028,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                 Masukkan detail jadwal KBM baru ke dalam slot waktu.
                             </DialogDescription>
                         </DialogHeader>
-                        
+
                         <div className="p-6 space-y-6">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <div className="space-y-2">
@@ -853,8 +1106,8 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
                                 <div className="space-y-2">
                                     <Label>Guru Pengajar</Label>
-                                    <Select 
-                                        value={data.teacher_id} 
+                                    <Select
+                                        value={data.teacher_id}
                                         onValueChange={(val) => setData('teacher_id', val)}
                                         disabled={!data.subject_id} // Disable if no subject selected
                                     >
@@ -866,7 +1119,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                                 (() => {
                                                     const selectedSubject = subjects.find(s => s.id.toString() === data.subject_id);
                                                     const linkedTeachers = selectedSubject?.teachers || [];
-                                                    
+
                                                     // Show all teachers if no specific teachers linked, OR show only linked teachers
                                                     const displayTeachers = linkedTeachers.length > 0 ? linkedTeachers : teachers;
 
@@ -902,12 +1155,19 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Ruangan</Label>
-                                    <Input 
-                                        placeholder="Contoh: Lab Komputer" 
-                                        className="bg-slate-50 border-slate-200"
-                                        value={data.room}
-                                        onChange={(e) => setData('room', e.target.value)}
-                                    />
+                                    <Select value={data.room} onValueChange={(val) => setData('room', val)}>
+                                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                                            <SelectValue placeholder="Pilih Ruangan" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">Tanpa Ruangan</SelectItem>
+                                            {rooms.map((room) => (
+                                                <SelectItem key={room.id} value={room.name}>
+                                                    {room.name} ({room.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     {errors.room && <p className="text-xs text-red-500">{errors.room}</p>}
                                 </div>
                             </div>
@@ -925,7 +1185,7 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
 
                         <DialogFooter className="p-6 pt-2 bg-slate-50/50">
                             <Button variant="outline" onClick={closeScheduleDialog}>Batal</Button>
-                            <Button 
+                            <Button
                                 className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]"
                                 onClick={handleSaveSchedule}
                                 disabled={processing}
@@ -935,7 +1195,326 @@ export default function JadwalIndex({ schedules, subjects, classrooms, teachers,
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {isAutoGenerateOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-black/50" onClick={() => setIsAutoGenerateOpen(false)} />
+                        <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-[600px] max-h-[85vh] overflow-y-auto z-50">
+                            <div className="p-6 pb-4 border-b border-slate-100 bg-purple-50/50">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-5 h-5 text-purple-600" />
+                                        <h2 className="text-xl font-bold text-slate-900">Auto Generate Jadwal</h2>
+                                    </div>
+                                    <button onClick={() => setIsAutoGenerateOpen(false)} className="rounded-sm opacity-70 hover:opacity-100">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <p className="text-sm text-slate-500 mt-1">Biarkan AI membuatkan jadwal KBM secara otomatis tanpa bentrok guru dan ruangan.</p>
+                            </div>
+
+                            <div className="p-6 space-y-5">
+                            {/* Classroom Selection — single kelas only */}
+                            <div className="space-y-2">
+                            <Label>Pilih Kelas</Label>
+                            <Select value={autoGenClassroomId} onValueChange={setAutoGenClassroomId}>
+                                <SelectTrigger className="bg-slate-50 border-slate-200">
+                                    <SelectValue placeholder="Pilih 1 kelas yang akan dijadwalkan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {classrooms.map((cls) => {
+                                        const hasSchedule = classroomIdsWithSchedule.includes(cls.id);
+                                        return (
+                                            <SelectItem key={cls.id} value={cls.id.toString()}>
+                                                {hasSchedule ? '✅' : '⬜'} {cls.name}
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                            {!autoGenClassroomId ? (
+                                <p className="text-[11px] text-red-500 font-medium">
+                                    * Wajib memilih kelas sebelum menggenerate jadwal
+                                </p>
+                            ) : Object.keys(autoGenRequirements).length === 0 ? (
+                                <p className="text-[11px] text-amber-600 font-medium">
+                                    * Pilih minimal satu mata pelajaran di bawah
+                                </p>
+                            ) : (
+                                <p className="text-[10px] text-slate-400">
+                                    Generate dilakukan per 1 kelas. Setelah selesai, Anda bisa lanjut ke kelas berikutnya.
+                                </p>
+                            )}
+                            </div>
+
+                            {/* Mobile Class Option */}
+                            {autoGenClassroomId && (
+                                <div className="flex items-center gap-3 p-3 bg-purple-50/50 border border-purple-200 rounded-lg">
+                                    <input
+                                        type="checkbox"
+                                        id="autoGenIsMobile"
+                                        checked={autoGenIsMobile}
+                                        onChange={(e) => setAutoGenIsMobile(e.target.checked)}
+                                        className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <div>
+                                        <label htmlFor="autoGenIsMobile" className="text-sm font-medium text-purple-800 cursor-pointer flex items-center gap-1.5">
+                                            <span>Jadikan Moving Class (Kelas Mobile)</span>
+                                            {autoGenIsMobile ? (
+                                                <span className="bg-purple-100 text-purple-800 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase">Mobile</span>
+                                            ) : (
+                                                <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase">Fixed Class</span>
+                                            )}
+                                        </label>
+                                        <p className="text-xs text-purple-600">
+                                            Jika diaktifkan, KBM akan ditempatkan di ruang kelas mana saja yang kosong (moving class)
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Clear Existing Option */}
+                            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <input
+                                    type="checkbox"
+                                    id="clearExisting"
+                                    checked={autoGenClearExisting}
+                                    onChange={(e) => setAutoGenClearExisting(e.target.checked)}
+                                    className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                                />
+                                <div>
+                                    <label htmlFor="clearExisting" className="text-sm font-medium text-amber-800 cursor-pointer">
+                                        Hapus jadwal yang sudah ada
+                                    </label>
+                                    <p className="text-xs text-amber-600">
+                                        Centang jika ingin menghapus semua jadwal lama kelas ini sebelum generate baru
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Subject Requirements - Multi Select */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label>Mata Pelajaran & Jam/Minggu</Label>
+                                    <div className="flex gap-2">
+                                        <Button type="button" variant="outline" size="sm" onClick={selectAllSubjects} className="text-slate-600 border-slate-200 hover:bg-slate-50">
+                                            Pilih Semua
+                                        </Button>
+                                        <Button type="button" variant="outline" size="sm" onClick={clearAllSubjects} className="text-red-500 border-red-200 hover:bg-red-50">
+                                            Hapus Semua
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 pr-1">
+                                    {subjects.map((subj) => {
+                                        const isSelected = autoGenRequirements[subj.id.toString()] !== undefined;
+                                        const hours = autoGenRequirements[subj.id.toString()] || 2;
+                                        return (
+                                            <div key={subj.id} className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer ${isSelected ? 'bg-purple-50 border-purple-300' : 'bg-white border-slate-200 hover:border-purple-200'}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleAutoGenSubject(subj.id.toString())}
+                                                    className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium text-slate-900 truncate">{subj.name}</div>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="flex items-center gap-1">
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={10}
+                                                            value={hours}
+                                                            onChange={(e) => updateAutoGenHours(subj.id.toString(), parseInt(e.target.value) || 1)}
+                                                            className="w-12 h-7 text-xs text-center bg-white border-purple-200"
+                                                        />
+                                                        <span className="text-[10px] text-slate-400">JP</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {Object.keys(autoGenRequirements).length > 0 && (
+                                    <div className="text-xs text-slate-500">
+                                        {Object.keys(autoGenRequirements).length} mapel dipilih • Total {Object.values(autoGenRequirements).reduce((a, b) => a + b, 0)} JP/minggu
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Free Text Prompt for AI */}
+                            <div className="space-y-2">
+                                <Label>Prompt untuk AI (opsional)</Label>
+                                <textarea
+                                    value={autoGenPrompt}
+                                    onChange={(e) => setAutoGenPrompt(e.target.value)}
+                                    placeholder="Contoh: Matematika dan Bahasa Indonesia diutamakan pagi hari. Fisika harus pakai Lab Fisika. Jam istirahat di slot 5. Setiap guru maksimal 4 jam per hari."
+                                    rows={3}
+                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                                />
+                                <p className="text-[10px] text-slate-400">Tulis instruksi tambahan agar AI lebih akurat dalam membuat jadwal.</p>
+                            </div>
+
+                            {/* Info */}
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-xs text-purple-800 flex gap-2">
+                                <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold mb-1">Cara kerja AI Scheduler:</p>
+                                    <ul className="space-y-0.5 list-disc list-inside">
+                                        <li>Memetakan ketersediaan guru (tidak bentrok antar kelas)</li>
+                                        <li>Mapel inti (Matematika, B. Indonesia) diprioritaskan di pagi hari</li>
+                                        <li>Ruangan lab otomatis untuk mapel sains</li>
+                                        <li>Distribusi beban mengajar merata sepanjang minggu</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                            <div className="p-6 pt-2 bg-slate-50 border-t border-slate-100">
+                                <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+                                    <Button variant="outline" onClick={() => setIsAutoGenerateOpen(false)}>Batal</Button>
+                                    <Button
+                                        className="bg-purple-600 hover:bg-purple-700 text-white min-w-[160px]"
+                                        onClick={handleAutoGenerate}
+                                        disabled={autoGenProcessing || !autoGenClassroomId || Object.keys(autoGenRequirements).length === 0}
+                                    >
+                                        {autoGenProcessing ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Menggenerate...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="w-4 h-4 mr-2" />
+                                                Generate Jadwal
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
+
+            {/* Import Excel Dialog */}
+            <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-orange-700">
+                            <Upload className="w-5 h-5" />
+                            Import Jadwal dari Excel
+                        </DialogTitle>
+                        <DialogDescription>
+                            Unggah file Excel dengan format jadwal pelajaran. Sistem akan secara otomatis memperbarui Jam Pelajaran dan Jadwal Kelas berdasarkan isi file.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        {/* Format Info */}
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="font-semibold">📋 Format File yang Diperlukan:</p>
+                                <a
+                                    href={route('admin.jadwal.template')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1 hover:bg-emerald-100 transition-colors shrink-0"
+                                >
+                                    <Download className="w-3 h-3" />
+                                    Unduh Contoh File
+                                </a>
+                            </div>
+                            <ul className="list-disc list-inside space-y-1 text-xs">
+                                <li><strong>Baris 14:</strong> Nama kelas di kolom D, G, J, ... (setiap 3 kolom)</li>
+                                <li><strong>Baris 15:</strong> Header Mata Pelajaran | Ko Gu | Ruang</li>
+                                <li><strong>Baris 16+:</strong> Data jadwal dengan format HARI di kolom A, JP.KE di kolom B, WAKTU di kolom C</li>
+                                <li><strong>Ko Gu:</strong> Harus sesuai Kode Guru yang terdaftar di sistem</li>
+                                <li><strong>Format waktu:</strong> contoh <code>07.15 - 07.55</code></li>
+                            </ul>
+                            <p className="text-xs text-amber-600 border-t border-amber-200 pt-2">
+                                💡 Sheet <strong>"Kode Guru"</strong> dalam file contoh berisi daftar semua kode guru yang terdaftar di sistem.
+                            </p>
+                        </div>
+
+                        {/* File Upload */}
+                        <div className="space-y-2">
+                            <Label htmlFor="import-file">File Excel / CSV</Label>
+                            <div className="border-2 border-dashed border-orange-200 rounded-lg p-6 text-center hover:border-orange-400 transition-colors">
+                                <input
+                                    id="import-file"
+                                    type="file"
+                                    accept=".xlsx,.xls,.csv"
+                                    className="hidden"
+                                    onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                                />
+                                <label htmlFor="import-file" className="cursor-pointer">
+                                    <Upload className="w-8 h-8 mx-auto mb-2 text-orange-400" />
+                                    {importFile ? (
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-900">{importFile.name}</p>
+                                            <p className="text-xs text-slate-500">{(importFile.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-700">Klik untuk pilih file</p>
+                                            <p className="text-xs text-slate-400">Format: .xlsx, .xls, atau .csv (maks. 10 MB)</p>
+                                        </div>
+                                    )}
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Warning */}
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700 flex gap-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <p><strong>Perhatian:</strong> Import akan menghapus dan mengganti jadwal untuk kelas-kelas yang ada dalam file. Jam Pelajaran juga akan diperbarui sesuai file. Pastikan file sudah benar sebelum mengimport.</p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => { setIsImportOpen(false); setImportFile(null); }} disabled={importProcessing}>
+                            Batal
+                        </Button>
+                        <Button
+                            className="bg-orange-600 hover:bg-orange-700"
+                            disabled={!importFile || importProcessing}
+                            onClick={() => {
+                                if (!importFile) return;
+                                setImportProcessing(true);
+                                const formData = new FormData();
+                                formData.append('file', importFile);
+                                router.post(route('admin.jadwal.import'), formData, {
+                                    forceFormData: true,
+                                    onSuccess: () => {
+                                        setIsImportOpen(false);
+                                        setImportFile(null);
+                                        toast.success('Import jadwal berhasil!');
+                                    },
+                                    onError: (errors) => {
+                                        toast.error(Object.values(errors)[0] as string ?? 'Gagal mengimport file.');
+                                    },
+                                    onFinish: () => setImportProcessing(false),
+                                });
+                            }}
+                        >
+                            {importProcessing ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Mengimport...
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Import Sekarang
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AdminLayout>
     );
 }

@@ -31,14 +31,14 @@ class GuruServerTest extends TestCase
     {
         parent::setUp();
 
-        $this->teacher = User::create([
+        $this->teacher = User::forceCreate([
             'name' => 'Guru Test',
             'email' => 'guru@test.com',
             'password' => bcrypt('password'),
             'role' => 'teacher',
         ]);
 
-        $this->student = User::create([
+        $this->student = User::forceCreate([
             'name' => 'Siswa Test',
             'email' => 'siswa@test.com',
             'password' => bcrypt('password'),
@@ -46,7 +46,7 @@ class GuruServerTest extends TestCase
             'identity_number' => '12345',
         ]);
 
-        $this->admin = User::create([
+        $this->admin = User::forceCreate([
             'name' => 'Admin Test',
             'email' => 'admin@test.com',
             'password' => bcrypt('password'),
@@ -79,7 +79,7 @@ class GuruServerTest extends TestCase
     public function test_lihat_jadwal_tool_returns_schedules_for_teacher(): void
     {
         $response = GuruServer::actingAs($this->teacher)
-            ->tool(LihatJadwalTool::class);
+            ->tool(LihatJadwalTool::class, ['email_guru' => $this->teacher->email]);
 
         $response->dump();
 
@@ -92,7 +92,10 @@ class GuruServerTest extends TestCase
     public function test_lihat_jadwal_tool_filters_by_day(): void
     {
         $response = GuruServer::actingAs($this->teacher)
-            ->tool(LihatJadwalTool::class, ['hari' => 'Senin']);
+            ->tool(LihatJadwalTool::class, [
+                'email_guru' => $this->teacher->email,
+                'hari' => 'Senin',
+            ]);
 
         $response->assertOk();
         $response->assertSee('Matematika');
@@ -101,7 +104,7 @@ class GuruServerTest extends TestCase
     public function test_lihat_jadwal_tool_rejects_non_teacher(): void
     {
         $response = GuruServer::actingAs($this->admin)
-            ->tool(LihatJadwalTool::class);
+            ->tool(LihatJadwalTool::class, ['email_guru' => $this->admin->email]);
 
         $response->assertHasErrors();
         $response->assertSee('Tool ini hanya untuk guru');
@@ -110,7 +113,7 @@ class GuruServerTest extends TestCase
     public function test_lihat_jadwal_hari_ini_tool_returns_today_schedule(): void
     {
         $response = GuruServer::actingAs($this->teacher)
-            ->tool(LihatJadwalHariIniTool::class);
+            ->tool(LihatJadwalHariIniTool::class, ['email_guru' => $this->teacher->email]);
 
         $response->assertOk();
     }
@@ -119,6 +122,7 @@ class GuruServerTest extends TestCase
     {
         $response = GuruServer::actingAs($this->teacher)
             ->tool(AbsenSiswaTool::class, [
+                'email_guru' => $this->teacher->email,
                 'jadwal_id' => $this->schedule->id,
                 'siswa_id' => $this->student->id,
                 'tanggal' => now()->format('Y-m-d'),
@@ -137,7 +141,7 @@ class GuruServerTest extends TestCase
 
     public function test_absen_siswa_tool_rejects_other_teacher_schedule(): void
     {
-        $otherTeacher = User::create([
+        $otherTeacher = User::forceCreate([
             'name' => 'Guru Lain',
             'email' => 'guru.lain@test.com',
             'password' => bcrypt('password'),
@@ -146,6 +150,7 @@ class GuruServerTest extends TestCase
 
         $response = GuruServer::actingAs($otherTeacher)
             ->tool(AbsenSiswaTool::class, [
+                'email_guru' => $otherTeacher->email,
                 'jadwal_id' => $this->schedule->id,
                 'siswa_id' => $this->student->id,
                 'tanggal' => now()->format('Y-m-d'),
@@ -167,6 +172,7 @@ class GuruServerTest extends TestCase
 
         $response = GuruServer::actingAs($this->teacher)
             ->tool(LihatAbsensiTool::class, [
+                'email_guru' => $this->teacher->email,
                 'jadwal_id' => $this->schedule->id,
                 'tanggal' => now()->format('Y-m-d'),
             ]);

@@ -88,7 +88,7 @@ export function DataTable<T>({
                      </div>
                 </div>
                 {actionLabel && (
-                    <Button onClick={onAction} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-2">
+                    <Button onClick={onAction} data-tour="btn-datatable-action" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-2">
                         <Plus className="h-4 w-4" />
                         {actionLabel}
                     </Button>

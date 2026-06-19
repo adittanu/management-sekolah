@@ -2,7 +2,7 @@ import * as React from "react"
 import { useState } from "react"
 import { useForm } from "@inertiajs/react"
 import axios from 'axios'
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, ArrowRight, ArrowLeft } from "lucide-react"
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, ArrowRight, ArrowLeft, Download } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/Components/ui/dialog"
 import { Button } from "@/Components/ui/button"
 import { Progress } from "@/Components/ui/progress"
@@ -60,7 +60,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragActive(false)
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       processFile(e.dataTransfer.files[0])
     }
@@ -75,11 +75,11 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
 
   const processFile = async (selectedFile: File) => {
     const validTypes = [
-      "text/csv", 
-      "application/vnd.ms-excel", 
+      "text/csv",
+      "application/vnd.ms-excel",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ]
-    
+
     // Check extension as fallback
     const validExtensions = [".csv", ".xls", ".xlsx"]
     const hasValidExt = validExtensions.some(ext => selectedFile.name.toLowerCase().endsWith(ext))
@@ -91,7 +91,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
 
     setFile(selectedFile)
     setData("file", selectedFile)
-    
+
     // Upload for preview using axios
     const formData = new FormData()
     formData.append('file', selectedFile)
@@ -106,7 +106,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
         const data = response.data
         if (data.preview) {
             setHeaders(data.preview.header)
-            
+
             // Map preview rows to object structure
             const previewRows = data.preview.data.map((row: any[]) => {
                 const rowObj: PreviewRow = {}
@@ -121,7 +121,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
             const initialMapping: Record<string, string> = {}
             data.preview.header.forEach((header: string) => {
                 const lower = header.toLowerCase()
-                
+
                 // Try exact match first
                 const matched = DB_COLUMNS.find(col => col.value === lower || col.label.toLowerCase() === lower)
                 if (matched) {
@@ -129,16 +129,17 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                 } else {
                     // Fuzzy matching
                     if (lower.includes('email')) initialMapping[header] = 'email';
+                    else if (lower === 'role') initialMapping[header] = 'role';
                     else if (lower === 'firstname' || (lower.includes('name') && lower.includes('first'))) initialMapping[header] = 'firstname';
                     else if (lower === 'lastname' || (lower.includes('name') && lower.includes('last'))) initialMapping[header] = 'lastname';
                     else if (lower.includes('pass')) initialMapping[header] = 'password';
                     else if (lower.includes('rombel') || lower.includes('class')) initialMapping[header] = 'classroom';
                     else if (lower.includes('cohort')) initialMapping[header] = 'cohort1';
                     else if (lower.includes('user') || lower.includes('nis') || lower.includes('nip')) initialMapping[header] = 'username';
-                    else if (lower.includes('name') && !lower.includes('user')) initialMapping[header] = 'name'; 
+                    else if (lower.includes('name') && !lower.includes('user')) initialMapping[header] = 'name';
                 }
             })
-            
+
             setMapping(initialMapping)
             setData("mapping", initialMapping)
         }
@@ -153,7 +154,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
         } else {
             errorMessage += " Request setup failed."
         }
-        
+
         alert(errorMessage)
         setFile(null)
     }
@@ -168,7 +169,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
   const handleImport = () => {
     setStep(3)
     setProgress(10)
-    
+
     // Simulate progress while request is processing (fake progress for UX)
     const interval = setInterval(() => {
       setProgress(prev => {
@@ -181,10 +182,10 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
       onSuccess: (page) => {
         clearInterval(interval)
         setProgress(100)
-        
+
         const flash = (page.props as any).flash || {}
         const pageErrors = (page.props as any).errors || {}
-        
+
         // Check if there are validation errors or import errors
         const errorList: string[] = flash.error_messages || []
         if (typeof pageErrors === 'object' && Object.keys(pageErrors).length > 0) {
@@ -193,7 +194,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
             else if (Array.isArray(err)) errorList.push(...err)
           })
         }
-        
+
         setImportResult({
           success: flash.success_count ?? (errorList.length === 0 ? previewData.length : 0),
           failed: flash.failed_count ?? (errorList.length > 0 ? previewData.length : 0),
@@ -205,7 +206,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
       onError: (errors) => {
         clearInterval(interval)
         setProgress(100)
-        
+
         // Convert errors object to array
         const errorList: string[] = []
         if (typeof errors === 'object') {
@@ -214,7 +215,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
             else if (Array.isArray(err)) errorList.push(...err)
           })
         }
-        
+
         setImportResult({
           success: 0,
           failed: previewData.length,
@@ -256,12 +257,12 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
             const stepNum = index + 1 as Step
             const isActive = step === stepNum
             const isCompleted = step > stepNum
-            
+
             return (
               <div key={label} className="flex flex-col items-center relative z-10">
                 <div className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-200",
-                  isActive ? "bg-primary text-primary-foreground ring-4 ring-primary/20" : 
+                  isActive ? "bg-primary text-primary-foreground ring-4 ring-primary/20" :
                   isCompleted ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 )}>
                   {isCompleted ? <CheckCircle className="w-5 h-5" /> : stepNum}
@@ -275,8 +276,8 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
           })}
           {/* Connecting Line */}
           <div className="absolute top-[5.5rem] left-[3.5rem] right-[3.5rem] h-[2px] bg-muted -z-0 hidden sm:block">
-             <div 
-               className="h-full bg-primary transition-all duration-300" 
+             <div
+               className="h-full bg-primary transition-all duration-300"
                style={{ width: `${((step - 1) / 3) * 100}%` }}
              />
           </div>
@@ -285,7 +286,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
         {/* Step 1: Upload */}
         {step === 1 && (
           <div className="space-y-4">
-            <div 
+            <div
               className={cn(
                 "border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer",
                 isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50",
@@ -296,14 +297,14 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
               onDrop={handleFileDrop}
               onClick={() => document.getElementById('file-upload')?.click()}
             >
-              <input 
-                id="file-upload" 
-                type="file" 
-                accept=".csv, .xlsx, .xls" 
-                className="hidden" 
-                onChange={handleFileSelect} 
+              <input
+                id="file-upload"
+                type="file"
+                accept=".csv, .xlsx, .xls"
+                className="hidden"
+                onChange={handleFileSelect}
               />
-              
+
               {file ? (
                 <div className="flex flex-col items-center text-green-600">
                   <FileText className="w-12 h-12 mb-4" />
@@ -324,7 +325,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                 </div>
               )}
             </div>
-            
+
             <div className="bg-muted/50 p-4 rounded-md text-sm text-muted-foreground">
               <h4 className="font-semibold mb-2 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" /> File Format Guide
@@ -332,9 +333,20 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
               <ul className="list-disc list-inside space-y-1 ml-1">
                 <li>Supported formats: Excel (.xlsx, .xls) and CSV</li>
                 <li>File must include a header row</li>
-                <li>Recommended columns: Name, Email, Role, Password</li>
+                <li>Recommended columns: First Name, Last Name, Email, Username, Password, <strong>Role</strong>, Cohort, Classroom</li>
                 <li>Email must be unique</li>
+                <li>Role values: <strong>student</strong>, <strong>teacher</strong>, <strong>parent</strong>, <strong>admin</strong></li>
+                <li>If Role column is empty, role is auto-detected from Cohort column</li>
               </ul>
+              <a
+                href="/templates/example-import-users.csv"
+                download
+                className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-primary hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="w-4 h-4" />
+                Download Example Template (.csv)
+              </a>
             </div>
           </div>
         )}
@@ -356,8 +368,8 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                     <TableRow key={idx}>
                       <TableCell className="font-medium">{header}</TableCell>
                       <TableCell>
-                        <Select 
-                          value={mapping[header] || ""} 
+                        <Select
+                          value={mapping[header] || ""}
                           onValueChange={(value) => handleMappingChange(header, value)}
                         >
                           <SelectTrigger className="h-8">
@@ -381,10 +393,10 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                 </TableBody>
               </Table>
             </div>
-            
+
             {/* Data Preview Table */}
             <div className="mt-4">
-              <h4 className="text-sm font-semibold mb-2">Data Preview (First 5 Rows)</h4>
+              <h4 className="text-sm font-semibold mb-2">Data Preview (First 7 Rows)</h4>
               <div className="border rounded-md overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -465,14 +477,14 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                </Button>
              )}
           </div>
-          
+
           <div className="flex gap-2">
             {step === 1 && (
               <Button onClick={() => setStep(2)} disabled={!file}>
                 Next Step <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             )}
-            
+
             {step === 2 && (
               <Button onClick={handleImport} disabled={processing || Object.keys(mapping).length === 0}>
                 {processing ? (
@@ -484,7 +496,7 @@ export function ImportUserWizard({ isOpen, onClose, onSuccess }: ImportUserWizar
                 )}
               </Button>
             )}
-            
+
             {step === 4 && (
               <Button onClick={handleClose}>
                 Done

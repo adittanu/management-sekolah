@@ -1,0 +1,16 @@
+firstname,lastname,email,username,password,role,cohort1,classroom
+Budi,Santoso,budi.santoso@student.sekolah.id,0012345001,password123,student,X,X-RPL-1
+Siti,Aminah,siti.aminah@student.sekolah.id,0012345002,password123,student,X,X-RPL-1
+Andi,Prasetyo,andi.prasetyo@student.sekolah.id,0012345003,password123,student,X,X-TKJ-2
+Rina,Wulandari,rina.wulandari@student.sekolah.id,0012345004,password123,student,X,X-MM-3
+Dedi,Kurniawan,dedi.kurniawan@student.sekolah.id,0012345005,password123,student,XI,XI-RPL-1
+Maya,Sari,maya.sari@student.sekolah.id,0012345006,password123,student,XI,XI-RPL-1
+Fajar,Setiawan,fajar.setiawan@student.sekolah.id,0012345009,password123,student,XII,XII-RPL-1
+Lestari,Indah,lestari.indah@student.sekolah.id,0012345010,password123,student,XII,XII-RPL-1
+Sri,Mulyani,sri.mulyani@teacher.sekolah.id,1987001001,Teacher@123,teacher,,X-RPL-1
+Agus,Susanto,agus.susanto@teacher.sekolah.id,1985002001,Teacher@123,teacher,,XI-TKJ-1
+Dewi,Handayani,dewi.handayani@teacher.sekolah.id,1990003001,Teacher@123,teacher,,XII-RPL-1
+Rahman,Hakim,rahman.hakim@parent.sekolah.id,1980004001,Parent@123,parent,,
+Wati,Susilawati,wati.susilawati@parent.sekolah.id,1982005001,Parent@123,parent,,
+Bambang,Setiabudi,bambang.setiabudi@admin.sekolah.id,1978006001,Admin@123,admin,,
+Nurul,Hidayah,nurul.hidayah@admin.sekolah.id,1983007001,Admin@123,admin,,

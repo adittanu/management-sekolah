@@ -11,11 +11,25 @@ class Classroom extends Model
 
     protected $fillable = [
         'name',
+        'fase',
         'level',
         'major',
         'academic_year',
         'teacher_id',
+        'is_mobile',
     ];
+
+    /**
+     * Get the casts.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_mobile' => 'boolean',
+        ];
+    }
 
     public function teacher()
     {

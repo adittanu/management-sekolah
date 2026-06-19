@@ -67,9 +67,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Admin Routes
+// Admin Routes (also accessible by teacher)
 Route::prefix('admin')
-    ->middleware(['auth', RoleMiddleware::class . ':admin'])
+    ->middleware(['auth', RoleMiddleware::class.':admin'])
     ->name('admin.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
@@ -86,10 +86,15 @@ Route::prefix('admin')
         Route::post('kelas/{classroom}/students', [App\Http\Controllers\Admin\ClassroomController::class, 'addStudent'])->name('kelas.students.store');
         Route::delete('kelas/{classroom}/students/{student}', [App\Http\Controllers\Admin\ClassroomController::class, 'removeStudent'])->name('kelas.students.destroy');
 
+        Route::get('jadwal/export', [App\Http\Controllers\Admin\ScheduleController::class, 'export'])->name('jadwal.export');
+        Route::get('jadwal/template', [App\Http\Controllers\Admin\ScheduleController::class, 'downloadTemplate'])->name('jadwal.template');
+        Route::post('jadwal/import', [App\Http\Controllers\Admin\ScheduleController::class, 'import'])->name('jadwal.import');
         Route::resource('jadwal', App\Http\Controllers\Admin\ScheduleController::class)
             ->parameters(['jadwal' => 'schedule']);
+        Route::post('jadwal/auto-generate', [App\Http\Controllers\Admin\ScheduleController::class, 'autoGenerate'])->name('jadwal.auto-generate');
 
         Route::resource('mapel', App\Http\Controllers\Admin\SubjectController::class)->except(['create', 'show', 'edit']);
+        Route::resource('ruangan', App\Http\Controllers\Admin\RoomController::class)->except(['create', 'show', 'edit']);
 
         Route::resource('pengumuman', App\Http\Controllers\Admin\AnnouncementController::class)->except(['create', 'show', 'edit']);
         Route::get('pengumuman/{pengumuman}/print', [App\Http\Controllers\Admin\AnnouncementController::class, 'print'])->name('pengumuman.print');
@@ -116,11 +121,25 @@ Route::prefix('admin')
             return Inertia::render('Admin/Daring/Index');
         })->name('daring');
 
-        Route::get('/keuangan', function () {
-            return Inertia::render('Admin/Keuangan/Index');
-        })->name('keuangan');
+        Route::get('/keuangan', [App\Http\Controllers\Admin\FinancialController::class, 'index'])->name('keuangan');
+        Route::post('/keuangan/kategori', [App\Http\Controllers\Admin\FinancialController::class, 'storeCategory'])->name('keuangan.kategori.store');
+        Route::patch('/keuangan/kategori/{category}', [App\Http\Controllers\Admin\FinancialController::class, 'updateCategory'])->name('keuangan.kategori.update');
+        Route::delete('/keuangan/kategori/{category}', [App\Http\Controllers\Admin\FinancialController::class, 'destroyCategory'])->name('keuangan.kategori.destroy');
+        Route::post('/keuangan/tagihan', [App\Http\Controllers\Admin\FinancialController::class, 'storeBilling'])->name('keuangan.tagihan.store');
+        Route::patch('/keuangan/tagihan/{billing}', [App\Http\Controllers\Admin\FinancialController::class, 'updateBilling'])->name('keuangan.tagihan.update');
+        Route::delete('/keuangan/tagihan/{billing}', [App\Http\Controllers\Admin\FinancialController::class, 'destroyBilling'])->name('keuangan.tagihan.destroy');
+        Route::post('/keuangan/pembayaran', [App\Http\Controllers\Admin\FinancialController::class, 'storePayment'])->name('keuangan.pembayaran.store');
+        Route::get('/keuangan/siswa/{student}/tagihan', [App\Http\Controllers\Admin\FinancialController::class, 'getStudentBillings'])->name('keuangan.siswa.tagihan');
+        Route::get('/keuangan/tagihan/{billing}/transaksi', [App\Http\Controllers\Admin\FinancialController::class, 'getBillingTransactions'])->name('keuangan.tagihan.transaksi');
 
         Route::resource('absensi', App\Http\Controllers\Admin\AttendanceController::class);
+
+        // Rapor & Penilaian
+        Route::get('/rapor/input', [App\Http\Controllers\Admin\GradeController::class, 'index'])->name('rapor.input');
+        Route::post('/rapor/input', [App\Http\Controllers\Admin\GradeController::class, 'store'])->name('rapor.store');
+        Route::post('/rapor/raport-data', [App\Http\Controllers\Admin\GradeController::class, 'storeRaportData'])->name('rapor.store-raport-data');
+        Route::get('/rapor/view', [App\Http\Controllers\Admin\GradeController::class, 'raport'])->name('rapor.view');
+        Route::get('/rapor/export-pdf', [App\Http\Controllers\Admin\GradeController::class, 'exportPdf'])->name('rapor.export-pdf');
 
         Route::get('/perpustakaan', [App\Http\Controllers\Admin\LibraryController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan/books', [App\Http\Controllers\Admin\LibraryController::class, 'storeBook'])->name('perpustakaan.books.store');
@@ -168,12 +187,15 @@ Route::prefix('admin')
 
 // Student (Murid) Routes
 Route::prefix('siswa')
-    ->middleware(['auth', RoleMiddleware::class . ':student'])
+    ->middleware(['auth', RoleMiddleware::class.':student'])
     ->name('siswa.')
     ->group(function () {
         Route::get('/dashboard', function () {
             return Inertia::render('Admin/Dashboard', ['role' => 'student']);
         })->name('dashboard');
+
+        Route::get('/rapor', [App\Http\Controllers\Siswa\RaportController::class, 'index'])->name('rapor');
+        Route::get('/rapor/export-pdf', [App\Http\Controllers\Siswa\RaportController::class, 'exportPdf'])->name('rapor.export-pdf');
 
         Route::get('/perpustakaan', [App\Http\Controllers\Admin\LibraryController::class, 'index'])->name('perpustakaan');
         Route::post('/perpustakaan/loans', [App\Http\Controllers\Admin\LibraryController::class, 'storeLoan'])->name('perpustakaan.loans.store');
@@ -190,18 +212,21 @@ Route::prefix('siswa')
 
 // Parent (Orangtua) Routes
 Route::prefix('orangtua')
-    ->middleware(['auth', RoleMiddleware::class . ':parent'])
+    ->middleware(['auth', RoleMiddleware::class.':parent'])
     ->name('orangtua.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Orangtua\DashboardController::class, 'index'])->name('dashboard');
         Route::get('/pengumuman', [App\Http\Controllers\Orangtua\AnnouncementController::class, 'index'])->name('pengumuman');
         Route::get('/kehadiran', [App\Http\Controllers\Orangtua\AttendanceController::class, 'index'])->name('kehadiran');
+        Route::get('/rapor', [App\Http\Controllers\Orangtua\RaportController::class, 'index'])->name('rapor');
+        Route::get('/rapor/export-pdf', [App\Http\Controllers\Orangtua\RaportController::class, 'exportPdf'])->name('rapor.export-pdf');
         Route::get('/perpustakaan', [App\Http\Controllers\Orangtua\LibraryController::class, 'index'])->name('perpustakaan');
+        Route::get('/keuangan', [App\Http\Controllers\Orangtua\FinancialController::class, 'index'])->name('keuangan');
     });
 
 // Teacher (Guru) Routes
 Route::prefix('guru')
-    ->middleware(['auth', RoleMiddleware::class . ':teacher'])
+    ->middleware(['auth', RoleMiddleware::class.':teacher'])
     ->name('guru.')
     ->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Guru\DashboardController::class, 'index'])->name('dashboard');
@@ -214,6 +239,13 @@ Route::prefix('guru')
 
         Route::get('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'index'])->name('absensi');
         Route::post('/absensi', [App\Http\Controllers\Teacher\AttendanceController::class, 'store'])->name('absensi.store');
+
+        // Rapor & Penilaian (Guru)
+        Route::get('/rapor/input', [\App\Http\Controllers\Guru\GradeController::class, 'index'])->name('rapor.input');
+        Route::post('/rapor/input', [\App\Http\Controllers\Guru\GradeController::class, 'store'])->name('rapor.store');
+        Route::post('/rapor/raport-data', [\App\Http\Controllers\Guru\GradeController::class, 'storeRaportData'])->name('rapor.store-raport-data');
+        Route::get('/rapor/view', [\App\Http\Controllers\Guru\GradeController::class, 'raport'])->name('rapor.view');
+        Route::get('/rapor/export-pdf', [\App\Http\Controllers\Guru\GradeController::class, 'exportPdf'])->name('rapor.export-pdf');
 
         Route::get('/profile', [App\Http\Controllers\Guru\ProfileController::class, 'index'])->name('profile');
 
@@ -257,4 +289,4 @@ Route::get('/login-bypass', function (\Illuminate\Http\Request $request) {
     return redirect()->route('login')->withErrors(['email' => 'User not found for bypass login']);
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

@@ -101,6 +101,7 @@ export default function SettingIndex({ school }: { school: SchoolProps }) {
                         <p className="text-slate-500">Konfigurasi profil sekolah, dokumen surat, jam KBM dan data sistem.</p>
                     </div>
                     <Button 
+                        data-tour="btn-save-settings"
                         className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20"
                         onClick={handleSubmit}
                         disabled={processing}

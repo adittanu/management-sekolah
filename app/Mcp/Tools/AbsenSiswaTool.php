@@ -38,6 +38,11 @@ class AbsenSiswaTool extends Tool
             'status.in' => 'Status harus salah satu dari: hadir, sakit, izin, alpha.',
         ]);
 
+        $user = $request->user();
+        if (! $user || $user->role !== 'teacher') {
+            return Response::error('Tool ini hanya untuk guru.');
+        }
+
         // Get teacher by email
         $teacher = \App\Models\User::where('email', $validated['email_guru'])->first();
 

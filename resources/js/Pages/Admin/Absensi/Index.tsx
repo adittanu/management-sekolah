@@ -753,7 +753,7 @@ export default function AbsensiIndex({ history, schedules, stats }: Props) {
                 </div>
 
                 <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="bg-slate-100 p-1 rounded-xl w-full md:w-auto grid grid-cols-2 md:inline-flex">
+                    <TabsList data-tour="tabs-absensi" className="bg-slate-100 p-1 rounded-xl w-full md:w-auto grid grid-cols-2 md:inline-flex">
                         <TabsTrigger value="dashboard" className="rounded-lg px-4 py-2">Dashboard</TabsTrigger>
                         <TabsTrigger value="entry" className="rounded-lg px-4 py-2">Input Absensi</TabsTrigger>
                         <TabsTrigger value="history" className="rounded-lg px-4 py-2">Riwayat</TabsTrigger>

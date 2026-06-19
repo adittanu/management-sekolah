@@ -29,6 +29,7 @@ interface User {
     email: string;
     role: 'admin' | 'teacher' | 'student' | 'parent';
     identity_number: string | null;
+    teacher_code: string | null;
     gender: 'L' | 'P' | null;
     avatar: string | null;
     created_at: string;
@@ -149,6 +150,7 @@ export default function UserIndex({ users, students, filters }: Props) {
         password: '',
         role: 'student' as 'admin' | 'teacher' | 'student' | 'parent',
         identity_number: '',
+        teacher_code: '',
         gender: '' as 'L' | 'P' | '',
         avatar: '' // Placeholder if needed in future
     });
@@ -170,6 +172,7 @@ export default function UserIndex({ users, students, filters }: Props) {
         password: '',
         role: 'student' as 'admin' | 'teacher' | 'student' | 'parent',
         identity_number: '',
+        teacher_code: '',
         gender: '' as 'L' | 'P' | '',
         avatar: ''
     });
@@ -182,6 +185,7 @@ export default function UserIndex({ users, students, filters }: Props) {
             password: '', // Empty for no change
             role: user.role,
             identity_number: user.identity_number || '',
+            teacher_code: user.teacher_code || '',
             gender: user.gender || '',
             avatar: user.avatar || ''
         });
@@ -260,6 +264,9 @@ export default function UserIndex({ users, students, filters }: Props) {
             cell: (row: User) => (
                 <div className="text-sm font-medium text-slate-700">
                     {row.identity_number || '-'}
+                    {row.role === 'teacher' && row.teacher_code && (
+                        <div className="text-xs text-indigo-600 font-semibold mt-0.5">Kode Guru: {row.teacher_code}</div>
+                    )}
                 </div>
             )
         },
@@ -407,6 +414,7 @@ export default function UserIndex({ users, students, filters }: Props) {
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button 
                             variant="outline" 
+                            data-tour="btn-import-users"
                             onClick={() => setIsImportOpen(true)}
                             className="gap-2 bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm"
                         >
@@ -541,6 +549,19 @@ export default function UserIndex({ users, students, filters }: Props) {
                                         />
                                         <InputError message={createErrors.identity_number} />
                                     </div>
+                                    {createData.role === 'teacher' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="create-teacher-code">Kode Guru</Label>
+                                            <Input 
+                                                id="create-teacher-code" 
+                                                placeholder="Contoh: MTK-01" 
+                                                value={createData.teacher_code}
+                                                onChange={(e) => setCreateData('teacher_code', e.target.value)}
+                                                className="bg-slate-50 border-slate-200" 
+                                            />
+                                            <InputError message={createErrors.teacher_code} />
+                                        </div>
+                                    )}
                                      <div className="space-y-2">
                                         <Label htmlFor="create-gender">Jenis Kelamin</Label>
                                         <Select 
@@ -652,6 +673,19 @@ export default function UserIndex({ users, students, filters }: Props) {
                                         />
                                         <InputError message={editErrors.identity_number} />
                                     </div>
+                                    {editData.role === 'teacher' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-teacher-code">Kode Guru</Label>
+                                            <Input 
+                                                id="edit-teacher-code" 
+                                                placeholder="Contoh: MTK-01" 
+                                                value={editData.teacher_code}
+                                                onChange={(e) => setEditData('teacher_code', e.target.value)}
+                                                className="bg-slate-50 border-slate-200" 
+                                            />
+                                            <InputError message={editErrors.teacher_code} />
+                                        </div>
+                                    )}
                                      <div className="space-y-2">
                                         <Label htmlFor="edit-gender">Jenis Kelamin</Label>
                                         <Select 

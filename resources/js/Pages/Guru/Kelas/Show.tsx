@@ -92,7 +92,7 @@ export default function GuruKelasShow({ classroom, isWaliKelas }: Props) {
             )
         },
         { 
-            header: "NISN", 
+            header: "NIS", 
             accessorKey: "identity_number", 
             cell: (row: User) => row.identity_number || '-'
         }, 

@@ -169,4 +169,42 @@ class AdminSchoolModuleTest extends TestCase
 
         $response->assertStatus(200);
     }
+
+    public function test_admin_can_store_and_update_classroom_with_is_mobile(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        // Test store
+        $response = $this->actingAs($admin)->post(route('admin.kelas.store'), [
+            'name' => '10-Mobile',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026',
+            'is_mobile' => true,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('classrooms', [
+            'name' => '10-Mobile',
+            'is_mobile' => 1,
+        ]);
+
+        $classroom = Classroom::where('name', '10-Mobile')->first();
+
+        // Test update
+        $response = $this->actingAs($admin)->put(route('admin.kelas.update', $classroom->id), [
+            'name' => '10-Fixed',
+            'level' => '10',
+            'major' => 'Science',
+            'academic_year' => '2025/2026',
+            'is_mobile' => false,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('classrooms', [
+            'id' => $classroom->id,
+            'name' => '10-Fixed',
+            'is_mobile' => 0,
+        ]);
+    }
 }

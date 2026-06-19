@@ -34,6 +34,11 @@ class LihatAbsensiTool extends Tool
             'jadwal_id.exists' => 'Jadwal tidak ditemukan.',
         ]);
 
+        $user = $request->user();
+        if (! $user || $user->role !== 'teacher') {
+            return Response::error('Tool ini hanya untuk guru.');
+        }
+
         // Get teacher by email
         $teacher = \App\Models\User::where('email', $validated['email_guru'])->first();
 

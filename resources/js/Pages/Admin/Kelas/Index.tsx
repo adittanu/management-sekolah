@@ -26,6 +26,7 @@ interface Classroom {
     teacher_id: number | null;
     teacher?: User;
     students_count?: number;
+    is_mobile?: boolean;
 }
 
 interface Props {
@@ -77,6 +78,7 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
         major: '',
         academic_year: new Date().getFullYear().toString() + '/' + (new Date().getFullYear() + 1).toString(),
         teacher_id: '',
+        is_mobile: false,
     });
 
     const { 
@@ -93,6 +95,7 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
         major: '',
         academic_year: '',
         teacher_id: '',
+        is_mobile: false,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -113,6 +116,7 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
             major: kelas.major,
             academic_year: kelas.academic_year,
             teacher_id: kelas.teacher_id ? kelas.teacher_id.toString() : '',
+            is_mobile: !!kelas.is_mobile,
         });
         editClearErrors();
         setIsEditClassOpen(true);
@@ -148,6 +152,7 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
                     </div>
                     <Button 
                         onClick={() => setIsAddClassOpen(true)}
+                        data-tour="btn-add-kelas"
                         className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
                     >
                         + Tambah Rombel
@@ -194,10 +199,15 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
                                     <Card className="hover:shadow-xl transition-all border-slate-200 overflow-hidden cursor-pointer hover:-translate-y-1 bg-white h-full relative z-0">
                                         <CardContent className="p-0">
                                             <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center text-white h-48 relative overflow-hidden">
-                                                <div className="absolute top-4 left-4 z-10">
+                                                <div className="absolute top-4 left-4 z-10 flex gap-2">
                                                     <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-none backdrop-blur-sm">
                                                         Tingkat {kelas.level}
                                                     </Badge>
+                                                    {kelas.is_mobile && (
+                                                        <Badge variant="secondary" className="bg-amber-500 hover:bg-amber-600 text-white border-none">
+                                                            Mobile
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <School className="w-16 h-16 opacity-90 mb-4 group-hover:scale-110 transition-transform duration-300 relative z-10" />
                                                 <h3 className="text-3xl font-bold relative z-10">{kelas.name}</h3>
@@ -214,7 +224,7 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
                                                         <span className="font-semibold text-slate-700">{kelas.students_count || 0} Siswa</span>
                                                     </div>
                                                     <div className="w-px h-4 bg-slate-300"></div>
-                                                    <span>Aktif</span>
+                                                    <span>{kelas.is_mobile ? 'Moving Class' : 'Kelas Tetap'}</span>
                                                 </div>
                                                 <div>
                                                     <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Wali Kelas</div>
@@ -332,6 +342,19 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
                                         </select>
                                         {errors.teacher_id && <p className="text-red-500 text-xs">{errors.teacher_id}</p>}
                                     </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="class_type">Tipe Kelas</Label>
+                                        <select 
+                                            className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                            value={data.is_mobile ? "1" : "0"}
+                                            onChange={(e) => setData('is_mobile', e.target.value === "1")}
+                                        >
+                                            <option value="0">Kelas Tetap (Fixed Room)</option>
+                                            <option value="1">Moving Class (Mobile Room)</option>
+                                        </select>
+                                        {errors.is_mobile && <p className="text-red-500 text-xs">{errors.is_mobile}</p>}
+                                    </div>
                                 </div>
 
                                 <div className="bg-blue-50 text-blue-700 p-4 rounded-lg text-sm flex gap-3 border border-blue-100">
@@ -425,6 +448,19 @@ export default function KelasIndex({ classrooms, teachers, availableLevels }: Pr
                                             ))}
                                         </select>
                                         {editErrors.teacher_id && <p className="text-red-500 text-xs">{editErrors.teacher_id}</p>}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="edit-class_type">Tipe Kelas</Label>
+                                        <select 
+                                            className="flex h-10 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                                            value={editData.is_mobile ? "1" : "0"}
+                                            onChange={(e) => setEditData('is_mobile', e.target.value === "1")}
+                                        >
+                                            <option value="0">Kelas Tetap (Fixed Room)</option>
+                                            <option value="1">Moving Class (Mobile Room)</option>
+                                        </select>
+                                        {editErrors.is_mobile && <p className="text-red-500 text-xs">{editErrors.is_mobile}</p>}
                                     </div>
                                 </div>
                             </div>

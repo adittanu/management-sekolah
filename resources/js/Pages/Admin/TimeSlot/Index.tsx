@@ -173,6 +173,7 @@ export default function TimeSlotIndex({ timeSlots }: Props) {
                     </div>
                     <Button 
                         onClick={openAddModal}
+                        data-tour="btn-add-timeslot"
                         className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
                     >
                         <Plus className="w-4 h-4 mr-2" />

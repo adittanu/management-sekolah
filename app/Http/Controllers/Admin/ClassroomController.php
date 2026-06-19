@@ -32,7 +32,7 @@ class ClassroomController extends Controller
                         'Kelas XI' => '11',
                         'Kelas XII' => '12',
                     ];
-                    
+
                     // Check if we have a mapped value
                     if (isset($levelMap[$level])) {
                         $query->where('level', $levelMap[$level]);
@@ -67,6 +67,7 @@ class ClassroomController extends Controller
             'major' => 'required|string|max:255',
             'academic_year' => 'required|string|max:20',
             'teacher_id' => 'nullable|exists:users,id',
+            'is_mobile' => 'sometimes|boolean',
         ]);
 
         Classroom::create($validated);
@@ -80,14 +81,14 @@ class ClassroomController extends Controller
     public function show(Classroom $classroom)
     {
         $classroom->load([
-            'teacher', 
-            'students', 
+            'teacher',
+            'students',
             'schedules.subject', // Load subject relation for schedules
-            'schedules.teacher'  // Load teacher relation for schedules
+            'schedules.teacher',  // Load teacher relation for schedules
         ]);
-        
+
         $teachers = User::where('role', 'teacher')->get();
-        
+
         // Get students who are NOT already in this classroom
         // This is a simple implementation. For large datasets, use AJAX search.
         $existingStudentIds = $classroom->students->pluck('id')->toArray();
@@ -113,6 +114,7 @@ class ClassroomController extends Controller
             'major' => 'required|string|max:255',
             'academic_year' => 'required|string|max:20',
             'teacher_id' => 'nullable|exists:users,id',
+            'is_mobile' => 'sometimes|boolean',
         ]);
 
         $classroom->update($validated);
@@ -144,7 +146,7 @@ class ClassroomController extends Controller
         // Using syncWithoutDetaching to avoid duplicates if accidentally sent
         $classroom->students()->syncWithoutDetaching($validated['student_ids']);
 
-        return redirect()->back()->with('success', count($validated['student_ids']) . ' students added successfully.');
+        return redirect()->back()->with('success', count($validated['student_ids']).' students added successfully.');
     }
 
     /**

@@ -4,9 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Models\School;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
-use Illuminate\Support\Facades\Cache;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -35,7 +35,13 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? array_merge($request->user()->toArray(), [
+                    'unpaid_billings_count' => $request->user()->role === 'parent'
+                        ? \App\Models\Billing::whereIn('student_id', $request->user()->children->pluck('id'))
+                            ->whereIn('status', ['unpaid', 'partial'])
+                            ->count()
+                        : 0,
+                ]) : null,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

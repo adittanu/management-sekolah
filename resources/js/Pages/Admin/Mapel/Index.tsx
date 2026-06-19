@@ -70,7 +70,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
         return '';
     });
     const [isAddMapelOpen, setIsAddMapelOpen] = useState(false);
-    
+
     // Search Debounce
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -227,8 +227,9 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                         </div>
                         <p className="text-slate-500">Atur daftar mata pelajaran, kategori, dan kode mapel.</p>
                     </div>
-                    <Button 
+                    <Button
                         onClick={openAddModal}
+                        data-tour="btn-add-mapel"
                         className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all hover:scale-105"
                     >
                         <Plus className="w-4 h-4 mr-2" />
@@ -240,14 +241,14 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                 <div className="flex items-center justify-between gap-4">
                     <div className="relative max-w-md w-full">
                         <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                        <Input 
-                            placeholder="Cari nama mapel atau kode..." 
+                        <Input
+                            placeholder="Cari nama mapel atau kode..."
                             className="pl-10 h-11 bg-white border-slate-200 focus-visible:ring-blue-500"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    
+
                     <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
                         <button
                             onClick={() => setViewMode('grid')}
@@ -275,16 +276,16 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                 <Card key={subject.id} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
                                     {/* Decorative Top Border */}
                                     <div className={`absolute top-0 left-0 w-full h-1 ${color.text.replace('text-', 'bg-')}`} />
-                                    
+
                                     <CardContent className="p-6">
                                         <div className="flex items-start justify-between mb-4">
                                             <div className={`p-3 rounded-xl ${color.bg} ${color.text}`}>
                                                 <BookOpen className="w-6 h-6" />
                                             </div>
                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -293,9 +294,9 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                 </Button>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -306,7 +307,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                 </Button>
                                             </div>
                                         </div>
-                                        
+
                                         <h3 className="text-xl font-bold text-slate-900 mb-1">{subject.name}</h3>
                                         <div className="flex items-center gap-2 mb-4">
                                             <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 border-slate-200">
@@ -316,7 +317,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                 {subject.category || 'Umum'}
                                             </Badge>
                                         </div>
-                                        
+
                                         <div className="space-y-3 pt-4 border-t border-slate-100">
                                             <div className="flex items-start text-sm text-slate-600">
                                                 <div className="w-8 flex justify-center mt-0.5">
@@ -344,7 +345,7 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                         })}
 
                         {/* Add New Card Placeholder */}
-                        <button 
+                        <button
                             onClick={openAddModal}
                             className="h-full min-h-[220px] rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50/50 transition-all gap-3 bg-slate-50/50"
                         >
@@ -395,17 +396,17 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex items-center justify-end gap-1">
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
                                                             onClick={() => openEditModal(subject)}
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
                                                             className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
                                                             onClick={() => handleDelete(subject)}
                                                         >
@@ -460,16 +461,16 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                 {editingSubject ? 'Edit detail mata pelajaran.' : 'Tambahkan mata pelajaran baru ke dalam sistem.'}
                             </DialogDescription>
                         </DialogHeader>
-                        
+
                         <div className="p-6 space-y-6">
                             <div className="space-y-2">
                                 <Label htmlFor="name">Nama Mata Pelajaran</Label>
-                                <Input 
+                                <Input
                                     id="name"
                                     value={data.name}
                                     onChange={e => setData('name', e.target.value)}
-                                    placeholder="Contoh: Matematika Wajib" 
-                                    className="bg-slate-50 border-slate-200" 
+                                    placeholder="Contoh: Matematika Wajib"
+                                    className="bg-slate-50 border-slate-200"
                                 />
                                 {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
                             </div>
@@ -479,12 +480,12 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                                     <Label htmlFor="code">Kode Mapel</Label>
                                     <div className="relative">
                                         <Hash className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                                        <Input 
+                                        <Input
                                             id="code"
                                             value={data.code}
                                             onChange={e => setData('code', e.target.value)}
-                                            placeholder="MTK-01" 
-                                            className="pl-9 bg-slate-50 border-slate-200" 
+                                            placeholder="MTK-01"
+                                            className="pl-9 bg-slate-50 border-slate-200"
                                         />
                                     </div>
                                     {errors.code && <p className="text-sm text-red-500">{errors.code}</p>}
@@ -622,8 +623,8 @@ export default function MapelIndex({ subjects, teachers = [] }: Props) {
                             }}>
                                 Batal
                             </AlertDialogCancel>
-                            <AlertDialogAction 
-                                onClick={handleForceDelete} 
+                            <AlertDialogAction
+                                onClick={handleForceDelete}
                                 className="bg-red-600 hover:bg-red-700 text-white border-red-600"
                             >
                                 Hapus Paksa & Bersihkan Data

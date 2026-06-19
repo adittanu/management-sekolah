@@ -24,6 +24,7 @@ class User extends Authenticatable
         'password',
         // 'role', // F1: Removed from fillable for security
         'identity_number',
+        'teacher_code',
         'gender',
         'avatar',
     ];
@@ -134,5 +135,15 @@ class User extends Authenticatable
     public function libraryComments(): HasMany
     {
         return $this->hasMany(LibraryComment::class);
+    }
+
+    public function billings(): HasMany
+    {
+        return $this->hasMany(Billing::class, 'student_id');
+    }
+
+    public function financialTransactions(): HasMany
+    {
+        return $this->hasMany(FinancialTransaction::class, 'recorded_by');
     }
 }
