@@ -292,7 +292,7 @@ export default function Raport({ children, raportData, raportHistory = [], filte
                                     <p className="text-slate-500 font-medium">Memuat data rapor anak...</p>
                                 </CardContent>
                             </Card>
-                        ) : raportData ? (
+                        ) : (raportData && raportHistory.some(h => h.semester.toString() === semester && h.academic_year === academicYear)) ? (
                             <div className="space-y-6">
                                 {/* Actions Row */}
                                 <div className="flex gap-2 justify-end">

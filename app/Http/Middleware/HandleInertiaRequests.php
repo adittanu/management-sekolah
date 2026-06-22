@@ -41,6 +41,12 @@ class HandleInertiaRequests extends Middleware
                             ->whereIn('status', ['unpaid', 'partial'])
                             ->count()
                         : 0,
+                    'is_walikelas' => $request->user()->role === 'teacher'
+                        ? $request->user()->homeroomClass()->exists()
+                        : false,
+                    'unread_notifications' => $request->user()->role === 'parent'
+                        ? $request->user()->unreadNotifications()->get()
+                        : [],
                 ]) : null,
             ],
             'flash' => [

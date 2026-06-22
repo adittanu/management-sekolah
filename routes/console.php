@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Auto-fill attendance every 5 minutes for schedules that have ended without attendance
 Schedule::command('app:auto-attendance')->everyFiveMinutes();
+
+// Send parent notifications daily
+Schedule::command('app:send-notification-reminders')->daily();

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Menu, X, HelpCircle } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { useTour } from '@/Components/Tour/TourContext';
+import NotificationBell from '@/Components/admin/NotificationBell';
 
 export default function ParentLayout({ children, title, fullWidth = false }: PropsWithChildren<{ title?: string, fullWidth?: boolean }>) {
     return (
@@ -81,28 +82,38 @@ function ParentLayoutContent({ children, title, fullWidth = false }: PropsWithCh
                 "flex-1 min-h-screen flex flex-col relative transition-all duration-300",
                 isSidebarCollapsed ? "md:pl-20" : "md:pl-64"
             )}>
-                 <div className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-30">
-                    <div className="flex items-center gap-2 font-bold text-slate-800">
+                 <header className="bg-white border-b border-slate-200/60 px-4 md:px-8 py-3 sticky top-0 z-30 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="-ml-2"
+                            className="md:hidden -ml-2 text-slate-500 hover:bg-slate-100"
                         >
                             <Menu className="h-5 w-5" />
                         </Button>
-                        <span className="text-lg">SEKOLAH KITA</span>
+                        <div className="flex flex-col">
+                            <h1 className="text-sm font-bold text-slate-800 md:text-base leading-none">
+                                {title || "Portal Orang Tua"}
+                            </h1>
+                            <span className="text-[10px] text-slate-400 font-medium hidden md:inline mt-1">
+                                Monitoring Perkembangan & Keuangan Anak
+                            </span>
+                        </div>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={startTour}
-                        title="Lihat Tour"
-                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                    >
-                        <HelpCircle className="h-5 w-5" />
-                    </Button>
-                </div>
+                    <div className="flex items-center gap-3">
+                        <NotificationBell />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={startTour}
+                            title="Lihat Tour"
+                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-full w-10 h-10 border border-slate-100 shadow-sm bg-white"
+                        >
+                            <HelpCircle className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </header>
 
                 <div className={cn("flex-1 overflow-y-auto w-full mx-auto", fullWidth ? "p-0" : "p-4 md:p-8 max-w-7xl")}>
                     {children}

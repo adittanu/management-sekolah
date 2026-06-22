@@ -92,7 +92,7 @@ export default function Sidebar({ className = "", userRole = "admin", isCollapse
                     { name: 'Jadwal Mengajar', href: '/guru/jadwal', icon: Calendar },
                     { name: 'Presensi', href: '/guru/absensi', icon: ScanFace },
                     { name: 'Input Nilai', href: '/guru/rapor/input', icon: FileText },
-                    { name: 'Raport', href: '/guru/rapor/view', icon: GraduationCap },
+                    ...(authUser?.is_walikelas ? [{ name: 'Raport', href: '/guru/rapor/view', icon: GraduationCap }] : []),
                     { name: 'Perpustakaan', href: '/guru/perpustakaan', icon: BookOpen },
                 ]
             },

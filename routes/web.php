@@ -222,6 +222,12 @@ Route::prefix('orangtua')
         Route::get('/rapor/export-pdf', [App\Http\Controllers\Orangtua\RaportController::class, 'exportPdf'])->name('rapor.export-pdf');
         Route::get('/perpustakaan', [App\Http\Controllers\Orangtua\LibraryController::class, 'index'])->name('perpustakaan');
         Route::get('/keuangan', [App\Http\Controllers\Orangtua\FinancialController::class, 'index'])->name('keuangan');
+
+        // Notifications
+        Route::get('/notifications', [App\Http\Controllers\Orangtua\NotificationController::class, 'index'])->name('notifications.index');
+        Route::post('/notifications/{id}/read', [App\Http\Controllers\Orangtua\NotificationController::class, 'markAsRead'])->name('notifications.read');
+        Route::post('/notifications/read-all', [App\Http\Controllers\Orangtua\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+        Route::post('/notifications/trigger-recap', [App\Http\Controllers\Orangtua\NotificationController::class, 'triggerRecap'])->name('notifications.trigger-recap');
     });
 
 // Teacher (Guru) Routes
