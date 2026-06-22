@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('financial_transactions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('billing_id')->constrained('billings')->cascadeOnDelete();
-            $table->decimal('amount', 15, 2);
-            $table->string('payment_method')->comment('cash, transfer, e-wallet, other');
-            $table->string('reference_number')->nullable();
-            $table->string('proof_file')->nullable();
-            $table->text('notes')->nullable();
-            $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('financial_transactions')) {
+            Schema::create('financial_transactions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('billing_id')->constrained('billings')->cascadeOnDelete();
+                $table->decimal('amount', 15, 2);
+                $table->string('payment_method')->comment('cash, transfer, e-wallet, other');
+                $table->string('reference_number')->nullable();
+                $table->string('proof_file')->nullable();
+                $table->text('notes')->nullable();
+                $table->foreignId('recorded_by')->constrained('users')->cascadeOnDelete();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

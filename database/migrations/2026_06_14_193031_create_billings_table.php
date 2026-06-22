@@ -11,18 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('billings', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('financial_category_id')->constrained('financial_categories')->cascadeOnDelete();
-            $table->string('description');
-            $table->decimal('amount', 15, 2);
-            $table->decimal('discount', 15, 2)->default(0);
-            $table->decimal('total_paid', 15, 2)->default(0);
-            $table->date('due_date');
-            $table->string('status')->default('unpaid')->comment('unpaid, partial, paid');
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('billings')) {
+            Schema::create('billings', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('student_id')->constrained('users')->cascadeOnDelete();
+                $table->foreignId('financial_category_id')->constrained('financial_categories')->cascadeOnDelete();
+                $table->string('description');
+                $table->decimal('amount', 15, 2);
+                $table->decimal('discount', 15, 2)->default(0);
+                $table->decimal('total_paid', 15, 2)->default(0);
+                $table->date('due_date');
+                $table->string('status')->default('unpaid')->comment('unpaid, partial, paid');
+                $table->timestamps();
+            });
+        }
     }
 
     /**

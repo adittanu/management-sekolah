@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('financial_categories', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('type')->comment('income, expense');
-            $table->text('description')->nullable();
-            $table->decimal('default_amount', 15, 2)->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('financial_categories')) {
+            Schema::create('financial_categories', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('type')->comment('income, expense');
+                $table->text('description')->nullable();
+                $table->decimal('default_amount', 15, 2)->nullable();
+                $table->boolean('is_active')->default(true);
+                $table->timestamps();
+            });
+        }
     }
 
     /**
